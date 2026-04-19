@@ -135,8 +135,12 @@ UNTRUSTED_CONTENT_HEADER = (
 )
 
 
-def wrap_untrusted_content(content: str) -> str:
+def wrap_untrusted_content(content: str | list) -> str:
     """Prefixes untrusted web content with the security warning header."""
+    if isinstance(content, list):
+        content = "\n".join([str(c) for c in content])
+    if not content:
+        content = "No relevant context found."
     return UNTRUSTED_CONTENT_HEADER + content
 
 

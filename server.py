@@ -45,6 +45,32 @@ from utils import (
     wrap_untrusted_content,
 )
 
+# ── Monkey Patch Context Compression (For Venice/Minimax) ──
+# Providers like Venice or Minimax often lack OpenAI-compatible embedding endpoints.
+# This patch ensures deep_research degrades gracefully and with ZERO latency by completely
+# bypassing semantic compression, passing web context text at scale directly to the LLMs.
+import gpt_researcher.context.compression as comp
+
+async def _bypass_compressor_completely(self, query: str, max_results: int = 5, cost_callback=None) -> str:
+    """Zero-latency override: disables semantic embeddings network requests globally."""
+    docs_text = []
+    for i, d in enumerate(self.documents):
+        if i >= max_results * 15:
+            break
+        if isinstance(d, dict):
+            source = d.get("href", d.get("url", ""))
+            title = d.get("title", "")
+            content = d.get("body", d.get("raw_content", d.get("content", "")))
+        else:
+            source = getattr(d, "metadata", {}).get("source", "")
+            title = getattr(d, "metadata", {}).get("title", "")
+            content = getattr(d, "page_content", str(d))
+        docs_text.append(f"Source: {source}\nTitle: {title}\nContent: {content}\n")
+    return "\n".join(docs_text)
+
+comp.ContextCompressor.async_get_context = _bypass_compressor_completely
+
+
 # ──────────────────────────────────────────────
 # Initialization
 # ──────────────────────────────────────────────
@@ -525,6 +551,27 @@ async def health_check(request):
 
 def run_server() -> None:
     """Starts the MCP server using the transport configured via environment variable."""
+    
+    # ── Agnostic LLM Translation Layer ──
+    # gpt-researcher natively supports "openai:" (which maps to LangChain ChatOpenAI),
+    # but not "venice:" or "minimax:". We translate them dynamically here so the
+    # user can configure them naturally in nanobot config.
+    for var in ["FAST_LLM", "SMART_LLM", "STRATEGIC_LLM"]:
+        val = os.getenv(var)
+        if val:
+            # 1. Provide universal compatibility prefix
+            if val.startswith("venice:") or val.startswith("minimax:") or val.startswith("openrouter:"):
+                parts = val.split(":", 1)
+                if len(parts) == 2:
+                    val = f"openai:{parts[1]}"
+            
+            # 2. Fix MiniMax Case Sensitivity (Model Alias)
+            if "minimax-m27" in val.lower():
+                import re
+                val = re.sub(r'(?i)minimax-m27', 'MiniMax-M2.7', val)
+            
+            os.environ[var] = val
+
     if not os.getenv("OPENAI_API_KEY"):
         logger.error("OPENAI_API_KEY not found. Set it in your .env file.")
         return

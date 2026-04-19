@@ -21,7 +21,7 @@ While standard search tools return raw snippets requiring manual filtering, Perc
 
 This server has been heavily modified to survive the strict demands of open-source LLMs and modern deployment arrays:
 
-- **⚡ Ultimate Provider Portability:** Fully agnostic inference engine. Native, crash-free support for leading open-weights platforms like **Venice AI**, **MiniMax**, and **OpenRouter**. We've implemented a custom *Persona Bypass* that completely eliminates the notorious JSON dictionary validation failures previously caused by non-OpenAI models during research orchestration.
+- **⚡ Ultimate Provider Portability:** Fully agnostic inference engine. Native, crash-free support for leading open-weights platforms like **Venice AI**, **MiniMax**, and **OpenRouter**. The server dynamically rewrites provider prefixes on-the-fly, auto-corrects alias typos, and implements a *Zero-Latency Context Compression Bypass* to completely eliminate crashes and semantic latency when using APIs that lack OpenAI-compatible embedding endpoints.
 - **🛡️ JSON-RPC Protocol Guardrails:** Enforces strict `stdio` output redaction. All underlying library noise, console rendering, and real-time logs are physically redirected to `stderr`. This completely prevents `Pydantic ValidationErrors` and protects the `stdout` stream that is vital for MCP synchronization.
 - **🔐 Defense-in-depth Security:** All inputs are heavily sanitized against prompt injection. Untrusted web content is wrapped in un-executable headers to protect your agent's autonomy.
 - **🤖 Primary Nanobot Focus:** Eliminates loose `.env` reading patterns to strictly honor environment injection directly from the host application.
@@ -101,14 +101,11 @@ When invoking via Nanobot (`~/.nanobot/config.json`) or other endpoints, define 
 ```json
 "OPENAI_API_KEY": "your_api_key_from_venice_minimax_openrouter_etc",
 "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-"FAST_LLM": "openai:e2ee-qwen-2-5-7b-p",
-"SMART_LLM": "openai:minimax-m27",
-"STRATEGIC_LLM": "openai:zai-org-glm-4.7-flash",
+"FAST_LLM": "venice:llama-3.3-70b",
+"SMART_LLM": "minimax:MiniMax-M2.7",
+"STRATEGIC_LLM": "openrouter:google/gemini-2.5-flash",
 "RETRIEVER": "duckduckgo"
 ```
-
-> [!WARNING]
-> You **MUST** prefix the LLM models with `openai:` regardless of your real provider. This uses the underlying OpenAI SDK transport architecture, which safely pipes through your configured `OPENAI_BASE_URL`. Failing to use the prefix will crash the JSON internal parser.
 
 ---
 
@@ -132,7 +129,7 @@ Add the following to your `~/.nanobot/config.json`:
         "UV_PROJECT_ENVIRONMENT": "/absolute/path/to/percival.OS_Dev/.venv",
         "OPENAI_API_KEY": "actual-key-here",
         "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-        "FAST_LLM": "openai:e2ee-qwen-2-5-7b-p",
+        "FAST_LLM": "venice:llama-3.3-70b",
         "RETRIEVER": "duckduckgo"
       },
       "tool_timeout": 300
@@ -168,7 +165,7 @@ While Nanobot is the preferred driver, if deploying to Claude Desktop, append to
       "env": {
         "OPENAI_API_KEY": "your-provider-key",
         "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-        "FAST_LLM": "openai:e2ee-qwen-2-5-7b-p",
+        "FAST_LLM": "venice:llama-3.3-70b",
         "RETRIEVER": "duckduckgo"
       }
     }
