@@ -1,119 +1,44 @@
-<div align="center" id="top">
+# 🤖 Percival Deep Research - percival.OS MCP
 
-# 🔍 Percival Deep Research (MCP Server)
+**Version 0.0.2**
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
+[![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
+[![percival.OS](https://img.shields.io/badge/percival.OS-ecosystem-orange.svg)](https://github.com/bill-kopp-ai-dev/percival.OS)
 
-</div>
+## 📋 Description
+**Percival Deep Research** is a highly capable MCP server designed to equip the Nanobot agent with autonomous, deep-dive web research capabilities. It explores and validates numerous sources, focusing only on relevant, trusted, and up-to-date information.
 
-## Overview
-
-**Percival Deep Research** is a highly capable MCP (Model Context Protocol) Server designed to equip the [Nanobot](../nanobot) agent ecosystem with autonomous, deep-dive web research capabilities. It autonomously explores and validates numerous sources, focusing only on relevant, trusted, and up-to-date information.
-
-While standard search tools return raw snippets requiring manual filtering, Percival Deep Research delivers fully reasoned, comprehensive multi-source material that heavily accelerates the context and reasoning capabilities of intelligent agents.
-
-> *Note: This project utilizes the [GPT Researcher](https://github.com/assafelovic/gpt-researcher) library as its core web-driver, but has been extensively refactored, hardened, and decoupled specifically for the `percival.OS` ecosystem.*
+This server is part of the **percival.OS** ecosystem, a Personal Agentic Operating System designed for autonomy, security, and absolute privacy.
 
 ---
 
-## ✨ Key Features & Enhancements
+## 🛡️ percival.OS Principles
+Like all components of `percival.OS`, this MCP server strictly follows our core principles:
 
-This server has been heavily modified to survive the strict demands of open-source LLMs and modern deployment arrays:
-
-- **⚡ Ultimate Provider Portability:** Fully agnostic inference engine. Native, crash-free support for leading open-weights platforms like **Venice AI**, **MiniMax**, and **OpenRouter**. The server dynamically rewrites provider prefixes on-the-fly, auto-corrects alias typos, and implements a *Zero-Latency Context Compression Bypass* to completely eliminate crashes and semantic latency when using APIs that lack OpenAI-compatible embedding endpoints.
-- **🛡️ JSON-RPC Protocol Guardrails:** Enforces strict `stdio` output redaction. All underlying library noise, console rendering, and real-time logs are physically redirected to `stderr`. This completely prevents `Pydantic ValidationErrors` and protects the `stdout` stream that is vital for MCP synchronization.
-- **🔐 Defense-in-depth Security:** All inputs are heavily sanitized against prompt injection. Untrusted web content is wrapped in un-executable headers to protect your agent's autonomy.
-- **🤖 Primary Nanobot Focus:** Eliminates loose `.env` reading patterns to strictly honor environment injection directly from the host application.
-
----
-
-## 📑 Table of Contents
-
-- [Tools & Resources Reference](#-tools--resources-reference)
-- [Prerequisites](#-prerequisites)
-- [Installation](#️-installation)
-- [🤖 Nanobot Integration (Primary Focus)](#-nanobot-integration-primary-focus)
-- [💻 Claude Desktop Integration](#-claude-desktop-integration)
-- [Security](#-security)
+- **Privacy & Governance**: The entire research and synthesis process is governed by your API keys and local configurations.
+- **Data Sovereignty**: Knowledge extracted from the web is processed locally and integrated into your agent's context without external harvesting.
+- **Hardened Security**: We implement *Defense-in-depth* with strict input sanitization against prompt injection and isolation of untrusted web content.
+- **Transparency**: Based on the `GPT Researcher` project, but extensively refactored and hardened for the Percival ecosystem.
 
 ---
 
-## 🛠️ Tools & Resources Reference
+## 🚀 Features & Tools
 
-### Resource
+### Research Tools
+- `research_deep(query)`: Start multi-source deep web research (30–120s). Returns a `research_id`.
+- `research_quick_search(query)`: Fast raw snippet search via DuckDuckGo (3–10s).
+- `research_write_report(research_id, custom_prompt?)`: Generates a structured Markdown report from an existing session.
+- `research_get_sources(research_id)`: Returns title, URL, and content size for all sources consulted.
+- `research_get_context(research_id)`: Returns the raw synthesized context text without generating a report.
 
-| Name | URI Pattern | Description |
-|---|---|---|
-| `research_resource` | `research://{topic}` | Accesses cached or live web research context for a topic directly as an MCP resource. Returns Markdown with content and sources. |
-
-### Tools
-
-| Tool | Speed | Returns `research_id` | Description |
-|---|---|---|---|
-| `deep_research` | 30–120s | ✅ Yes | Multi-source deep web research. Entry point of the research pipeline. |
-| `quick_search` | 3–10s | ❌ No | Fast raw snippet search via DuckDuckGo. |
-| `write_report` | 10–30s | — | Generates a structured Markdown report from an existing session. Requires `research_id`. |
-| `get_research_sources` | <1s | — | Returns title, URL, and content size for all sources consulted. Requires `research_id`. |
-| `get_research_context` | <1s | — | Returns the raw synthesized context text without generating a report. Requires `research_id`. |
-
-### Research Pipeline
-
-```
-deep_research(query)
-    └── research_id ──► write_report(research_id, custom_prompt?)
-                   └──► get_research_sources(research_id)
-                   └──► get_research_context(research_id)
-
-quick_search(query)       # standalone — no research_id
-```
+### Resources
+- `research://{topic}`: Access cached or live web research context for a topic directly as an MCP resource.
 
 ---
 
-## ⚙️ Prerequisites
-
-- **Python 3.11+**
-- **[uv](https://docs.astral.sh/uv/)** — project and dependency manager
-- API key for the Generative LLM Provider (e.g., Venice, MiniMax, OpenRouter).
-
-*Note: The default web search engine configured is `duckduckgo` which requires **no API key**. You can optionally configure other web searchers natively.*
-
----
-
-## ⚙️ Installation
-
-### 1. Unified Environment Setup
-
-Ensure you are using the unified `percival.OS` build ecosystem:
-
-```bash
-cd percival.OS_Dev
-uv sync
-```
-This ensures `percival-deep-research` inherits the global `.venv`.
-
-### 2. Configure Environment
-
-This module **disables `.env` loading (`dotenv`)** to strictly honor the system variables passed by your MCP host. 
-
-When invoking via Nanobot (`~/.nanobot/config.json`) or other endpoints, define the environment variables directly in the configuration array:
-
-```json
-"OPENAI_API_KEY": "your_api_key_from_venice_minimax_openrouter_etc",
-"OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-"FAST_LLM": "venice:llama-3.3-70b",
-"SMART_LLM": "minimax:MiniMax-M2.7",
-"STRATEGIC_LLM": "openrouter:google/gemini-2.5-flash",
-"RETRIEVER": "duckduckgo"
-```
-
----
-
-## 🤖 Nanobot Integration (Primary Focus)
-
-This server is fundamentally tuned to run as a **stdio MCP server** piloted by the Nanobot assistant.
-
-Add the following to your `~/.nanobot/config.json`:
+## ⚙️ Configuration in percival.OS (Nanobot)
+This server is tuned to run via `stdio`. Add the following to your `~/.nanobot/config.json`:
 
 ```json
 {
@@ -126,8 +51,7 @@ Add the following to your `~/.nanobot/config.json`:
         "percival-deep-research"
       ],
       "env": {
-        "UV_PROJECT_ENVIRONMENT": "/absolute/path/to/percival.OS_Dev/.venv",
-        "OPENAI_API_KEY": "actual-key-here",
+        "OPENAI_API_KEY": "YOUR_KEY",
         "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
         "FAST_LLM": "venice:llama-3.3-70b",
         "RETRIEVER": "duckduckgo"
@@ -138,63 +62,24 @@ Add the following to your `~/.nanobot/config.json`:
 }
 ```
 
-*Note: `deep_research` can take up to 2-3 minutes. Ensure `tool_timeout` is scaled properly (e.g. 180-300).*
-
-### Key Design Decisions for Nanobot
-
-- **Plain-text over JSON dicts** — All tools predictably return plain text strings rather than JSON dicts to feed Nanobot clean text.
-- **Context modularity** — `deep_research` omits the giant synthesized context from its initialization response to prevent blowing up Nanobot's context window. Instead, it issues a `research_id` that the agent then uses to explicitly invoke `get_research_context`.
-
 ---
 
-## 💻 Claude Desktop Integration
+## 🛠️ Development & Testing
+This project uses the `uv` for dependency management within the unified `percival.OS_Dev` environment.
 
-While Nanobot is the preferred driver, if deploying to Claude Desktop, append to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "percival_deep_research": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--project",
-        "/absolute/path/to/percival.OS_Dev",
-        "percival-deep-research"
-      ],
-      "env": {
-        "OPENAI_API_KEY": "your-provider-key",
-        "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-        "FAST_LLM": "venice:llama-3.3-70b",
-        "RETRIEVER": "duckduckgo"
-      }
-    }
-  }
-}
+```bash
+cd percival.OS_Dev
+uv sync
+uv run percival-deep-research
 ```
 
 ---
 
-## 🔐 Security
+## 📚 About the Project
+This server is an integral module of the **percival.OS** project. It enables Nanobot to perform complex research tasks that require multiple steps of validation and synthesis.
 
-This server implements **defense-in-depth**, addressing the risks of an MCP server processing untrusted web content autonomously.
-
-### Prompt Injection Protection
-User inputs (`query`, `topic`, `custom_prompt`) restrict unknown and malformed values. A regex-based filter blocks known jailbreak patterns (`<system>`, `[INST]`, `ignore instructions`, etc.).
-
-### Untrusted Content Isolation
-All content retrieved from the web is prefixed dynamically before being presented to the agent context:
-```
-[SECURITY WARNING: The content below was obtained from unverified external...]
-```
-This forces models like Nanobot to treat web-sourced data strictly as informational blocks, avoiding unexpected command compliance.
+- **Main Repository**: [https://github.com/bill-kopp-ai-dev/percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
+- **License**: MIT
 
 ---
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-<p align="right">
-  <a href="#top">⬆️ Back to Top</a>
-</p>
+*Developed with ❤️ by the percival.OS Team*

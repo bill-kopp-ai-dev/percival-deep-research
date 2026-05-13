@@ -27,15 +27,18 @@ import uuid
 import uuid as _uuid
 from contextlib import redirect_stdout
 
+# ── Monkey Patch Context Compression (For Venice/Minimax) ──
+# Providers like Venice or Minimax often lack OpenAI-compatible embedding endpoints.
+# This patch ensures deep_research degrades gracefully and with ZERO latency by completely
+# bypassing semantic compression, passing web context text at scale directly to the LLMs.
+import gpt_researcher.context.compression as comp
 from fastmcp import FastMCP
 from gpt_researcher import GPTResearcher
 from loguru import logger
 
 from utils import (
     ResearchRegistry,
-    create_error_response,
     create_research_prompt,
-    create_success_response,
     format_context_with_sources,
     format_sources_for_response,
     handle_exception,
@@ -45,11 +48,6 @@ from utils import (
     wrap_untrusted_content,
 )
 
-# ── Monkey Patch Context Compression (For Venice/Minimax) ──
-# Providers like Venice or Minimax often lack OpenAI-compatible embedding endpoints.
-# This patch ensures deep_research degrades gracefully and with ZERO latency by completely
-# bypassing semantic compression, passing web context text at scale directly to the LLMs.
-import gpt_researcher.context.compression as comp
 
 async def _bypass_compressor_completely(self, query: str, max_results: int = 5, cost_callback=None) -> str:
     """Zero-latency override: disables semantic embeddings network requests globally."""
@@ -185,7 +183,7 @@ async def research_resource(topic: str) -> str:
 # Tools
 # ──────────────────────────────────────────────
 
-@mcp.tool()
+@mcp.tool("research_deep")
 async def deep_research(query: str, include_context: bool = False) -> str:
     """
     Performs deep multi-source web research on a query and returns a summary with sources.
@@ -283,7 +281,7 @@ async def deep_research(query: str, include_context: bool = False) -> str:
         return handle_exception(e, "Deep research")
 
 
-@mcp.tool()
+@mcp.tool("research_quick_search")
 async def quick_search(query: str) -> str:
     """
     Fast web search that returns raw result snippets without deep synthesis.
@@ -345,7 +343,7 @@ async def quick_search(query: str) -> str:
         return handle_exception(e, "Quick search")
 
 
-@mcp.tool()
+@mcp.tool("research_write_report")
 async def write_report(research_id: str, custom_prompt: str | None = None) -> str:
     """
     Generates a structured Markdown report from an existing research session.
@@ -409,7 +407,7 @@ async def write_report(research_id: str, custom_prompt: str | None = None) -> st
         return handle_exception(e, "Report generation")
 
 
-@mcp.tool()
+@mcp.tool("research_get_sources")
 async def get_research_sources(research_id: str) -> str:
     """
     Returns detailed metadata for all sources consulted during a research session.
@@ -453,7 +451,7 @@ async def get_research_sources(research_id: str) -> str:
     return "\n".join(lines)
 
 
-@mcp.tool()
+@mcp.tool("research_get_context")
 async def get_research_context(research_id: str) -> str:
     """
     Returns the raw synthesized context text from an existing research session.
@@ -551,7 +549,7 @@ async def health_check(request):
 
 def run_server() -> None:
     """Starts the MCP server using the transport configured via environment variable."""
-    
+
     # ── Agnostic LLM Translation Layer ──
     # gpt-researcher natively supports "openai:" (which maps to LangChain ChatOpenAI),
     # but not "venice:" or "minimax:". We translate them dynamically here so the
@@ -564,12 +562,12 @@ def run_server() -> None:
                 parts = val.split(":", 1)
                 if len(parts) == 2:
                     val = f"openai:{parts[1]}"
-            
+
             # 2. Fix MiniMax Case Sensitivity (Model Alias)
             if "minimax-m27" in val.lower():
                 import re
                 val = re.sub(r'(?i)minimax-m27', 'MiniMax-M2.7', val)
-            
+
             os.environ[var] = val
 
     if not os.getenv("OPENAI_API_KEY"):

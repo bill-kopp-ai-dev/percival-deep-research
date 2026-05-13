@@ -13,10 +13,10 @@ Uso:
 """
 
 import time
-import pytest
-import httpx
 from typing import Optional
 
+import httpx
+import pytest
 
 # ──────────────────────────────────────────────
 # Configuração
@@ -194,7 +194,7 @@ class TestSanitizeReportFormat:
 # ══════════════════════════════════════════════
 
 def test_wrap_untrusted_content_adiciona_header():
-    from utils import wrap_untrusted_content, UNTRUSTED_CONTENT_HEADER
+    from utils import UNTRUSTED_CONTENT_HEADER, wrap_untrusted_content
     content = "Conteúdo da web aqui."
     result = wrap_untrusted_content(content)
     assert result.startswith(UNTRUSTED_CONTENT_HEADER)
@@ -368,6 +368,7 @@ def test_format_context_with_sources():
 
 def test_validate_research_id_uuid_valido():
     import uuid
+
     from server import _validate_research_id
     valid_id = str(uuid.uuid4())
     assert _validate_research_id(valid_id) is True
