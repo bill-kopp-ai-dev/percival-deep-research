@@ -1,12 +1,14 @@
 version: '3.8'
 
 services:
-  gptr-mcp:
+  percival-deep-research:
     build: .
+    command: ["uv", "run", "percival-deep-research"]
     ports:
       - "8000:8000"
     environment:
       - MCP_TRANSPORT=sse
+      - MCP_HOST=0.0.0.0
       - DOCKER_CONTAINER=true
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - BRAVE_API_KEY=${BRAVE_API_KEY}
@@ -34,13 +36,13 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - gptr-mcp
+      - percival-deep-research
     restart: unless-stopped
     profiles:
       - production
 
 networks:
-  gptr-mcp-net:
+  percival-deep-research-net:
     driver: bridge
     # To connect to existing n8n network, run:
-    # docker network connect n8n-mcp-net gptr-mcp 
+    # docker network connect n8n-mcp-net percival-deep-research 

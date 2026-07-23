@@ -20,6 +20,11 @@ dependencies = [
     "langchain-community",
 ]
 
+[project.urls]
+Repository = "https://github.com/bill-kopp-ai-dev/percival.OS"
+Issues = "https://github.com/bill-kopp-ai-dev/percival.OS/issues"
+Changelog = "https://github.com/bill-kopp-ai-dev/percival.OS/blob/main/percival-deep-research/CHANGELOG.md"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0,<9.0.0",

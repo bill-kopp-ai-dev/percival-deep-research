@@ -243,38 +243,66 @@ class TestResearchRegistryBasico:
 class TestResearchRegistryLimites:
     """Testa os limites de capacidade e eviction do ResearchRegistry."""
 
-    def test_limite_maximo_de_pesquisadores_respeita_fifo(self):
+    def test_limite_maximo_rejeita_quando_saturado(self):
+        """Audit rodada 2 BUG-5: registry rejeita nova inserção com
+        RegistryFullError em vez de evict arbitrário."""
+        from utils import ResearchRegistry, RegistryFullError
+        original = ResearchRegistry._MAX_RESEARCHERS
+        ResearchRegistry._MAX_RESEARCHERS = 3
+        try:
+            reg = ResearchRegistry()
+
+            # Adiciona 3 pesquisadores (limite)
+            for i in range(3):
+                reg.add_researcher(f"id-{i}", object())
+            assert len(reg._researchers) == 3
+
+            # Adiciona o 4º — DEVE LEVANTAR RegistryFullError
+            # (em vez do antigo comportamento de evict arbitrário)
+            with pytest.raises(RegistryFullError):
+                reg.add_researcher("id-novo", object())
+
+            # id-0 NÃO foi derrubado
+            assert "id-0" in reg._researchers
+            assert "id-novo" not in reg._researchers
+            assert len(reg._researchers) == 3
+        finally:
+            ResearchRegistry._MAX_RESEARCHERS = original
+
+    def test_evict_explicito_libera_slot(self):
+        """Após evict_researcher, deve ser possível adicionar novo."""
         from utils import ResearchRegistry
-        reg = ResearchRegistry()
-        reg._MAX_RESEARCHERS = 3  # sobrescreve para teste
-
-        # Adiciona 3 pesquisadores (limite)
-        for i in range(3):
-            reg.add_researcher(f"id-{i}", object())
-
-        assert len(reg._researchers) == 3
-
-        # Adiciona o 4º — deve remover o 1º (id-0)
-        reg.add_researcher("id-novo", object())
-        assert len(reg._researchers) == 3
-        assert "id-0" not in reg._researchers
-        assert "id-novo" in reg._researchers
+        original = ResearchRegistry._MAX_RESEARCHERS
+        ResearchRegistry._MAX_RESEARCHERS = 1
+        try:
+            reg = ResearchRegistry()
+            reg.add_researcher("id-1", object())
+            assert reg.evict_researcher("id-1") is True
+            # Agora pode adicionar outro
+            reg.add_researcher("id-2", object())
+            assert "id-2" in reg._researchers
+        finally:
+            ResearchRegistry._MAX_RESEARCHERS = original
 
     def test_limite_maximo_de_topicos_no_cache(self):
         from utils import ResearchRegistry
-        reg = ResearchRegistry()
-        reg._MAX_CACHED_TOPICS = 3
+        original = ResearchRegistry._MAX_CACHED_TOPICS
+        ResearchRegistry._MAX_CACHED_TOPICS = 3
+        try:
+            reg = ResearchRegistry()
 
-        for i in range(3):
-            reg.store(f"topico-{i}", f"ctx-{i}", [], [])
+            for i in range(3):
+                reg.store(f"topico-{i}", f"ctx-{i}", [], [])
 
-        assert len(reg._store) == 3
+            assert len(reg._store) == 3
 
-        # Adiciona o 4º — deve remover o 1º
-        reg.store("topico-novo", "ctx-novo", [], [])
-        assert len(reg._store) == 3
-        assert "topico-0" not in reg._store
-        assert "topico-novo" in reg._store
+            # Adiciona o 4º — deve remover o 1º
+            reg.store("topico-novo", "ctx-novo", [], [])
+            assert len(reg._store) == 3
+            assert "topico-0" not in reg._store
+            assert "topico-novo" in reg._store
+        finally:
+            ResearchRegistry._MAX_CACHED_TOPICS = original
 
 
 class TestResearchRegistryTTL:
@@ -282,23 +310,27 @@ class TestResearchRegistryTTL:
 
     def test_pesquisador_expirado_e_removido(self):
         from utils import ResearchRegistry
-        reg = ResearchRegistry()
-        reg._RESEARCHER_TTL_S = 0.01  # 10ms para o teste
+        original = ResearchRegistry._RESEARCHER_TTL_S
+        ResearchRegistry._RESEARCHER_TTL_S = 0.01  # 10ms para o teste
+        try:
+            reg = ResearchRegistry()
 
-        reg.add_researcher("id-expiravel", object())
-        assert "id-expiravel" in reg._researchers
+            reg.add_researcher("id-expiravel", object())
+            assert "id-expiravel" in reg._researchers
 
-        time.sleep(0.05)  # aguarda expirar
+            time.sleep(0.05)  # aguarda expirar
 
-        # get_researcher chama _evict_expired internamente
-        success, _, _ = reg.get_researcher("id-expiravel")
-        assert success is False
-        assert "id-expiravel" not in reg._researchers
+            # get_researcher chama _evict_expired internamente
+            success, _, _ = reg.get_researcher("id-expiravel")
+            assert success is False
+            assert "id-expiravel" not in reg._researchers
+        finally:
+            ResearchRegistry._RESEARCHER_TTL_S = original
 
     def test_pesquisador_nao_expirado_permanece(self):
         from utils import ResearchRegistry
+        # Default TTL já é 1h; nada a sobrescrever.
         reg = ResearchRegistry()
-        reg._RESEARCHER_TTL_S = 3600  # 1 hora
 
         mock = object()
         reg.add_researcher("id-valido", mock)

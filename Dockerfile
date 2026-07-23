@@ -33,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=7s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Start the server via uv
-CMD ["uv", "run", "gptr-mcp"]
+CMD ["uv", "run", "percival-deep-research"]

@@ -1,6 +1,6 @@
 # 🤖 Percival Deep Research - percival.OS MCP
 
-**Version 0.0.2**
+**Version 1.0.0**
 
 [![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
@@ -54,7 +54,7 @@ This server is tuned to run via `stdio`. Add the following to your `~/.nanobot/c
         "OPENAI_API_KEY": "YOUR_KEY",
         "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
         "FAST_LLM": "venice:llama-3.3-70b",
-        "RETRIEVER": "duckduckgo"
+        "RETRIEVER": "brave"
       },
       "tool_timeout": 300
     }
