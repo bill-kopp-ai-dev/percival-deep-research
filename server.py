@@ -57,6 +57,10 @@ _validate_research_id = validate_research_id
 # Re-export do resource / prompt para testes e compat.
 research_resource = _resources.research_resource
 research_query = _prompts.research_query
+# v2.3.0 — 3 prompts adicionais
+research_quick_brief = _prompts.research_quick_brief
+research_synthesis = _prompts.research_synthesis
+research_health_diagnose = _prompts.research_health_diagnose
 
 
 def run_server() -> None:
