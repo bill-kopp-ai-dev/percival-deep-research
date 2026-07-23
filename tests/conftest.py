@@ -1,10 +1,62 @@
 """Fixtures compartilhadas para testes do servidor."""
 
 import os
+import socket
 import uuid as _uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+
+# ─────────────────────────────────────────────────────────────────
+# B4 fix (rodada 3): autouse fixture que pula testes de integração
+# (`@pytest.mark.integration`) quando não há server rodando em
+# localhost:PORT (default 8000). Sem esse skip, todo CI limpo sem
+# server reporta `1 failed` por sessão.
+# ─────────────────────────────────────────────────────────────────
+
+# Configurável via env var para ambientes com porta custom:
+_PORT_FOR_INTEGRATION = int(os.getenv("PERCIVAL_TEST_PORT", 8000))
+_HOST_FOR_INTEGRATION = os.getenv("PERCIVAL_TEST_HOST", "localhost")
+
+
+def _probe_server(host: str, port: int, timeout: float = 0.5) -> bool:
+    """Retorna True se `host:port` aceita conexões TCP em até `timeout`s.
+
+    Não verifica HTTP — só faz connect. Se `httpx.ConnectError` existir
+    porque o server não responde HTTP, o teste de integração vai ser
+    explícito (mais útil do que um skip silencioso)."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    try:
+        sock.connect((host, port))
+        return True
+    except (OSError, ConnectionRefusedError, socket.timeout):
+        return False
+    finally:
+        sock.close()
+
+
+@pytest.fixture(autouse=True)
+def _skip_integration_tests_without_server(request):
+    """Skip tests marcados `@pytest.mark.integration` se não houver server.
+
+    Também serve para os testes em `test_mcp_server.py::test_*` que
+    usam `http_client` (uma fixture integration-like) quando rodados
+    sem servidor — eles dependem dela, então `http_client` está
+    protegido de outra forma via lazy import.
+    """
+    mark = request.node.get_closest_marker("integration")
+    if mark is None:
+        return  # Não é integration — não skip.
+    if _probe_server(_HOST_FOR_INTEGRATION, _PORT_FOR_INTEGRATION):
+        return  # Server up — segue.
+    pytest.skip(
+        f"Integration test requires server on "
+        f"{_HOST_FOR_INTEGRATION}:{_PORT_FOR_INTEGRATION}. "
+        f"Start with `uv run percival-deep-research` (transport=sse) "
+        f"or set PERCIVAL_TEST_HOST/PERCIVAL_TEST_PORT if remote."
+    )
 
 
 @pytest.fixture

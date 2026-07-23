@@ -145,6 +145,122 @@ uv run percival-deep-research
 
 ---
 
+## 🛟 Troubleshooting (v2.2.x)
+
+These cover the 9 bugs identified in [the Nano report of 2026-07-23](../MCP_Docs/Issues/2026-07-23-percival-deep-research-shipping-bugs.md). If a symptom matches, the fix is below.
+
+### "401 Incorrect API key" on custom gateway (e.g. Venice, MiniMax)
+
+**Cause:** `gpt-researcher/memory/embeddings.py` (upstream, not editable)
+reads `os.environ["OPENAI_BASE_URL"]` / `os.environ["OPENAI_API_KEY"]`
+directly. Setting only `INFERENCE_BASE_URL` / `INFERENCE_API_KEY` is
+insufficient — v2.2.1 added a **bridge in `populate_inference_slots()`** that
+propagates these env vars to the legacy `OPENAI_*` namespace. To use on
+custom gateway:
+
+```env
+INFERENCE_API_KEY=sk-your-gateway-key
+INFERENCE_BASE_URL=https://api.venice.ai/api/v1
+INFERENCE_LLM=venice:llama-3.3-70b
+```
+
+After startup, log line should show:
+
+```
+Inference provider: venice (auto-detected from INFERENCE_BASE_URL)
+```
+
+If it says `openai`, your `INFERENCE_BASE_URL` is wrong (must contain the
+gateway host — `api.venice.ai`, `api.minimax.io`, `openrouter.ai`).
+
+### "EMBEDDING_LLM = gpt-4o-mini" — bad embedding model
+
+**Cause:** `INFERENCE_LLM` value was being copied 1-for-1 into
+`EMBEDDING_LLM`, which silently produces garbage embeddings. v2.2.1
+fixes this: embeddings slot now gets a sensible default
+(`openai:text-embedding-3-small`) only when the provider is
+OpenAI-compatible. For non-OpenAI providers (minimax:, venice:), it is
+**left unset** so `gpt-researcher` falls back to its in-process
+heuristic rather than generating garbage.
+
+If you need embeddings on a non-OpenAI provider, override:
+```env
+INFERENCE_LLM=minimax:MiniMax-M3
+EMBEDDING_LLM=<your-provider's-embedding-model>
+```
+
+### `pytest -q` reports `1 failed` instead of green
+
+**Cause (B4):** integration tests connect to `localhost:8000` and fail
+if no server is up. v2.2.1 adds an `autouse` fixture in
+`tests/conftest.py` that **skips** integration tests without a server:
+
+```
+uv run pytest -q
+# Expected (v2.2.1+): N passed, M skipped
+```
+
+If you need to run them, start a server first:
+```bash
+# In one terminal:
+MCP_TRANSPORT=sse uv run --no-sync percival-deep-research
+# Then in another:
+uv run pytest
+```
+
+### `__version__` reports `2.1.0` instead of `2.2.x`
+
+**Cause (B6):** the editable install hasn't been refreshed since the
+version bump. Re-install:
+```bash
+uv pip install -e . --force-reinstall
+# OR
+uv sync
+```
+
+The new regression test `tests/test_audit_round3_nano.py::test_version_correto_no_runtime`
+will fail loudly on any future drift.
+
+### Resource `research://topic with space` fails with `invalid domain character`
+
+**Cause:** FastMCP 3.4 Pydantic validator rejects non-ASCII in URI
+domains. v2.2.0 added percent-decode **server-side**, so callers can
+either:
+
+```python
+# Option A: percent-encode the topic (recommended)
+await client.read_resource("research://S%C3%A3o%20Paulo")
+
+# Option B: encode at the call site
+import urllib.parse
+uri = "research://" + urllib.parse.quote("São Paulo", safe="")
+await client.read_resource(uri)
+```
+
+Option A is preferred — it's also what FastMCP's own client does
+automatically. v2.2.1 includes the fix on the server side.
+
+### `prompts/list` shows `description='...'`
+
+**Cause (B7):** some `"""..."""` docstrings were placeholders. They've
+been replaced in v2.2.1. If you still see this in a fork, replace with
+a real docstring (parseable by `prompts/list`).
+
+### `Component already exists: template:research://{topic}` at boot (B8)
+
+**Cause:** the resource template `research://{topic}` was registered
+twice during boot. Two triggers known in FastMCP 3.4:
+
+1. Running server.py with `python -i server.py` (interactive mode
+   imports modules twice).
+2. Subprocess imports the package via `importlib.reload()`.
+
+The v2.2.1 regression test
+`tests/test_audit_round3_nano.py::test_apenas_um_template_research_topic`
+will catch this and prevent regression.
+
+---
+
 ## 📚 About the Project
 This server is an integral module of the **percival.OS** project. It enables Nanobot to perform complex research tasks that require multiple steps of validation and synthesis.
 
