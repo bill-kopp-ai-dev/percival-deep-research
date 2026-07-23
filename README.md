@@ -1,6 +1,6 @@
 # 🤖 Percival Deep Research - percival.OS MCP
 
-**Version 2.1.0**
+**Version 2.2.0**
 
 [![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
@@ -27,7 +27,7 @@ Like all components of `percival.OS`, this MCP server strictly follows our core 
 
 ### Research Tools
 - `research_deep(query)`: Start multi-source deep web research (30–120s). Returns a `research_id`.
-- `research_quick_search(query)`: Fast raw snippet search via the configured `RETRIEVER` (default: Brave; 3–10s).
+- `research_quick_search(query)`: Fast raw snippet search via the configured `RETRIEVER` (default: DuckDuckGo, no API key; 3–10s).
 - `research_write_report(research_id, custom_prompt?)`: Generates a structured Markdown report from an existing session.
 - `research_get_sources(research_id)`: Returns title, URL, and content size for all sources consulted.
 - `research_get_context(research_id)`: Returns the raw synthesized context text without generating a report.
@@ -38,29 +38,56 @@ Like all components of `percival.OS`, this MCP server strictly follows our core 
 ---
 
 ## ⚙️ Configuration in percival.OS (Nanobot)
-This server is tuned to run via `stdio`. Add the following to your `~/.nanobot/config.json`:
+
+### Quickstart (v2.2.0 — recommended)
+
+The server now uses **a single inference endpoint** (one LLM) instead of
+the four-slot configuration from v2.1.x. The same setup works for
+**any** OpenAI-compatible gateway (OpenAI, Venice, MiniMax, OpenRouter,
+local LLMs, etc.).
 
 ```json
 {
   "mcpServers": {
-    "percival_deep_research": {
+    "percival-deep-research": {
       "command": "uv",
-      "args": [
-        "run",
-        "--no-sync",
-        "percival-deep-research"
-      ],
+      "args": ["run", "--no-sync", "percival-deep-research"],
       "env": {
-        "OPENAI_API_KEY": "YOUR_KEY",
-        "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
-        "FAST_LLM": "venice:llama-3.3-70b",
-        "RETRIEVER": "brave"
+        "PYTHONUNBUFFERED": "1",
+        "MCP_TRANSPORT": "stdio",
+        "INFERENCE_API_KEY": "YOUR_KEY",
+        "INFERENCE_BASE_URL": "https://api.venice.ai/api/v1",
+        "INFERENCE_LLM": "venice:llama-3.3-70b",
+        "RETRIEVER": "duckduckgo"
       },
       "tool_timeout": 300
     }
   }
 }
 ```
+
+### Migration from v2.1.x
+
+If you were using the old four-slot setup, here's the diff:
+
+```diff
+- "OPENAI_API_KEY": "...",
+- "OPENAI_BASE_URL": "https://api.venice.ai/api/v1",
+- "FAST_LLM": "venice:llama-3.3-70b",
+- "SMART_LLM": "...",
+- "STRATEGIC_LLM": "...",
+- "EMBEDDING_LLM": "...",
+- "PERCIVAL_LLM_PROVIDER_ALIASES": "venice:,minimax:,openrouter:",
+- "BRAVE_API_KEY": "...",
+- "RETRIEVER": "brave"
++ "INFERENCE_API_KEY": "...",
++ "INFERENCE_BASE_URL": "https://api.venice.ai/api/v1",
++ "INFERENCE_LLM": "venice:llama-3.3-70b",
++ "RETRIEVER": "duckduckgo"   // (or "brave" + BRAVE_API_KEY if you really want it)
+```
+
+Old variables are still accepted as fallback (with a deprecation log),
+so existing v2.1.x setups keep working until v3.0.
 
 ---
 

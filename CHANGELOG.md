@@ -4,10 +4,71 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/),
 versioning follows [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [2.2.0] — 2026-07-23
+
+### 🎯 Major simplification: single LLM endpoint
+
+Aligns the MCP server with the Nanobot agent's own configuration:
+one inference endpoint, one model, zero per-slot gymnastics.
+
+### Added
+- **`INFERENCE_API_KEY`** — single credential variable. Replaces `OPENAI_API_KEY`.
+- **`INFERENCE_BASE_URL`** — single URL variable. Replaces `OPENAI_BASE_URL`.
+- **`INFERENCE_LLM`** — single model variable. Replaces the four-slot
+  `FAST_LLM` / `SMART_LLM` / `STRATEGIC_LLM` / `EMBEDDING_LLM` configuration.
+- **`Settings.inference_provider_alias`** — auto-detected from `INFERENCE_BASE_URL`:
+  - `https://api.venice.ai/api/v1` → `venice:`
+  - `https://api.minimax.io/v1` → `minimax:`
+  - `https://openrouter.ai/api/v1` → `openrouter:`
+  - other OpenAI-compatible → `openai:` (no alias)
+- **`RETRIEVER=duckduckgo` as new default** — no API key required. Matches
+  the Nanobot CLI's default retriever.
+- **`populate_inference_slots()`** — `llm_bridge.py` fills the four
+  `STRATEGIC_LLM`/`FAST_LLM`/`SMART_LLM`/`EMBEDDING_LLM` from
+  `INFERENCE_LLM` if the operator hasn't explicitly set them.
+- New `_detect_provider_alias()` helper in `config.py`.
+- New `_env_str_fallback()` helper that emits a deprecation warning when
+  a legacy variable (`OPENAI_API_KEY`, etc.) is used.
+- **`/health` schema updated** — `openai_configured` → `inference_configured`.
+  Old key still works for backward compat at the server boundary.
 
 ### Changed
-- (placeholder para próximas mudanças)
+- **`run_server()`** logs `Inference provider`, `Inference LLM`, and
+  `Default retriever` at startup for operational visibility.
+- **`RETRIEVER` default** changed from `brave` to `duckduckgo`.
+- **Error messages** in `run_server()` reference `INFERENCE_API_KEY` /
+  `INFERENCE_BASE_URL` (with legacy fallback notice).
+
+### Deprecated (will be removed in v3.0.0)
+- `OPENAI_API_KEY` — use `INFERENCE_API_KEY`
+- `OPENAI_BASE_URL` — use `INFERENCE_BASE_URL`
+- `FAST_LLM`, `SMART_LLM`, `STRATEGIC_LLM`, `EMBEDDING_LLM` — these
+  still work as **per-slot overrides** if you set them. If unset, all
+  four slots are populated from `INFERENCE_LLM`.
+- `PERCIVAL_LLM_PROVIDER_ALIASES` — auto-detected from URL. Setting
+  this is now redundant for known providers.
+- `BRAVE_API_KEY` (only required if `RETRIEVER` contains `brave`)
+
+### Migration guide (v2.1.x → v2.2.0)
+```diff
+- OPENAI_API_KEY=sk-...
+- OPENAI_BASE_URL=https://api.venice.ai/api/v1
+- FAST_LLM=venice:llama-3.3-70b
+- SMART_LLM=venice:llama-3.3-70b
+- STRATEGIC_LLM=openai:gpt-4o-mini
+- EMBEDDING_LLM=openai:text-embedding-3-small
+- PERCIVAL_LLM_PROVIDER_ALIASES=venice:,minimax:,openrouter:
+- RETRIEVER=brave
+- BRAVE_API_KEY=...
++ INFERENCE_API_KEY=suas-chave
++ INFERENCE_BASE_URL=https://api.venice.ai/api/v1
++ INFERENCE_LLM=venice:llama-3.3-70b
++ # RETRIEVER default = duckduckgo; no API key needed
+```
+
+### Testes
+- 9+ regression tests for the new config layer, LLM bridge, and health check.
+- All 251+ existing tests still pass.
 
 ## [2.1.0] — 2026-07-22
 

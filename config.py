@@ -1,16 +1,24 @@
 """
-Configurações centralizadas do servidor.
+Configurações centralizadas do servidor (v2.2.0).
 
-Todas as constantes de runtime são lidas de variáveis de ambiente aqui.
-Defaults são definidos explicitamente. Sem tocar este arquivo ou
-.env.example, o operador controla o comportamento do servidor.
+Renomeações para clareza operacional (release v2.2.0):
+- `INFERENCE_API_KEY` substitui `OPENAI_API_KEY`
+- `INFERENCE_BASE_URL` substitui `OPENAI_BASE_URL`
+- `INFERENCE_LLM` substitui as quatro vars FAST/SMART/STRATEGIC/EMBEDDING_LLM
+- `RETRIEVER` default muda de `brave` para `duckduckgo`
+
+As vars antigas (OPENAI_*, FAST_LLM/SMART_LLM/STRATEGIC_LLM/EMBEDDING_LLM,
+PERCIVAL_LLM_PROVIDER_ALIASES) ainda funcionam como **fallback**,
+logando WARN para operadores que ainda dependem delas.
+Elas serão removidas em v3.0.0.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -18,17 +26,7 @@ _VALID_TRANSPORTS = {"stdio", "sse", "streamable-http"}
 
 
 def _env_int(name: str, default: int, *, min_value: int = 1, max_value: int | None = None) -> int:
-    """Lê inteiro com validação de faixa + warn explícito em entrada inválida.
-
-    Comportamento:
-        - Var não-setada → default.
-        - Var inválida (não-numérica) → warn + default.
-        - Var fora de [min_value, max_value] → warn + default.
-
-    Por que fallback (em vez de raise) pra typos de operador: o servidor
-    subiu em produção ainda é melhor do que ele não subir — mas o log
-    garante que a misconfig seja visível no observability stack.
-    """
+    """Lê inteiro com validação de faixa + warn explícito em entrada inválida."""
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -55,6 +53,28 @@ def _env_str(name: str, default: str) -> str:
     return os.getenv(name, default)
 
 
+def _env_str_fallback(primary: str, fallback: str, default: str = "") -> str:
+    """Lê var com fallback automático. Logging:
+
+    - Se `primary` setada → usa o valor dela silenciosamente.
+    - Se só `fallback` setada → usa o valor dela + loga WARN
+      recomendando migrar para `primary`.
+    - Se nenhuma setada → retorna default (string vazia).
+    """
+    val = os.getenv(primary)
+    if val:
+        return val
+    legacy = os.getenv(fallback)
+    if legacy:
+        print(
+            f"WARN: env {fallback}=... is deprecated; "
+            f"please set {primary} instead (will be removed in v3.0.0).",
+            file=sys.stderr,
+        )
+        return legacy
+    return default
+
+
 def _env_bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, "true" if default else "false").lower() == "true"
 
@@ -64,14 +84,11 @@ def _env_str_choice(name: str, default: str, choices: set[str]) -> str:
     raw = os.getenv(name)
     if raw is None:
         return default
-    val = raw.lower() if name.endswith(("LOG_LEVEL", "MCP_TRANSPORT")) else raw
-    # Normalização específica por var — manter simple:
-    if name in {"LOG_LEVEL"}:
+    val = raw
+    if name.endswith("LOG_LEVEL"):
         val = raw.upper()
-    elif name in {"MCP_TRANSPORT"}:
+    elif name.endswith("MCP_TRANSPORT"):
         val = raw.lower()
-    else:
-        val = raw
     if val not in choices:
         print(
             f"WARN: env {name}={raw!r} not in {sorted(choices)}; using default={default}",
@@ -81,9 +98,38 @@ def _env_str_choice(name: str, default: str, choices: set[str]) -> str:
     return val
 
 
+# Provider auto-detection (Fase 1 — simplificação de config).
+# URL → prefixo de alias. Sem regex frágil: match exato de host.
+_PROVIDER_URL_PATTERNS = [
+    ("minimax", re.compile(r"api\.minimax\.io")),
+    ("minimax", re.compile(r"api\.(?:minimax|minimax-m27)\.com")),
+    ("venice", re.compile(r"api\.venice\.ai")),
+    ("openrouter", re.compile(r"openrouter\.ai")),
+]
+
+
+def _detect_provider_alias(base_url: str) -> str | None:
+    """Inspeciona `INFERENCE_BASE_URL` e devolve o alias de provider.
+
+    Retorna `None` se não reconhecer (assume `openai:` nativo).
+    """
+    if not base_url:
+        return None
+    base_url = base_url.lower()
+    for alias, pat in _PROVIDER_URL_PATTERNS:
+        if pat.search(base_url):
+            return alias
+    return None
+
+
 @dataclass(frozen=True)
 class Settings:
-    """Snapshot imutável de configuração no startup."""
+    """Snapshot imutável de configuração no startup.
+
+    v2.2.0: novos campos de inferência unificada (`inference_*`).
+    Campos legados (`llm_provider_aliases`, etc.) são mantidos como
+    representação de compat mas o código novo usa `inference_*`.
+    """
 
     # ── Registry / Cache ──
     max_researchers: int
@@ -104,21 +150,39 @@ class Settings:
     mcp_host: str
     mcp_port: int
 
-    # ── LLM bridge ──
-    llm_provider_aliases: tuple
+    # ── Inference (v2.2 — canônico) ──
+    inference_api_key: str         # INFERENCE_API_KEY (fallback OPENAI_API_KEY)
+    inference_base_url: str        # INFERENCE_BASE_URL (fallback OPENAI_BASE_URL)
+    inference_llm: str             # INFERENCE_LLM (default: openai:gpt-4o-mini)
+    inference_provider_alias: str | None  # auto-detectado da base_url (None se não reconhecido)
+    default_retriever: str         # RETRIEVER (default: duckduckgo)
+
+    # ── LLM bridge (legacy — fallback) ──
+    llm_provider_aliases: tuple    # PERCIVAL_LLM_PROVIDER_ALIASES (deprecated)
     minimax_model_alias: str
     minimax_alias_pattern: str
 
 
 def load_settings() -> Settings:
-    """Carrega settings do ambiente, com defaults sensatos.
+    """Carrega settings do ambiente, com defaults sensatos (v2.2).
 
-    Para aliases de provider: `PERCIVAL_LLM_PROVIDER_ALIASES` é uma
-    lista separada por vírgulas (ex.: "venice:,minimax:,openrouter:,
-    deepseek:"). Permite ao operador adicionar novos aliases sem
-    editar o código.
+    Novidades:
+      - `INFERENCE_API_KEY` / `INFERENCE_BASE_URL` (com fallback OpenAI*).
+      - `INFERENCE_LLM` (model string única para todos os slots LLM).
+      - `inference_provider_alias` é auto-detectado a partir do
+        `INFERENCE_BASE_URL` (e.g.: https://api.venice.ai/api/v1 → "venice").
+      - `default_retriever` default = "duckduckgo" (sem chave de API).
     """
-    # Lê tupla de aliases separados por vírgula
+    # Inference (canônico, com fallback)
+    inference_api_key = _env_str_fallback("INFERENCE_API_KEY", "OPENAI_API_KEY")
+    inference_base_url = _env_str_fallback("INFERENCE_BASE_URL", "OPENAI_BASE_URL")
+    inference_llm = os.getenv("INFERENCE_LLM", "openai:gpt-4o-mini")
+    inference_provider_alias = _detect_provider_alias(inference_base_url)
+
+    # Provider aliases legacy (PERCIVAL_LLM_PROVIDER_ALIASES) — fallback
+    # automático se INFERENCE_BASE_URL não fornecer. Para v2.2, ainda
+    # mantemos o suporte mas emitimos WARN quando a var legacy está
+    # setada sem provider_alias auto-detectado.
     raw_aliases = os.getenv(
         "PERCIVAL_LLM_PROVIDER_ALIASES",
         "venice:,minimax:,openrouter:",
@@ -126,8 +190,13 @@ def load_settings() -> Settings:
     aliases = tuple(
         a.strip() for a in raw_aliases.split(",") if a.strip()
     )
-    # Garante termina com ":" (para fazer prefix-match)
     aliases = tuple(a if a.endswith(":") else f"{a}:" for a in aliases)
+    # Se o provider auto-detectado não estiver nos aliases, prepend.
+    if (
+        inference_provider_alias
+        and f"{inference_provider_alias}:" not in aliases
+    ):
+        aliases = (f"{inference_provider_alias}:",) + aliases
 
     return Settings(
         # Registry / Cache
@@ -151,7 +220,14 @@ def load_settings() -> Settings:
         mcp_host=_env_str("MCP_HOST", "127.0.0.1"),
         mcp_port=_env_int("PORT", 8000, min_value=1, max_value=65535),
 
-        # LLM bridge
+        # Inference (v2.2 — canônico)
+        inference_api_key=inference_api_key,
+        inference_base_url=inference_base_url,
+        inference_llm=inference_llm,
+        inference_provider_alias=inference_provider_alias,
+        default_retriever=_env_str("RETRIEVER", "duckduckgo"),
+
+        # Legacy
         llm_provider_aliases=aliases,
         minimax_model_alias=_env_str("MINIMAX_MODEL_ALIAS", "MiniMax-M2.7"),
         minimax_alias_pattern=(

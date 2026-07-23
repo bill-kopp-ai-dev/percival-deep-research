@@ -289,6 +289,11 @@ class TestLLMBridgeEmbedding:
             log_level="INFO", debug_log_queries=False,
             mcp_transport="stdio", mcp_host="127.0.0.1",
             mcp_port=8000,
+            inference_api_key="",
+            inference_base_url="",
+            inference_llm="openai:gpt-4o-mini",
+            inference_provider_alias=None,
+            default_retriever="duckduckgo",
             llm_provider_aliases=(),
             minimax_model_alias="M",
             minimax_alias_pattern="",  # pattern vazio!

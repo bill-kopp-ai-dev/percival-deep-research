@@ -23,7 +23,7 @@ from percival_research.app import (
     registry,
     research_limiter,
 )
-from percival_research.health import _check_openai_configured, _check_retriever_configured
+from percival_research.health import _check_inference_configured, _check_retriever_configured
 from percival_research.patches import apply_compressor_patch
 
 # Side-effects: registrar tools, resource e prompt via decorators @mcp.*.
@@ -78,10 +78,13 @@ def run_server() -> None:
     # Bloco Try/finally para restaurar logger.configure default após
     # conclusão do servidor (incluindo early-return).
     try:
-        if not (os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_BASE_URL")):
+        # v2.2: checa credenciais usando o canônico `INFERENCE_*` com
+        # fallback OpenAI*. Mensagem atualizada para refletir o nome novo.
+        if not _check_inference_configured():
             logger.error(
-                "OPENAI_API_KEY (or OPENAI_BASE_URL for a custom gateway) not found. "
-                "Set it in your .env file."
+                "INFERENCE_API_KEY (or INFERENCE_BASE_URL for a custom gateway) "
+                "not found. Set it in your .env file, or use the legacy "
+                "OPENAI_API_KEY / OPENAI_BASE_URL."
             )
             return
 
@@ -89,6 +92,16 @@ def run_server() -> None:
         if os.path.exists("/.dockerenv") or os.getenv("DOCKER_CONTAINER"):
             transport = "sse"
             logger.info("Docker environment detected — switching to SSE transport.")
+
+        # v2.2: loga o provider auto-detectado e o LLM em uso para
+        # facilitar o debug operacional (operador vê na log ao subir).
+        if settings.inference_provider_alias:
+            logger.info(
+                f"Inference provider: {settings.inference_provider_alias} "
+                f"(auto-detected from INFERENCE_BASE_URL)"
+            )
+        logger.info(f"Inference LLM: {settings.inference_llm}")
+        logger.info(f"Default retriever: {settings.default_retriever}")
 
         logger.info(
             f"Starting GPT Researcher MCP Server v{__version__} with transport: {transport}"

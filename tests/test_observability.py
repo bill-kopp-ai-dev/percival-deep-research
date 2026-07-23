@@ -48,10 +48,12 @@ class TestHealthCheck:
 
     @pytest.mark.asyncio
     async def test_degraded_sem_retriever(self):
+        """v2.2: mudou pra duckduckgo como default. Para testar retriever
+        degradado, setar `RETRIEVER=brave` explicitamente sem BRAVE_API_KEY."""
         from server import health_check
         env = {k: v for k, v in os.environ.items() if k not in ("RETRIEVER", "BRAVE_API_KEY")}
         with patch.dict(os.environ, env, clear=True):
-            with patch.dict(os.environ, {"OPENAI_API_KEY": "x"}):
+            with patch.dict(os.environ, {"INFERENCE_API_KEY": "x", "RETRIEVER": "brave"}):
                 resp = await health_check(None)
                 assert resp.status_code == 503
                 body = json.loads(resp.body)

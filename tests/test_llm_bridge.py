@@ -20,6 +20,11 @@ def settings():
         mcp_transport="stdio",
         mcp_host="127.0.0.1",
         mcp_port=8000,
+        inference_api_key="",
+        inference_base_url="",
+        inference_llm="openai:gpt-4o-mini",
+        inference_provider_alias=None,
+        default_retriever="duckduckgo",
         llm_provider_aliases=("venice:", "minimax:", "openrouter:"),
         minimax_model_alias="MiniMax-M2.7",
         minimax_alias_pattern="minimax-m27",
@@ -70,6 +75,9 @@ class TestNormalizeLLMEnv:
         assert __import__("os").environ["SMART_LLM"] == "openai:MiniMax-M2.7-base"
 
     def test_nao_faz_nada_se_env_nao_setada(self, monkeypatch, settings):
+        """v2.2: como `settings.inference_llm` está setada, `populate_inference_slots`
+        agora preenche todos os 4 slots. Comportamento mudou de v2.1:
+        em vez de "não mexer em env vazio", popula a partir de INFERENCE_LLM."""
         monkeypatch.delenv("STRATEGIC_LLM", raising=False)
         normalize_llm_env(settings)
-        assert "STRATEGIC_LLM" not in __import__("os").environ
+        assert __import__("os").environ["STRATEGIC_LLM"] == settings.inference_llm
