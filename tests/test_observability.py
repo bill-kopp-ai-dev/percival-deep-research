@@ -13,9 +13,28 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_healthy_quando_tudo_configurado(self):
         from server import health_check
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "x", "RETRIEVER": "brave"}):
+        with patch.dict(
+            os.environ,
+            {"OPENAI_API_KEY": "x", "RETRIEVER": "brave", "BRAVE_API_KEY": "y"},
+        ):
             resp = await health_check(None)
             assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_degraded_quando_brave_sem_api_key(self):
+        """Regressão: RETRIEVER=brave sem BRAVE_API_KEY reportava 'healthy'
+        incorretamente — deep_research/quick_search falhariam em toda
+        chamada real, mas o health check dizia 200. Ver health.py."""
+        from server import health_check
+        env = {k: v for k, v in os.environ.items() if k != "BRAVE_API_KEY"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch.dict(
+                os.environ, {"OPENAI_API_KEY": "x", "RETRIEVER": "brave"}
+            ):
+                resp = await health_check(None)
+                assert resp.status_code == 503
+                body = json.loads(resp.body)
+                assert body["checks"]["retriever_configured"] is False
 
     @pytest.mark.asyncio
     async def test_degraded_sem_openai_key(self):

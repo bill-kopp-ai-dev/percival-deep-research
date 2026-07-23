@@ -1,6 +1,6 @@
 # 🤖 Percival Deep Research - percival.OS MCP
 
-**Version 1.0.0**
+**Version 2.1.0**
 
 [![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
@@ -27,7 +27,7 @@ Like all components of `percival.OS`, this MCP server strictly follows our core 
 
 ### Research Tools
 - `research_deep(query)`: Start multi-source deep web research (30–120s). Returns a `research_id`.
-- `research_quick_search(query)`: Fast raw snippet search via DuckDuckGo (3–10s).
+- `research_quick_search(query)`: Fast raw snippet search via the configured `RETRIEVER` (default: Brave; 3–10s).
 - `research_write_report(research_id, custom_prompt?)`: Generates a structured Markdown report from an existing session.
 - `research_get_sources(research_id)`: Returns title, URL, and content size for all sources consulted.
 - `research_get_context(research_id)`: Returns the raw synthesized context text without generating a report.
