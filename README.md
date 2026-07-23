@@ -91,6 +91,49 @@ so existing v2.1.x setups keep working until v3.0.
 
 ---
 
+## ⚠️ Known Limitations (v2.2.x)
+
+These are honest design constraints, not bug reports — we surface them
+so operators know what to expect when targeting non-OpenAI gateways:
+
+1. **Embeddings require an OpenAI-compatible provider.** When you set
+   `INFERENCE_LLM=minimax:...` (or venice:, openrouter:, etc.) for chat
+   synthesis, the embedding slot is left **unset** instead of receiving
+   the chat model — `gpt-researcher/memory/embeddings.py` previously
+   received whatever `INFERENCE_LLM` said, which silently produced
+   garbage. If your non-OpenAI provider doesn't have a native embedding
+   endpoint, you'll need to either:
+   - Use `INFERENCE_LLM=openai:<text-embedding-model>` and a separate
+     chat endpoint (advanced), or
+   - Keep the chat model on OpenAI (`gpt-4o-mini`) and accept the small
+     cost for embeddings, or
+   - Accept that **embeddings will fall back to in-process heuristics**
+     in this version. The system degrades gracefully (warns on first
+     use) — it does not crash.
+
+2. **The four-slot override is gone if you skip `INFERENCE_LLM`.** When
+   you provide `STRATEGIC_LLM`/`FAST_LLM`/`SMART_LLM`/`EMBEDDING_LLM`
+   but not `INFERENCE_LLM`, only the slots you explicitly set are
+   honored. Older v2.0 / v2.1 setups that dropped `INFERENCE_LLM`
+   entirely without filling each slot will run with **only the slots
+   they set** — others remain unset, which `gpt-researcher` treats as a
+   hard fail at first use. Workaround: set `INFERENCE_LLM=` to the
+   chat-model you want everywhere.
+
+3. **`gpt-researcher >= 0.16.0` upstream bug.** The vendored copy in
+   `.venv` (after `uv sync`) hits `NameError: name 'Any' is not
+   defined` at import time. We've applied a `from __future__ import
+   annotations` patch in our local venv (see `scripts/patch_gpt_researcher.py`).
+   Without it, the server never boots. If you destroy your venv,
+   re-run `uv run python scripts/patch_gpt_researcher.py` after `uv sync`.
+
+4. **DuckDuckGo retriever rate-limits on heavy traffic.** DuckDuckGo
+   doesn't publish rate limits but returns `HTTP 429` after sustained
+   scraping. Operators chaining large batched research should consider
+   Brave (with `BRAVE_API_KEY`) or a local SearXNG instance.
+
+---
+
 ## 🛠️ Development & Testing
 This project uses the `uv` for dependency management within the unified `percival.OS_Dev` environment.
 

@@ -87,10 +87,36 @@ async def _run_research_and_cache(query: str, factory, cid: str) -> str:
 
 @mcp.resource("research://{topic}")
 async def research_resource(topic: str) -> str:
-    """..."""
+    """Web research cache for a topic, percent-encoding tolerant.
+
+    URI: ``research://{topic}`` (use percent-encoding for whitespace or
+    non-ASCII). Example — topic ``São Paulo``::
+
+        research://S%C3%A3o%20Paulo
+
+    The FastMCP client percent-encodes automatically when callers invoke
+    via ``client.read_resource(uri)``. Operators building URIs by hand
+    must percent-encode any whitespace, slashes, or non-ASCII chars to
+    avoid Pydantic URL-domain validation errors.
+
+    Returns the synthesized research context for the topic, looking up
+    the local cache first and falling back to a fresh multi-source
+    research run. Output is wrapped in a security banner.
+    """
+    from urllib.parse import unquote
     cid = new_correlation_id()
+
+    # B1 fix: decode percent-encoded chars (e.g. ``%20`` → space) BEFORE
+    # validation. Some agents and CLI tools already encode the URI; others
+    # pass raw topic strings. In either case, decode first so sanitize_topic
+    # handles the canonical form.
     try:
-        topic = sanitize_topic(topic)
+        topic_decoded = unquote(topic, errors="replace")
+    except (TypeError, ValueError):
+        topic_decoded = topic
+
+    try:
+        topic = sanitize_topic(topic_decoded)
     except ValueError as e:
         return f"[VALIDATION ERROR: {e}]"
 

@@ -34,14 +34,33 @@ from config import Settings
 # - STRATEGIC_LLM: planning (mais capacidade)
 # - FAST_LLM: summaries / extraction (mais barato)
 # - SMART_LLM: research synthesis (intermediário)
-# - EMBEDDING_LLM: embeddings (desativado pelo patch do compressor, mas
-#                   setamos para garantir consistência)
-_SLOT_VARS = ("STRATEGIC_LLM", "FAST_LLM", "SMART_LLM", "EMBEDDING_LLM")
+# - EMBEDDING_LLM: embeddings (desativado pelo patch do compressor; mas
+#                   se setado, gpt-researcher o instancia no `__init__`
+#                   ANTES do pipeline principal — por isso precisa ser
+#                   um modelo de embedding válido, e NÃO o mesmo chat-model).
+_CHAT_SLOT_VARS = ("STRATEGIC_LLM", "FAST_LLM", "SMART_LLM")
+_EMBEDDING_SLOT_VARS = ("EMBEDDING_LLM",)
+_SLOT_VARS = (*_CHAT_SLOT_VARS, *_EMBEDDING_SLOT_VARS)
+
+# Default sensato para embeddings. Documentado em CHANGELOG v2.2.1.
+# Se o provider tem um equivalente, o operador pode sobrescrever
+# via env `EMBEDDING_LLM`. Se não — gpt-researcher falha limpo
+# (em vez de gerar embeddings lixo a partir de um chat-model).
+_DEFAULT_OPENAI_EMBEDDING = "openai:text-embedding-3-small"
 
 
 def populate_inference_slots(settings: Settings) -> None:
-    """Se nenhuma das 4 slot-vars foi setada explicitamente pelo operador,
-    preenche com `INFERENCE_LLM` (fonte canônica única).
+    """Se nenhuma das slot-vars foi setada explicitamente pelo operador,
+    preenche com `INFERENCE_LLM` (fonte canônica única) para os 3 slots
+    de chat. Embeddings recebe default sensato apenas quando o provider
+    tem modelos de embedding compatíveis.
+
+    Bug audit (B3/B5 fix) — esta função também propaga `INFERENCE_*`
+    para o namespace legacy `OPENAI_*` que `gpt-researcher/memory/embeddings.py`
+    continua lendo em seu `OpenAIEmbeddings.__init__`. Sem esse
+    bridging, embeddings sempre cai no endpoint OpenAI nativo com
+    a chave configurada, quebrando qualquer deployment em gateway
+    custom (Venice, MiniMax, OpenRouter, local LM Studio etc.).
 
     Esta é a função que efetiva o modelo "um LLM só" para o servidor.
     Chamada idempotente — apenas popula vars que ainda estão unset.
@@ -50,9 +69,31 @@ def populate_inference_slots(settings: Settings) -> None:
         # Sem INFERENCE_LLM, não inventar valor — só preenche se já tiver.
         return
 
-    for var in _SLOT_VARS:
+    # 1. Chat slots: copia INFERENCE_LLM para STRATEGIC/FAST/SMART_LLM
+    #    se nenhuma delas estiver setada. EMBEDDING_LLM NÃO recebe este
+    #    valor (B5: gpt-4o-mini não é embedding model).
+    for var in _CHAT_SLOT_VARS:
         if not os.getenv(var):
             os.environ[var] = settings.inference_llm
+
+    # 2. Embedding slot: default sensato apenas quando o provider é
+    #    OpenAI-compatível com embedding conhecido. Caso contrário, deixar
+    #    unset (gpt-researcher falha limpo, em vez de aceitar silenciosamente
+    #    um modelo errado e gerar embeddings lixo).
+    if not os.getenv("EMBEDDING_LLM"):
+        is_openai_compatible = "openai:" in settings.inference_llm
+        if is_openai_compatible:
+            os.environ["EMBEDDING_LLM"] = _DEFAULT_OPENAI_EMBEDDING
+
+    # 3. Bridge BUG-3 fix: `gpt-researcher/memory/embeddings.py:104` ainda
+    #    lê `os.environ["OPENAI_API_KEY"]` e `os.environ["OPENAI_BASE_URL"]`
+    #    direto, ignorando nossa configuração canônica `INFERENCE_*`.
+    #    Propagamos para o namespace legacy para que o embedding client
+    #    seja instanciado com o MESMO endpoint/key que o chat client.
+    if settings.inference_api_key and not os.getenv("OPENAI_API_KEY"):
+        os.environ["OPENAI_API_KEY"] = settings.inference_api_key
+    if settings.inference_base_url and not os.getenv("OPENAI_BASE_URL"):
+        os.environ["OPENAI_BASE_URL"] = settings.inference_base_url
 
 
 def apply_env_mappings(settings: Settings) -> None:

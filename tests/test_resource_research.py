@@ -58,3 +58,62 @@ async def test_research_resource_normaliza_topic(
     result = await research_resource("machine learning")
 
     assert "## Research:" in result or "[VALIDATION" in result
+
+
+# ─────── B1 fix: percent-encoded topics (UTF-8 + space) ────────
+
+
+@pytest.mark.asyncio
+async def test_research_resource_decodes_percent_encoded(
+    mock_gpt_researcher, registry, monkeypatch
+):
+    """B1 fix: o Resource recebe o topic já URL-encoded (do FastMCP
+    client) e deve decodificá-lo antes da validação.
+
+    Caso "São Paulo" encoded: ``S%C3%A3o%20Paulo`` deve virar
+    ``São Paulo`` no cache."""
+    from server import research_resource
+    monkeypatch.setattr("percival_research.app.registry", registry)
+
+    result = await research_resource("S%C3%A3o%20Paulo")
+
+    # Cache ou normalize o topic para "São Paulo"; o SECURITY WARNING
+    # aparece junto com o conteúdo cacheado
+    assert "SECURITY WARNING" in result
+    # Não pode ter ficado com %20 ou %C3%A3 (seria decode falho)
+    assert "%20" not in result
+    assert "%C3%A3" not in result
+
+
+@pytest.mark.asyncio
+async def test_research_resource_decodes_url_safe(
+    mock_gpt_researcher, registry, monkeypatch
+):
+    """Slashes (path separator) devem ser decodados para não
+    virar múltiplos tópicos no URI."""
+    from server import research_resource
+    monkeypatch.setattr("percival_research.app.registry", registry)
+
+    # "Q3/A4" encoded as "Q3%2FA4" → decodifica para "Q3/A4"
+    result = await research_resource("Q3%2FA4")
+    assert "SECURITY WARNING" in result
+
+
+@pytest.mark.asyncio
+async def test_research_resource_normal_topic_sem_encoded(
+    mock_gpt_researcher, registry, monkeypatch
+):
+    """Quando o topic chega raw (sem encoding), o resource deve
+    funcionar normalmente — sem quebrar."""
+    from server import research_resource
+    monkeypatch.setattr("percival_research.app.registry", registry)
+
+    # A FastMCP client URL-encoda automaticamente. Mas se um agent
+    # constrói o URI na mão, ele pode passar "machine learning"
+    # %-encoded ou raw.
+    result_raw = await research_resource("machine learning")
+    result_encoded = await research_resource("machine%20learning")
+
+    # ambos devem chegar ao mesmo cache key (decode + normalize)
+    assert "SECURITY WARNING" in result_raw
+    assert "SECURITY WARNING" in result_encoded

@@ -136,11 +136,12 @@ class TestInferenceSlotsPopulated:
         from llm_bridge import apply_env_mappings
         s = load_settings()
         apply_env_mappings(s)
-        # Os 4 slots agora têm o mesmo valor
+        # Os 3 chat slots agora têm o mesmo valor. EMBEDDING_LLM recebe
+        # default sensato (B5 fix v2.2.1: NÃO é o chat model).
         assert os.environ["FAST_LLM"] == "openai:gpt-4o-mini"
         assert os.environ["SMART_LLM"] == "openai:gpt-4o-mini"
         assert os.environ["STRATEGIC_LLM"] == "openai:gpt-4o-mini"
-        assert os.environ["EMBEDDING_LLM"] == "openai:gpt-4o-mini"
+        assert "embedding" in os.environ["EMBEDDING_LLM"]  # B5 fix
 
     def test_override_por_slot_e_respeitado(self, monkeypatch):
         """Se o user setou STRATEGIC_LLM, NÃO sobrescrever com INFERENCE_LLM."""
@@ -155,10 +156,11 @@ class TestInferenceSlotsPopulated:
         apply_env_mappings(s)
         # STRATEGIC preservado
         assert os.environ["STRATEGIC_LLM"] == "openai:gpt-4o"
-        # Os outros 3 copiados do INFERENCE_LLM
+        # Os outros 3 copiados do INFERENCE_LLM (chat slots)
         assert os.environ["FAST_LLM"] == "openai:gpt-4o-mini"
         assert os.environ["SMART_LLM"] == "openai:gpt-4o-mini"
-        assert os.environ["EMBEDDING_LLM"] == "openai:gpt-4o-mini"
+        # EMBEDDING_LLM NÃO recebe o chat-model (B5 fix)
+        assert "embedding" in os.environ["EMBEDDING_LLM"]  # default sensato
 
     def test_alias_venice_traduzido_com_autodetect(self, monkeypatch):
         """INFERENCE_LLM=venice:llama → openai:llama após apply_env_mappings."""

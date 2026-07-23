@@ -15,7 +15,6 @@ Uso:
 import time
 from typing import Optional
 
-import httpx
 import pytest
 
 # ──────────────────────────────────────────────
@@ -28,12 +27,19 @@ BASE_URL = "http://localhost:8000"
 @pytest.fixture
 async def http_client():
     """Cliente HTTP assíncrono para os testes de integração."""
+    # B4 fix: lazy import — `httpx` ainda é dep de dev mas só
+    # precisamos importar quando o servidor estiver disponível.
+    try:
+        import httpx
+    except ImportError:
+        pytest.skip("httpx não instalado (rode `uv sync --group dev`)")
     async with httpx.AsyncClient(base_url=BASE_URL, timeout=30.0) as client:
         yield client
 
 
 def get_session_id_from_sse(base_url: str = BASE_URL) -> Optional[str]:
     """Obtém o session_id conectando ao endpoint SSE."""
+    import httpx  # B4 fix: lazy import
     try:
         with httpx.stream("GET", f"{base_url}/sse") as response:
             for line in response.iter_lines():
@@ -429,7 +435,7 @@ class MCPSession:
         self.base_url = base_url
         self.session_id = session_id
 
-    async def send(self, client: httpx.AsyncClient, message: dict) -> dict:
+    async def send(self, client, message: dict) -> dict:
         url = f"{self.base_url}/messages/?session_id={self.session_id}"
         response = await client.post(url, json=message)
         assert response.status_code in [200, 202], (
