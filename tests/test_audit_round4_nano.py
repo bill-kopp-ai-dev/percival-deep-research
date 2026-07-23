@@ -187,6 +187,132 @@ class TestIncludeContextStrictBool:
         assert "dict" in result
 
 
+class TestIncludeContextStrictBoolFramework:
+    """N9: framework-level strict bool rejection (complementa handler-level).
+
+    Roda via FastMCP Client in-process — passa pelo Pydantic validator
+    ANTES do handler. Sem o `StrictBool` annotation em deep_research,
+    strings como 'yes'/'false'/'no' são coagidas para True pelo
+    Pydantic lax mode, e o handler nunca vê o erro.
+    """
+
+    @pytest.mark.asyncio
+    async def test_include_context_string_rejeitado_pelo_framework(self):
+        """include_context='yes' via FastMCP client → ToolError, não silent coerce."""
+        import os
+        server_py = os.path.join(
+            os.path.dirname(__file__), "..", "server.py",
+        )
+        server_py = os.path.abspath(server_py)
+        with open(server_py) as f:
+            src = f.read().replace(
+                'if __name__ == "__main__":\n    run_server()', 'pass',
+            )
+        ns = {"__name__": "srv_test_n9"}
+        # Limpa credenciais para o framework rejeitar logo na coerção
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
+                  "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
+            os.environ.pop(k, None)
+        exec(compile(src, server_py, "exec"), ns)
+        mcp = ns["mcp"]
+
+        import fastmcp
+        client = fastmcp.Client(mcp)
+        async with client:
+            try:
+                r = await client.call_tool(
+                    "research_deep",
+                    {"query": "t", "include_context": "yes"},
+                )
+                # Se chegou aqui sem exception, framework NÃO rejeitou → falha
+                text = (
+                    r.content[0].text
+                    if hasattr(r, "content") and r.content
+                    else ""
+                )
+                pytest.fail(
+                    f"Framework deveria rejeitar 'yes', mas aceitou: "
+                    f"text[:100]={text[:100]!r}"
+                )
+            except Exception as exc:
+                # ToolError ou ValidationError — qualquer um indica rejeição
+                msg = str(exc).lower()
+                assert (
+                    "boolean" in msg or "bool" in msg or "input" in msg
+                ), f"Erro inesperado (não menciona bool): {exc!r}"
+
+    @pytest.mark.asyncio
+    async def test_include_context_false_string_rejeitado(self):
+        """'false' (string) também é coerced → True em lax mode.
+        StrictBool deve barrar."""
+        import os
+        server_py = os.path.join(
+            os.path.dirname(__file__), "..", "server.py",
+        )
+        server_py = os.path.abspath(server_py)
+        with open(server_py) as f:
+            src = f.read().replace(
+                'if __name__ == "__main__":\n    run_server()', 'pass',
+            )
+        ns = {"__name__": "srv_test_n9_false"}
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
+                  "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
+            os.environ.pop(k, None)
+        exec(compile(src, server_py, "exec"), ns)
+        mcp = ns["mcp"]
+
+        import fastmcp
+        client = fastmcp.Client(mcp)
+        async with client:
+            try:
+                r = await client.call_tool(
+                    "research_deep",
+                    {"query": "t", "include_context": "false"},
+                )
+                text = (
+                    r.content[0].text
+                    if hasattr(r, "content") and r.content
+                    else ""
+                )
+                pytest.fail(
+                    f"Framework deveria rejeitar 'false', aceitou: "
+                    f"text[:100]={text[:100]!r}"
+                )
+            except Exception as exc:
+                msg = str(exc).lower()
+                assert "boolean" in msg or "bool" in msg or "input" in msg
+
+    @pytest.mark.asyncio
+    async def test_include_context_int_rejeitado(self):
+        """1 (int) também não deve passar em StrictBool."""
+        import os
+        server_py = os.path.join(
+            os.path.dirname(__file__), "..", "server.py",
+        )
+        server_py = os.path.abspath(server_py)
+        with open(server_py) as f:
+            src = f.read().replace(
+                'if __name__ == "__main__":\n    run_server()', 'pass',
+            )
+        ns = {"__name__": "srv_test_n9_int"}
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
+                  "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
+            os.environ.pop(k, None)
+        exec(compile(src, server_py, "exec"), ns)
+        mcp = ns["mcp"]
+
+        import fastmcp
+        client = fastmcp.Client(mcp)
+        async with client:
+            with pytest.raises(Exception) as exc_info:
+                await client.call_tool(
+                    "research_deep",
+                    {"query": "t", "include_context": 1},
+                )
+            msg = str(exc_info.value).lower()
+            assert "boolean" in msg or "bool" in msg or "input" in msg
+
+
 # ─── N6' ───────────────────────────────────────────────────────
 
 

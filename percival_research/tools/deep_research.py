@@ -8,6 +8,7 @@ from contextlib import redirect_stdout
 
 from gpt_researcher import GPTResearcher
 from loguru import logger
+from pydantic import StrictBool
 
 from percival_research.app import (
     UNIVERSAL_AGENT_NAME,
@@ -58,14 +59,23 @@ async def _acquire_in_flight_slot(query: str) -> tuple["asyncio.Future[str] | No
 
 
 @mcp.tool("research_deep")
-async def deep_research(query: str, include_context: bool = False) -> str:
-    """Performs deep multi-source web research on a query and returns a summary with sources."""
+async def deep_research(query: str, include_context: StrictBool = False) -> str:
+    """Performs deep multi-source web research on a query and returns a summary with sources.
+
+    Args:
+        query: Topic to research.
+        include_context: Strict bool (`True`/`False` only). Accepts
+            neither int (`1`/`0`) nor string ('yes'/'no'/'true'/'false') —
+            FastMCP framework coerces strings to bool in lax mode,
+            inflating the response with untrusted context. Use a real
+            boolean in the agent prompt.
+    """
     cid = new_correlation_id()
 
-    # N8 fix (rodada 4): strict bool validation. Sem isso, Pydantic em lax
-    # mode aceita `include_context='yes'` ou `'false'` (string truthy)
-    # — agentes com prompt mal-formatado acabam incluindo o contexto
-    # inteiro acidentalmente.
+    # N9 (rodada 4 pós-fix): StrictBool annotation rejeita a chamada no
+    # framework level (`bool_type Input should be a valid boolean`).
+    # O isinstance abaixo é defesa em profundidade — em produção,
+    # o erro do framework já é retornado antes do handler ser chamado.
     if not isinstance(include_context, bool):
         return (
             f"Error: include_context must be a boolean (got "
