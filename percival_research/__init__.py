@@ -12,6 +12,6 @@ try:
     try:
         __version__ = _pkg_version("percival-deep-research")
     except PackageNotFoundError:
-        __version__ = "2.3.1"
+        __version__ = "2.3.2"
 except ImportError:
     __version__ = "1.0.0+unknown"

@@ -940,8 +940,12 @@ def create_synthesis_prompt(
     }[length]
 
     return (
+        # Defense-in-depth: even though audience/length come from a
+        # closed allowlist, we still escape via repr to be safe in case
+        # future code adds a less-strict code path. `research_id` is
+        # validated as UUID (no quotes/backticks possible).
         f"Please re-synthesize research `{research_id}` for the audience "
-        f"`{audience}` at length `{length}`.\n\n"
+        f"{audience!r} at length {length!r}.\n\n"
         "Use the **`research_write_report`** MCP tool with:\n"
         f"- `research_id`: `{research_id}`\n"
         f"- `custom_prompt`: the synthesis specification below.\n\n"
@@ -1002,11 +1006,22 @@ def create_health_diagnose_prompt(symptoms: str) -> str:
     Returns:
         Markdown-formatted prompt string for the agent.
     """
-    safe_symptoms = (
-        sanitize_prompt(symptoms)
-        if symptoms and symptoms.strip()
-        else "(no symptoms provided)"
-    )
+    # A1 fix (rodada 2 review): truncar symptoms longos em vez de
+    # falhar com `[VALIDATION ERROR: ...]` (que o agente veria como
+    # symptoma, gerando ciclo confuso). Deixa 100 chars de margem para
+    # o cabeçalho de aviso de truncamento.
+    raw_symptoms = symptoms or ""
+    if not raw_symptoms.strip():
+        safe_symptoms = "(no symptoms provided)"
+    else:
+        try:
+            safe_symptoms = sanitize_prompt(raw_symptoms)
+        except ValueError:
+            truncated = raw_symptoms.strip()[:MAX_PROMPT_LEN - 200]
+            safe_symptoms = (
+                f"{truncated}\n\n[... truncated at "
+                f"{MAX_PROMPT_LEN} chars ...]"
+            )
     return (
         "Please diagnose the following symptoms from the "
         "`percival-deep-research` MCP server.\n\n"
@@ -1027,7 +1042,10 @@ def create_health_diagnose_prompt(symptoms: str) -> str:
         "  - `p50_latency_ms`: tail latency\n"
         "  - `deep_research_total`: counter of deep_research calls since boot\n\n"
         f"{_HEALTH_DIAGNOSE_DECISION_TREE}"
-        "## Step 2 — Output\n\n"
+        "## Step 2 — Apply the decision tree above\n\n"
+        "Match the symptoms against each branch. Where the wording is "
+        "literal (`Error: Server is busy`, etc.), prefer that branch.\n\n"
+        "## Step 3 — Output\n\n"
         "Conclude with:\n"
         "- **Diagnosis**: one paragraph describing the most likely cause.\n"
         "- **Action**: `retry` / `rephrase` / `escalate to user` / `report bug`.\n"

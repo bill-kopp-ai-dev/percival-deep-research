@@ -333,3 +333,89 @@ class TestUtilsLoaderShim:
                 "utils_loader shim falhou: `from utils import ...` não "
                 "resolve. Path injection não funcionou."
             )
+
+
+# ════════════════════════════════════════════════════════════════
+# Review round 2 — C1 (defense in depth) + A1 (truncate) + M1 (Steps 1-3)
+# ════════════════════════════════════════════════════════════════
+
+
+class TestSynthesisDefenseInDepth:
+    """C1: audience/length vão em `!r` no f-string mesmo após validação.
+
+    Hoje são validados por allowlist, mas `_repr` é defesa contra
+    mudanças futuras que possam afrouxar essa validação.
+    """
+
+    _VALID_UUID = "123e4567-e89b-12d3-a456-426614174000"
+
+    @pytest.mark.parametrize("audience", ["general", "executive", "technical", "academic"])
+    def test_audience_e_repr_com_aspas(self, audience):
+        """`general` aparece como `'general'` (quoted repr)."""
+        result = research_synthesis(self._VALID_UUID, audience=audience)
+        assert f"{audience!r}" in result  # 'general', "executive", etc.
+
+    @pytest.mark.parametrize("length", ["tl_dr", "short", "medium", "long"])
+    def test_length_e_repr_com_aspas(self, length):
+        result = research_synthesis(self._VALID_UUID, length=length)
+        assert f"{length!r}" in result
+
+
+class TestHealthDiagnoseTruncatesSymptoms:
+    """A1: symptoms > MAX_PROMPT_LEN são truncados, não `[VALIDATION ERROR]`."""
+
+    def test_symptoms_curto_passa_intacto(self):
+        result = research_health_diagnose("Error: timeout")
+        assert "Error: timeout" in result
+
+    def test_symptoms_longo_e_truncado_nao_rejeitado(self):
+        """5000 chars > 2000 MAX_PROMPT_LEN.
+        Deve truncar e avisar, não retornar [VALIDATION ERROR]."""
+        long_symptoms = "stack trace line\n" * 1000  # ~14k
+        result = research_health_diagnose(long_symptoms)
+
+        # Nota: o decision tree cita '[VALIDATION ERROR:' como exemplo
+        # de strings que vão para "Rephrase / narrow". Isso é uma
+        # CIT dentro do prompt, não um erro runtime — não é um blocker.
+        #
+        # O comportamento esperado (A1 fix) é que o symptoms box receba
+        # uma versão truncada + aviso, sem throw ValueError.
+        # Validamos: o symptoms box (entre 'Symptoms observed' e '## Step 1')
+        # NÃO contém a string '[VALIDATION ERROR' (que seria sinal de
+        # sanitize_prompt ter falhado).
+        symptoms_idx = result.index("## Symptoms observed")
+        step1_idx = result.index("## Step 1")
+        symptoms_box = result[symptoms_idx:step1_idx]
+        assert "[VALIDATION ERROR" not in symptoms_box, (
+            "Sanitize_prompt falhou e agora aparece como erro dentro "
+            "do symptoms box — comportamento antigo (pré-A1)."
+        )
+        # Tem o aviso de truncamento
+        assert "[... truncated at" in symptoms_box
+        # Tem pelo menos parte da mensagem
+        assert "stack trace line" in symptoms_box
+        # Continua pedindo /health e /metrics
+        assert "/health" in result
+        assert "/metrics" in result
+
+
+class TestHealthDiagnoseStepOrdering:
+    """M1: agora há Step 1 (inspect) + Step 2 (apply) + Step 3 (output)."""
+
+    def test_prompt_possui_3_steps_numerados(self):
+        result = research_health_diagnose("anything")
+        # Ordem lexicográfica: Step 1 deve vir antes de Step 3
+        assert "Step 1" in result
+        assert "Step 3" in result
+        # Step 1 vem antes de Step 3
+        assert result.index("Step 1") < result.index("Step 3")
+
+    def test_decision_tree_entre_step1_e_step3(self):
+        result = research_health_diagnose("anything")
+        idx_step1 = result.index("Step 1")
+        idx_decision = result.index("Decision tree")
+        idx_step3 = result.index("Step 3")
+
+        # A decision tree (substitute para Step 2 logic) está entre
+        # Step 1 e Step 3 na estrutura do prompt.
+        assert idx_step1 < idx_decision < idx_step3
