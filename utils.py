@@ -777,6 +777,17 @@ def create_research_prompt(
     Returns:
         Formatted research prompt string.
     """
+    # N6' fix (rodada 4): `goal` tem default na assinatura MCP — quando
+    # o agent passa explicitamente `goal=''` (string vazia), o sanitized
+    # rejeita com "Input cannot be empty". Mas o default do MCP
+    # (`"Sintetize os melhores resultados"`) só é aplicado no decorator
+    # de tipo — quando o caller passa `''` explicitamente, ele cai em
+    # `goal=None` no payload mas chega como string vazia no nível Python.
+    # Aqui normalizamos para o default antes de sanitize_prompt.
+    _DEFAULT_GOAL = "Sintetize os melhores resultados"
+    if goal is None or (isinstance(goal, str) and not goal.strip()):
+        goal = _DEFAULT_GOAL
+
     # Defensive double-sanitization — caller should have sanitized, but we enforce here.
     # `goal` é um "prompt-like" (semelhante a custom_prompt) → sanitize_prompt (2000 chars),
     # não sanitize_query (500 chars). Fix [audit-4].

@@ -8,6 +8,7 @@ from utils import (
     handle_exception,
     new_correlation_id,
     validate_research_id,
+    wrap_untrusted_content,
 )
 
 
@@ -29,6 +30,10 @@ async def get_research_sources(research_id: str) -> str:
 
         lines = [f"source_count: {len(formatted)}", ""]
         lines.extend(format_sources_lines(formatted))
-        return "\n".join(lines)
+        # N4 fix (rodada 4): `sources[].content` vem direto de páginas web
+        # scrapeadas — wrap consistente com `get_research_context` e
+        # `research://{topic}`. Sem isso, scraper malicioso injeta
+        # instruções sem aviso no agente.
+        return wrap_untrusted_content("\n".join(lines))
     except Exception as e:
         return handle_exception(e, "Get research sources", cid)
