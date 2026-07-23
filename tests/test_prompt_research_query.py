@@ -7,7 +7,12 @@ Cobre:
 - research_health_diagnose (NEW v2.3.0)
 - Smoke tests via FastMCP Client in-process (todos os 4 prompts
   registrados e retornam GetPromptResult não-None).
+- utils_loader shim (Issue #1 code-review: `from utils import ...`
+  funciona fora do repo thanks ao side-effect import em __init__).
 """
+
+from pathlib import Path
+import sys
 
 import pytest
 
@@ -178,12 +183,34 @@ class TestResearchHealthDiagnose:
         assert "bug" in result.lower()
 
     def test_diagnose_reconhece_BUSY_como_retry(self):
-        """``Server is busy`` deve aparecer na categoria retry."""
-        result = research_health_diagnose("Error: Server is busy (concurrent research limit reached)")
-        # Pode aparecer como observação + como entrada do decision tree
-        # (a duplicação é OK; o ponto é: tanto no symptoms box quanto
-        # como heurística de retry)
-        assert result.count("Server is busy") >= 1
+        """``Server is busy`` deve aparecer tanto como symptoms (echo)
+        quanto como entrada da decision tree de retry.
+
+        Medimos posição: o symptoms box está entre '## Symptoms observed'
+        e '## Step 1'. A mention de 'Server is busy' na decision tree
+        vem DEPOIS de '## Step 1' no f-string.
+        """
+        result = research_health_diagnose(
+            "Error: Server is busy (concurrent research limit reached)"
+        )
+        symptoms_idx = result.index("## Symptoms observed")
+        step1_idx = result.index("## Step 1")
+        decision_idx = result.index("Decision tree")
+
+        # 1. Aparece no symptoms box (entre os delimiters)
+        busy_in_symptoms = (
+            "Server is busy" in result[symptoms_idx:step1_idx]
+        )
+        # 2. Aparece na decision tree listada DEPOIS de Step 1.
+        busy_in_decision = (
+            "Server is busy" in result[decision_idx:]
+        )
+        assert busy_in_symptoms, (
+            "Symptoms box deveria ecoar 'Server is busy'"
+        )
+        assert busy_in_decision, (
+            "Decision tree deveria listar 'Server is busy' como retry"
+        )
 
     def test_diagnose_reconhece_SECURITY_WARNING_como_escalate(self):
         """``[SECURITY WARNING: ...]`` deve mapear para escalate."""
@@ -207,39 +234,40 @@ class TestPromptsViaFastMCP:
     """Caminho framework — `prompts/list` e `prompts/get` via FastMCP."""
 
     @pytest.mark.asyncio
-    async def test_prompts_list_tem_exatamente_4_prompts(self):
+    async def test_prompts_list_tem_exatamente_4_prompts(
+        self, monkeypatch,
+    ):
         """v2.3.0 surface: 4 prompts registrados."""
-        import os
         from fastmcp import Client
 
-        # Limpar env que possa quebrar o gpt-researcher load
+        # Limpar env que possa quebrar o gpt-researcher load.
+        # monkeypatch é auto-cleanup — sem resíduos em testes subsequentes.
         for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
                   "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
-            os.environ.pop(k, None)
+            monkeypatch.delenv(k, raising=False)
 
         from server import mcp
         client = Client(mcp)
         async with client:
             prompts = await client.list_prompts()
 
-        names = sorted(p.name for p in prompts)
-        assert names == [
+        names = {p.name for p in prompts}
+        assert names == {
             "research_health_diagnose",
             "research_query",
             "research_quick_brief",
             "research_synthesis",
-        ], f"Surface mudou: {names}"
+        }, f"Surface mudou: {names}"
 
     @pytest.mark.asyncio
-    async def test_prompts_get_todos_retornam_conteudo(self):
+    async def test_prompts_get_todos_retornam_conteudo(self, monkeypatch):
         """Cada um dos 4 prompts retorna conteúdo via Framework."""
-        import os
         import uuid as _uuid
         from fastmcp import Client
 
         for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
                   "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
-            os.environ.pop(k, None)
+            monkeypatch.delenv(k, raising=False)
 
         from server import mcp
         client = Client(mcp)
@@ -275,3 +303,33 @@ class TestPromptsViaFastMCP:
                 {"symptoms": "Error: foo"},
             )
             assert r4 is not None and len(r4.messages) >= 1
+
+
+# ════════════════════════════════════════════════════════════════
+# Review #1: utils_loader shim
+# ════════════════════════════════════════════════════════════════
+
+
+class TestUtilsLoaderShim:
+    """``from utils import ...`` continua funcionando mesmo quando o
+    pacote é importado de fora do repo, graças ao side-effect do
+    ``percival_research/utils_loader.py``.
+    """
+
+    def test_imports_top_level_utils_modulo(self):
+        """Simula import de fora do repo: remove `utils` de sys.modules
+        e valida que `from utils import ...` ainda resolve."""
+        # Clear `utils` cacheado, simula outro processo
+        sys.modules.pop("utils", None)
+        # O side-effect import em percival_research.__init__ já rodou;
+        # restaura o path antes de testar.
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+        try:
+            from utils import sanitize_topic  # noqa: F401
+            assert callable(sanitize_topic)
+        except ImportError:
+            pytest.fail(
+                "utils_loader shim falhou: `from utils import ...` não "
+                "resolve. Path injection não funcionou."
+            )

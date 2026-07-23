@@ -63,7 +63,6 @@ def research_quick_brief(topic: str) -> str:
     - Não usa LLM (só busca no retriever configurado).
     - Não retorna ``research_id`` — não há follow-up com
       ``write_report``.
-    - Não dispara o compressor de patches.
 
     Args:
         topic: Tópico para brief (raw — sanitizado via ``sanitize_topic``).
@@ -123,8 +122,9 @@ def research_health_diagnose(symptoms: str) -> str:
 
     Args:
         symptoms: Texto livre com o erro observado (raw). Sanitizado
-            via ``sanitize_prompt`` (max 2000 chars). Strings vazias
-            viram ``"(no symptoms provided)"``.
+            via ``sanitize_prompt`` (limite definido por MAX_PROMPT_LEN
+            em ``utils``). Strings vazias ou somente whitespace viram
+            ``"(no symptoms provided)"``.
 
     Returns:
         Prompt com instrução passo-a-passo (5 passos numerados).

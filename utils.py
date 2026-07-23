@@ -913,7 +913,6 @@ def create_synthesis_prompt(
         raise ValueError(
             f"research_id {research_id!r} is not a valid UUID."
         )
-    safe_research_id = research_id
     audience_intro = {
         "general": (
             "For a general audience: clear, jargon-free language. "
@@ -941,10 +940,10 @@ def create_synthesis_prompt(
     }[length]
 
     return (
-        f"Please re-synthesize research `{safe_research_id}` for the audience "
+        f"Please re-synthesize research `{research_id}` for the audience "
         f"`{audience}` at length `{length}`.\n\n"
         "Use the **`research_write_report`** MCP tool with:\n"
-        f"- `research_id`: `{safe_research_id}`\n"
+        f"- `research_id`: `{research_id}`\n"
         f"- `custom_prompt`: the synthesis specification below.\n\n"
         "## Audience\n\n"
         f"{audience_intro}\n\n"
@@ -1003,7 +1002,11 @@ def create_health_diagnose_prompt(symptoms: str) -> str:
     Returns:
         Markdown-formatted prompt string for the agent.
     """
-    safe_symptoms = sanitize_prompt(symptoms) if symptoms else "(no symptoms provided)"
+    safe_symptoms = (
+        sanitize_prompt(symptoms)
+        if symptoms and symptoms.strip()
+        else "(no symptoms provided)"
+    )
     return (
         "Please diagnose the following symptoms from the "
         "`percival-deep-research` MCP server.\n\n"
@@ -1024,7 +1027,7 @@ def create_health_diagnose_prompt(symptoms: str) -> str:
         "  - `p50_latency_ms`: tail latency\n"
         "  - `deep_research_total`: counter of deep_research calls since boot\n\n"
         f"{_HEALTH_DIAGNOSE_DECISION_TREE}"
-        "## Step 3 — Output\n\n"
+        "## Step 2 — Output\n\n"
         "Conclude with:\n"
         "- **Diagnosis**: one paragraph describing the most likely cause.\n"
         "- **Action**: `retry` / `rephrase` / `escalate to user` / `report bug`.\n"
