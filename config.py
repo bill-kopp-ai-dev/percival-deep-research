@@ -21,6 +21,7 @@ import sys
 from dataclasses import dataclass, field
 
 from loguru import logger
+from utils import PLACEHOLDER_OPENERS
 
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
@@ -248,14 +249,6 @@ def load_settings() -> Settings:
 # ─────────────────────────────────────────────────────────────────────
 
 
-_PLACEHOLDER_SIGNALS = (
-    "${",          # bash-style `${VAR}` ou `${VAR:-default}`
-    "%(",          # python `(name)s`
-    "{",           # qualquer `{...}` (f-string, named placeholder)
-    "}",           # fecha de `{...}`
-)
-
-
 def _sanitize_inference_llm_or_warn(value: str) -> str:
     """Emite WARN se `INFERENCE_LLM` parece placeholder (não-interpolado)
     e retorna o valor intacto (não bloqueia o startup — apenas alerta).
@@ -287,7 +280,7 @@ def _sanitize_inference_llm_or_warn(value: str) -> str:
         return value
 
     # Caso 2: placeholder cru `${...}` ou similar.
-    if any(sig in value for sig in _PLACEHOLDER_SIGNALS):
+    if any(sig in value for sig in PLACEHOLDER_OPENERS):
         logger.warning(
             f"[S6] INFERENCE_LLM={value!r} looks like an UN-EXPANDED "
             f"template placeholder. Most likely cause: `.env` or "

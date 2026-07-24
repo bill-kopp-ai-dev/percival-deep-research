@@ -137,6 +137,14 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
         # S3 fix (roda 5): sem este consume explícito, o Python log
         # "Future exception was never retrieved" toda vez que o rate
         # limiter rejeita. Agora consumimos para limpeza de warning.
+        #
+        # Invariante: no caminho desta branch, o caller é o criador
+        # (já passou pelo check `if not is_creator: return …`). A
+        # future estava pendente apenas para FUTUROS waiters que
+        # venham a buscar a mesma query no `_IN_FLIGHT`. Como
+        # acabamos de pop a slot, qualquer novo caller vai criar
+        # uma future nova e não verá esta — então ninguém vai
+        # `await` nela. Consumir a exception é seguro.
         future.exception()
         metrics.record_timeout("deep_research")
         logger.warning(f"[{cid}] rate limit acquire timeout")

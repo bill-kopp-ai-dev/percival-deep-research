@@ -34,6 +34,26 @@ MAX_PROMPT_LEN = 2_000
 MAX_TOPIC_LEN = 300
 MAX_REPORT_FORMAT_LEN = 50
 
+
+# ─────────────────────────────────────────────────────────────────────
+# S6 fix (round 5) — INFERENCE_LLM placeholder detector (rodada 5)
+# ---------------------------------------------------------------------------
+# Sinais heurísticos de template literal. Quando uma dessas sequências
+# aparece em `INFERENCE_LLM`, é diagnóstico de upstream loader não-interpolou
+# a string. Mantido num único local para DRY (consumido por config.py e
+# llm_bridge.py — _PLACEHOLDER_SIGNALS original aqui migrado).
+#
+# Important: NÃO usamos `}` (fechamento de `${...}` ou `{name}`) sozinho
+# porque o `}` pode aparecer em muitos lugares legítimos. Mantemos só os
+# ABERTURAS: bash-style `${`, python `%(` e f-string/named `{`. (review-5)
+# ─────────────────────────────────────────────────────────────────────
+PLACEHOLDER_OPENERS = (
+    "${",          # bash-style `${VAR}` ou `${VAR:-default}`
+    "%(",          # python-format `%(name)s`
+    "{",           # qualquer f-string/named-placeholder abertura
+)
+
+
 # Known prompt injection patterns.
 # Detects the most common jailbreak and context-override techniques.
 _INJECTION_PATTERNS = re.compile(
