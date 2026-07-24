@@ -1,6 +1,6 @@
 [project]
 name = "percival-deep-research"
-version = "2.3.4"
+version = "3.0.0"
 description = "Percival Deep Research MCP Server — multi-source web research and report generation, optimized for the Nanobot agent ecosystem"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"

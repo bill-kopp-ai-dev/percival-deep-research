@@ -1,11 +1,25 @@
 """
-Percival Deep Research MCP Server — entrypoint.
+Percival Deep Research MCP Server — entrypoint (v3.0.0).
+
+Surface:
+- 5 tools: research_deep, research_quick_search, research_get_context,
+  research_get_sources, research_write_report
+- 1 resource: research://{topic}  (percent-decoded server-side)
+- 4 prompts: research_query, research_quick_brief, research_synthesis,
+  research_health_diagnose
+- /health and /metrics endpoints via FastMCP custom routes
 
 Module structure:
 - config.py: Settings (frozen dataclass, env-driven)
 - llm_bridge.py: Normalize venice:/minimax:/openrouter: → openai:
 - utils.py: Security, registry, formatters, Metrics, RateLimiter
-- percival_research/: app, tools, resources, prompts, health, metrics, patches
+  (also exports `PLACEHOLDER_OPENERS` for INFERENCE_LLM validation)
+- percival_research/: app, tools, resources, prompts, health, metrics,
+  patches, utils_loader (path-injection shim)
+
+Single source of inference config:
+- INFERENCE_API_KEY, INFERENCE_BASE_URL, INFERENCE_LLM
+- OpenAI-compatible fallbacks still accepted with deprecation log
 """
 
 import os
