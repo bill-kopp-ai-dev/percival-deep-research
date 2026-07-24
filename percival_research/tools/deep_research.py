@@ -134,6 +134,10 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
                     "(server busy)"
                 )
             )
+        # S3 fix (roda 5): sem este consume explícito, o Python log
+        # "Future exception was never retrieved" toda vez que o rate
+        # limiter rejeita. Agora consumimos para limpeza de warning.
+        future.exception()
         metrics.record_timeout("deep_research")
         logger.warning(f"[{cid}] rate limit acquire timeout")
         return (

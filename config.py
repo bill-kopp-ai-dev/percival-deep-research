@@ -20,6 +20,8 @@ import re
 import sys
 from dataclasses import dataclass, field
 
+from loguru import logger
+
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _VALID_TRANSPORTS = {"stdio", "sse", "streamable-http"}
@@ -177,6 +179,10 @@ def load_settings() -> Settings:
     inference_api_key = _env_str_fallback("INFERENCE_API_KEY", "OPENAI_API_KEY")
     inference_base_url = _env_str_fallback("INFERENCE_BASE_URL", "OPENAI_BASE_URL")
     inference_llm = os.getenv("INFERENCE_LLM", "openai:gpt-4o-mini")
+    # S6 fix (roda 5): emite WARN cedo se `INFERENCE_LLM` está em formato
+    # não reconhecido pelo gpt-researcher (<provider>:<model>). Sem este
+    # guard, o erro só aparece deep inside `parse_llm`.
+    inference_llm = _sanitize_inference_llm_or_warn(inference_llm)
     inference_provider_alias = _detect_provider_alias(inference_base_url)
 
     # Provider aliases legacy (PERCIVAL_LLM_PROVIDER_ALIASES) — fallback
@@ -235,3 +241,59 @@ def load_settings() -> Settings:
             or "minimax-m27"  # nunca vazio (corromperia re.sub)
         ),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# S6 (roda 5) — INFERENCE_LLM sanity-check
+# ─────────────────────────────────────────────────────────────────────
+
+
+_PLACEHOLDER_SIGNALS = (
+    "${",          # bash-style `${VAR}` ou `${VAR:-default}`
+    "%(",          # python `(name)s`
+    "{",           # qualquer `{...}` (f-string, named placeholder)
+    "}",           # fecha de `{...}`
+)
+
+
+def _sanitize_inference_llm_or_warn(value: str) -> str:
+    """Emite WARN se `INFERENCE_LLM` parece placeholder (não-interpolado)
+    e retorna o valor intacto (não bloqueia o startup — apenas alerta).
+
+    O bug reproduzido (ver `MCP_Docs/Issues/2026-07-23-...-inference-llm-
+    placeholder.md`) mostrou que `.nanobot-test/.env:89` segura
+    `INFERENCE_API_KEY=${MINIMAX_API_KEY}` (literal bash-style) e
+    `.nanobot-test/config.json:776` segura
+    `INFERENCE_LLM=${INFERENCE_LLM:-openai:gpt-4o-mini}` — o resultado
+    chegou literal em `gpt_researcher.config.config.parse_llm()` que
+    corta no primeiro `:` e gera a mensagem erma
+    `Unsupported ${INFERENCE_LLM.`.
+
+    Importante: NÃO substituímos o valor por default (mesmo sendo capaz)
+    — o operador pode ter um bom motivo para usar provider não-OpenAI.
+    Apenas avisamos e deixamos ele investigar.
+    """
+    if not value:
+        return value
+
+    # Caso 1: sem `:` — formato errado para gpt-researcher.
+    if ":" not in value:
+        logger.warning(
+            f"[S6] INFERENCE_LLM={value!r} does NOT match format "
+            f"'<provider>:<model>'. gpt-researcher will raise "
+            f"'Unsupported...' on first call. Fix: set INFERENCE_LLM "
+            f"to a literal value like 'openai:gpt-4o-mini'."
+        )
+        return value
+
+    # Caso 2: placeholder cru `${...}` ou similar.
+    if any(sig in value for sig in _PLACEHOLDER_SIGNALS):
+        logger.warning(
+            f"[S6] INFERENCE_LLM={value!r} looks like an UN-EXPANDED "
+            f"template placeholder. Most likely cause: `.env` or "
+            f"`config.json` referenced a placeholder (e.g. "
+            f"`${{INFERENCE_LLM:-openai:gpt-4o-mini}}`) that the loader "
+            f"couldn't interpolate. Replace it with a literal value."
+        )
+
+    return value

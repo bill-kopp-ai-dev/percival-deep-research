@@ -23,6 +23,9 @@ from __future__ import annotations
 
 import os
 import re
+import sys
+
+from loguru import logger
 
 from config import Settings
 
@@ -68,6 +71,14 @@ def populate_inference_slots(settings: Settings) -> None:
     if not settings.inference_llm:
         # Sem INFERENCE_LLM, não inventar valor — só preenche se já tiver.
         return
+
+    # S4 fix (roda 5): detecta valores mal-formados ANTES de propagar
+    # para os slots do gpt-researcher. Sem isso, o erro "Unsupported
+    # ${INFERENCE_LLM..." só aparece muito deep inside e não mostra o
+    # valor original. Usei stderr (via loguru) para que CI logs
+    # capturem — `print` também funciona mas loguru já tem filtros do
+    # patches/.
+    _warn_on_malformed_inference_llm(settings.inference_llm)
 
     # 1. Chat slots: copia INFERENCE_LLM para STRATEGIC/FAST/SMART_LLM
     #    se nenhuma delas estiver setada. EMBEDDING_LLM NÃO recebe este
@@ -164,3 +175,63 @@ def _apply_minimax_alias(val: str, settings: Settings) -> str:
             flags=re.IGNORECASE,
         )
     return val
+
+
+# ─────────────────────────────────────────────────────────────────────
+# S4 (roda 5) — Malformed INFERENCE_LLM detection
+# ─────────────────────────────────────────────────────────────────────
+
+
+# Símbolos típicos de bash-style templates. Quando aparecem em
+# `INFERENCE_LLM`, é diagnóstico de upstream não-interpolado:
+# `.env` ou `config.json` ainda segurando o placeholder cru.
+_LIKELY_PLACEHOLDERS = (
+    "${",            # bash-style
+    "%(",            # python-format `%(name)s`
+    "{",             # qualquer `{...}` (f-string, named placeholders)
+    "}",             # fecha de f-string/named placeholder
+)
+
+
+def _warn_on_malformed_inference_llm(value: str) -> None:
+    """Emite WARN se `INFERENCE_LLM` não está no formato ``<provider>:<model>``
+    esperado pelo gpt-researcher.
+
+    Modos de mal-formação detectados (todos bloqueiam o pipeline):
+
+    1. **Não-colonização** — string sem `:`. gpt-researcher faz
+       ``split(':', 1)`` e cai no ``except ValueError``.
+    2. **Template literal** — começa com `${`, `%(…`, ou contém `{…}` —
+       indica que `.env` ou `config.json` usou bash-style default value
+       `:-` que o loader não cobriu. Bug reproduzido em
+       `MCP_Docs/Issues/2026-07-23-percival-deep-research-inference-llm-placeholder.md`.
+
+    Sem este WARN (roda 5), o erro só aparece many layers deep dentro de
+    `gpt_researcher.config.config.parse_llm` e exibe só `Unsupported
+    ${INFERENCE_LLM.` (cortado no primeiro `:`), o que torna o
+    debugging remoto doloroso.
+    """
+    if ":" not in value:
+        logger.warning(
+            f"[S4-S6] INFERENCE_LLM={value!r} does NOT match the expected "
+            f"format '<provider>:<model>'. gpt-researcher's parse_llm() "
+            f"will raise 'Set SMART_LLM or FAST_LLM = "
+            f"<llm_provider>:<llm_model>'. Fix: set INFERENCE_LLM to "
+            f"e.g. 'openai:gpt-4o-mini' or 'minimax:Minimax-M3'."
+        )
+        return
+
+    if any(ph in value for ph in _LIKELY_PLACEHOLDERS):
+        # Heurística extraída do bug-report. Quando `INFERENCE_LLM`
+        # começa com `${` (bash-style) ou contém `${VAR:-default}`,
+        # o env foi carregado mas o template não foi interpolado
+        # pelo loader (.env ou config.json). Sugere-se ao operador
+        # substituir pelo valor literal em AMBOS os arquivos.
+        logger.warning(
+            f"[S4-S6] INFERENCE_LLM={value!r} looks like an UN-EXPANDED "
+            f"template placeholder (bash ${'{VAR:-default}'} / python "
+            f"%(name)s / f-string {{name}}). This means your `.env` "
+            f"or `config.json` contains a placeholder that was not "
+            f"interpolated. Replace with a literal value like "
+            f"'openai:gpt-4o-mini' on both files."
+        )
