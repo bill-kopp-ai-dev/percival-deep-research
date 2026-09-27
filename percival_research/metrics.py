@@ -9,7 +9,8 @@ import os
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from percival_research.app import mcp, metrics as _global_metrics
+from percival_research.app import mcp
+from percival_research.app import metrics as _global_metrics
 
 
 def log_query_safe(operation: str, query: str, cid: str) -> None:

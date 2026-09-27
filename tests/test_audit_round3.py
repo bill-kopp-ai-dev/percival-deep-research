@@ -1,9 +1,6 @@
 """Testes de regressão rodada 3 — bugs encontrados após rodadas 1+2."""
 
-import asyncio
-import os
-import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -16,8 +13,8 @@ class TestDeepResearchReleasesLimiter:
     @pytest.mark.asyncio
     async def test_release_sempre_chamado_em_sucesso(self, clean_app_state, mock_gpt_researcher):
         """Em success path, slots disponíveis após N chamadas == N."""
-        from percival_research.tools.deep_research import deep_research
         import percival_research.app as _app
+        from percival_research.tools.deep_research import deep_research
 
         # Começa com limiter de 2 slots, ambos ocupados
         max_before = _app.research_limiter._max
@@ -35,8 +32,8 @@ class TestDeepResearchReleasesLimiter:
     async def test_release_em_timeout_path(self, clean_app_state, mock_gpt_researcher, monkeypatch):
         """Em timeout de pesquisa, slot também é devolvido."""
         from dataclasses import replace
+
         import percival_research.app as _app
-        import percival_research.tools.deep_research as dr
 
         new_s = replace(_app._settings, research_timeout_s=0.1)
         monkeypatch.setattr(_app, "_settings", new_s)
@@ -51,6 +48,7 @@ class TestDeepResearchReleasesLimiter:
         max_before = _app.research_limiter._max
 
         from percival_research.tools.deep_research import deep_research
+
         result = await deep_research("topic for timeout")
 
         assert "internal limit" in result
@@ -61,13 +59,13 @@ class TestDeepResearchReleasesLimiter:
     async def test_release_em_excecao_generica(self, clean_app_state, mock_gpt_researcher):
         """Em exceção genérica, slot também é devolvido."""
         import percival_research.app as _app
-        mock_gpt_researcher.conduct_research = AsyncMock(
-            side_effect=RuntimeError("kaboom")
-        )
+
+        mock_gpt_researcher.conduct_research = AsyncMock(side_effect=RuntimeError("kaboom"))
 
         max_before = _app.research_limiter._max
 
         from percival_research.tools.deep_research import deep_research
+
         result = await deep_research("topic for exception")
 
         # Erro retornado
@@ -81,32 +79,39 @@ class TestDeepResearchReleasesLimiter:
     ):
         """3 chamadas sucessivas em série: cada uma pega+libera o slot."""
         # Reduzir o limiter para 2 slots e ver se 3 chamadas funcionam todas
-        from utils import RateLimiter
         import percival_research.app as _app
+        from utils import RateLimiter
 
         monkeypatch.setattr(
-            _app, "research_limiter", RateLimiter(max_concurrent=2),
+            _app,
+            "research_limiter",
+            RateLimiter(max_concurrent=2),
         )
         monkeypatch.setattr(
-            _dr if False else _app,
+            _app,
             "research_limiter",
             _app.research_limiter,
         )
 
         # Reaponta a referência no módulo também
         import percival_research.tools.deep_research as dr
+
         monkeypatch.setattr(dr, "_app.research_limiter", _app.research_limiter, raising=False)
 
         from percival_research.tools.deep_research import deep_research
+
         for i in range(3):
             r = await deep_research(f"query number {i}")
             assert "Research complete" in r or "Error" in r
 
     @pytest.mark.asyncio
-    async def test_concurrent_3x_sequential_after_refresh(self, clean_app_state, mock_gpt_researcher):
+    async def test_concurrent_3x_sequential_after_refresh(
+        self, clean_app_state, mock_gpt_researcher
+    ):
         """Sequência de 3 chamadas com limiter=2 deve completar sem timeout."""
         # Aqui o conftest definiu limiter=100, então todas passam.
         from percival_research.tools.deep_research import deep_research
+
         for i in range(3):
             r = await deep_research(f"sucessivel n={i}")
             assert "Research complete" in r
@@ -120,6 +125,7 @@ class TestSafeFormattedAppearsOnIncludeContext:
     @pytest.mark.asyncio
     async def test_include_context_retorna_cache_igual(self, clean_app_state, mock_gpt_researcher):
         from percival_research.tools.deep_research import deep_research
+
         result = await deep_research("Python 3.13 features", include_context=True)
 
         # Cabeçalho `## Research:` (do format_context_with_sources)
@@ -139,7 +145,6 @@ class TestDebugLogQueriesRuntime:
         self, clean_app_state, mock_gpt_researcher, monkeypatch
     ):
         """Configurando env após import, o toggle deve funcionar."""
-        from percival_research.metrics import log_query_safe
         from percival_research.tools.deep_research import deep_research
 
         # Garantir não-debug
@@ -153,8 +158,7 @@ class TestDebugLogQueriesRuntime:
             mock_logger.debug.assert_called()
             # E não .info()
             assert not mock_logger.info.called or any(
-                "deep_research" not in str(c)
-                for c in mock_logger.info.call_args_list
+                "deep_research" not in str(c) for c in mock_logger.info.call_args_list
             )
 
 
@@ -163,12 +167,14 @@ class TestFormatContextWithSourcesHandlesNone:
 
     def test_sources_none(self):
         from utils import format_context_with_sources
+
         result = format_context_with_sources("topic", "ctx body", None)
         assert "## Research: topic" in result
         assert "## Sources:\n" in result  # header sem entradas
 
     def test_sources_dict_nao_lista(self):
         from utils import format_context_with_sources
+
         # sources como iterable que não é list/tuple (ex.: generator) —
         # verifica o fallback list()
         def gen():
@@ -179,6 +185,7 @@ class TestFormatContextWithSourcesHandlesNone:
 
     def test_topic_none(self):
         from utils import format_context_with_sources
+
         # topic=None não explode (cai no fallback "(null)" ou "")
         result = format_context_with_sources(None, "ctx", [])
         # Não crasha
@@ -186,6 +193,7 @@ class TestFormatContextWithSourcesHandlesNone:
 
     def test_sources_lista_vazia(self):
         from utils import format_context_with_sources
+
         result = format_context_with_sources("Topic T", "ctx", [])
         assert "## Research: Topic T" in result
         # Sem entries
@@ -272,20 +280,21 @@ class TestServerLoggersFinallyRestoresSinks:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
 
-        import importlib
         # Não reimporta — usa o server.py carregado no conftest
         import server
+
         try:
             server.run_server()
         except Exception:
             # run_server pode levantar de mcp.run; ignore
             pass
 
-        captured = capsys.readouterr()
+        capsys.readouterr()
         # Após run, `get_research_id` ou outro módulo que importem
         # `from loguru import logger` deve conseguir logar.
         # Aqui verificamos que o logger TEM sink.
         from loguru import logger
+
         handlers = logger._core.handlers
         assert len(handlers) > 0, "Logger sinks foram removidos e não restaurados"
 
@@ -296,13 +305,13 @@ class TestResourcesHandlesNoneSources:
     @pytest.mark.asyncio
     async def test_research_resource_record_metric(self, clean_app_state, mock_gpt_researcher):
         """`research://{topic}` agora chama `record_latency`/`record_error`."""
-        from percival_research.resources import research_resource
         import percival_research.app as _app
+        from percival_research.resources import research_resource
 
         before_latencies = len(_app.metrics._latencies_ms)
 
         # Cache miss → chama _run_research_and_cache
-        result = await research_resource("topic recursos")
+        await research_resource("topic recursos")
 
         after_latencies = len(_app.metrics._latencies_ms)
 
@@ -317,6 +326,7 @@ class TestMetricsNoCacheHitsMisses:
 
     def test_snapshot_no_cache_hits(self):
         from utils import Metrics
+
         m = Metrics()
         snap = m.snapshot()
         assert "cache_hits" not in snap
@@ -324,6 +334,7 @@ class TestMetricsNoCacheHitsMisses:
 
     def test_no_attribute_cache_hits(self):
         from utils import Metrics
+
         m = Metrics()
         assert not hasattr(m, "cache_hits")
         assert not hasattr(m, "cache_misses")

@@ -90,32 +90,38 @@ def test_format_sources_lines_multiple():
 def test_validate_research_id_aceita_v1():
     """UUID v1 deve ser aceito (Fase 1: aceitar qualquer versão RFC 4122)."""
     from server import _validate_research_id
+
     v1 = str(_uuid.uuid1())
     assert _validate_research_id(v1) is True
 
 
 def test_validate_research_id_aceita_v4():
     from server import _validate_research_id
+
     assert _validate_research_id(str(_uuid.uuid4())) is True
 
 
 def test_validate_research_id_aceita_v3():
     """UUID v3 (MD5 namespace) deve ser aceito."""
     from server import _validate_research_id
+
     v3 = str(_uuid.uuid3(_uuid.NAMESPACE_DNS, "example.com"))
     assert _validate_research_id(v3) is True
 
 
 def test_validate_research_id_rejeita_path_traversal():
     from server import _validate_research_id
+
     assert _validate_research_id("../../etc/passwd") is False
 
 
 def test_validate_research_id_rejeita_vazio():
     from server import _validate_research_id
+
     assert _validate_research_id("") is False
 
 
 def test_validate_research_id_rejeita_lixo():
     from server import _validate_research_id
+
     assert _validate_research_id("not-a-uuid") is False

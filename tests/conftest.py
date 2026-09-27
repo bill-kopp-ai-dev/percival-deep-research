@@ -2,11 +2,9 @@
 
 import os
 import socket
-import uuid as _uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # ─────────────────────────────────────────────────────────────────
 # B4 fix (rodada 3): autouse fixture que pula testes de integração
@@ -87,14 +85,20 @@ def mock_researcher():
     r = MagicMock()
     r.conduct_research = AsyncMock()
     r.write_report = AsyncMock(return_value="# Mock Report\n\nConteúdo do relatório.")
-    r.quick_search = AsyncMock(return_value=[
-        "Snippet 1", "Snippet 2", "Snippet 3",
-    ])
+    r.quick_search = AsyncMock(
+        return_value=[
+            "Snippet 1",
+            "Snippet 2",
+            "Snippet 3",
+        ]
+    )
     r.get_research_context = MagicMock(return_value="Contexto sintetizado.")
-    r.get_research_sources = MagicMock(return_value=[
-        {"title": "Doc 1", "url": "https://a.com", "content": "abc"},
-        {"title": "Doc 2", "url": "https://b.com", "content": "defg"},
-    ])
+    r.get_research_sources = MagicMock(
+        return_value=[
+            {"title": "Doc 1", "url": "https://a.com", "content": "abc"},
+            {"title": "Doc 2", "url": "https://b.com", "content": "defg"},
+        ]
+    )
     r.get_source_urls = MagicMock(return_value=["https://a.com", "https://b.com"])
     return r
 
@@ -103,6 +107,7 @@ def mock_researcher():
 def registry():
     """Registry limpo para cada teste."""
     from utils import ResearchRegistry
+
     return ResearchRegistry()
 
 
@@ -139,12 +144,14 @@ def clean_app_state(monkeypatch):
     garante isolamento via monkeypatch.
     """
     from utils import ResearchRegistry
+
     fresh_registry = ResearchRegistry()
     fresh_metrics = None
 
     try:
         from percival_research import app as _app
         from utils import Metrics, RateLimiter
+
         fresh_metrics = Metrics()
         fresh_limiter = RateLimiter(max_concurrent=100)  # alto em testes
         monkeypatch.setattr(_app, "registry", fresh_registry)

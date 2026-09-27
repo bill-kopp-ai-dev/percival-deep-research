@@ -56,9 +56,7 @@ async def _run_research_and_cache(query: str, factory, cid: str) -> str:
             # chamam record_latency.
             elapsed_ms = (time.monotonic() - start) * 1000
             _app.metrics.record_latency("research_resource", elapsed_ms)
-            sys.stderr.write(
-                f"research://{query!r} timed out after {timeout_s}s\n"
-            )
+            sys.stderr.write(f"research://{query!r} timed out after {timeout_s}s\n")
             return (
                 f"[RESOURCE TIMEOUT] Research exceeded the {timeout_s}s "
                 f"internal limit (correlation_id={cid})."
@@ -82,9 +80,7 @@ async def _run_research_and_cache(query: str, factory, cid: str) -> str:
         _app.metrics.record_latency("research_resource", elapsed_ms)
         return handle_exception(e, f"Research resource ({query!r})", cid)
 
-    safe_formatted = wrap_untrusted_content(
-        format_context_with_sources(query, context, sources)
-    )
+    safe_formatted = wrap_untrusted_content(format_context_with_sources(query, context, sources))
     _app.registry.store(query, context, sources, source_urls, safe_formatted)
     elapsed_ms = (time.monotonic() - start) * 1000
     _app.metrics.record_latency("research_resource", elapsed_ms)
@@ -110,6 +106,7 @@ async def research_resource(topic: str) -> str:
     research run. Output is wrapped in a security banner.
     """
     from urllib.parse import unquote
+
     cid = new_correlation_id()
 
     # B1 fix: decode percent-encoded chars (e.g. ``%20`` → space) BEFORE

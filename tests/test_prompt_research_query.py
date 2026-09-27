@@ -11,8 +11,8 @@ Cobre:
   funciona fora do repo thanks ao side-effect import em __init__).
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -23,16 +23,13 @@ from server import (
     research_synthesis,
 )
 
-
 # ════════════════════════════════════════════════════════════════
 # research_query — existente (Fase 5)
 # ════════════════════════════════════════════════════════════════
 
 
 def test_prompt_valido():
-    result = research_query(
-        "Python", "What are new features in 3.13?", "research_report"
-    )
+    result = research_query("Python", "What are new features in 3.13?", "research_report")
     assert "research the following topic: Python" in result
     assert "research_report" in result
 
@@ -147,14 +144,18 @@ class TestResearchSynthesis:
     def test_synthesis_executive_longa_recomendada(self):
         """Combinação 'executive + long' deve mencionar decision-ready."""
         result = research_synthesis(
-            self._VALID_UUID, audience="executive", length="long",
+            self._VALID_UUID,
+            audience="executive",
+            length="long",
         )
         assert "decision" in result.lower() or "recommendation" in result.lower()
 
     def test_synthesis_academic_longa_separa_findings(self):
         """Combinação 'academic + long' deve mencionar findings vs limitations."""
         result = research_synthesis(
-            self._VALID_UUID, audience="academic", length="long",
+            self._VALID_UUID,
+            audience="academic",
+            length="long",
         )
         assert "findings" in result or "limitations" in result
 
@@ -198,25 +199,15 @@ class TestResearchHealthDiagnose:
         decision_idx = result.index("Decision tree")
 
         # 1. Aparece no symptoms box (entre os delimiters)
-        busy_in_symptoms = (
-            "Server is busy" in result[symptoms_idx:step1_idx]
-        )
+        busy_in_symptoms = "Server is busy" in result[symptoms_idx:step1_idx]
         # 2. Aparece na decision tree listada DEPOIS de Step 1.
-        busy_in_decision = (
-            "Server is busy" in result[decision_idx:]
-        )
-        assert busy_in_symptoms, (
-            "Symptoms box deveria ecoar 'Server is busy'"
-        )
-        assert busy_in_decision, (
-            "Decision tree deveria listar 'Server is busy' como retry"
-        )
+        busy_in_decision = "Server is busy" in result[decision_idx:]
+        assert busy_in_symptoms, "Symptoms box deveria ecoar 'Server is busy'"
+        assert busy_in_decision, "Decision tree deveria listar 'Server is busy' como retry"
 
     def test_diagnose_reconhece_SECURITY_WARNING_como_escalate(self):
         """``[SECURITY WARNING: ...]`` deve mapear para escalate."""
-        result = research_health_diagnose(
-            "[SECURITY WARNING: ...untrusted content...]"
-        )
+        result = research_health_diagnose("[SECURITY WARNING: ...untrusted content...]")
         assert "[SECURITY WARNING" in result
 
     def test_diagnose_consegue_string_vazia(self):
@@ -235,18 +226,19 @@ class TestPromptsViaFastMCP:
 
     @pytest.mark.asyncio
     async def test_prompts_list_tem_exatamente_4_prompts(
-        self, monkeypatch,
+        self,
+        monkeypatch,
     ):
         """v2.3.0 surface: 4 prompts registrados."""
         from fastmcp import Client
 
         # Limpar env que possa quebrar o gpt-researcher load.
         # monkeypatch é auto-cleanup — sem resíduos em testes subsequentes.
-        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
-                  "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
             monkeypatch.delenv(k, raising=False)
 
         from server import mcp
+
         client = Client(mcp)
         async with client:
             prompts = await client.list_prompts()
@@ -263,19 +255,24 @@ class TestPromptsViaFastMCP:
     async def test_prompts_get_todos_retornam_conteudo(self, monkeypatch):
         """Cada um dos 4 prompts retorna conteúdo via Framework."""
         import uuid as _uuid
+
         from fastmcp import Client
 
-        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL",
-                  "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
+        for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "INFERENCE_API_KEY", "INFERENCE_BASE_URL"):
             monkeypatch.delenv(k, raising=False)
 
         from server import mcp
+
         client = Client(mcp)
         async with client:
             # 1. research_query
             r1 = await client.get_prompt(
                 "research_query",
-                {"topic": "Python 3.13", "goal": "List features", "report_format": "research_report"},
+                {
+                    "topic": "Python 3.13",
+                    "goal": "List features",
+                    "report_format": "research_report",
+                },
             )
             assert r1 is not None and len(r1.messages) >= 1
 
@@ -327,6 +324,7 @@ class TestUtilsLoaderShim:
 
         try:
             from utils import sanitize_topic  # noqa: F401
+
             assert callable(sanitize_topic)
         except ImportError:
             pytest.fail(

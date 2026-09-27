@@ -39,7 +39,10 @@ class TestTranslateProvider:
         assert _translate_provider("minimax:mistral", settings) == "openai:mistral"
 
     def test_openrouter_para_openai(self, settings):
-        assert _translate_provider("openrouter:anthropic/claude-3", settings) == "openai:anthropic/claude-3"
+        assert (
+            _translate_provider("openrouter:anthropic/claude-3", settings)
+            == "openai:anthropic/claude-3"
+        )
 
     def test_openai_passa_direto(self, settings):
         assert _translate_provider("openai:gpt-4o", settings) == "openai:gpt-4o"

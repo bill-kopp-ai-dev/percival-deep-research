@@ -141,33 +141,40 @@ class TestValidateResearchId:
 
     def test_aceita_uuid_v1(self):
         from server import _validate_research_id
+
         v1 = str(_uuid.uuid1())
         assert _validate_research_id(v1) is True
 
     def test_aceita_uuid_v3(self):
         from server import _validate_research_id
+
         v3 = str(_uuid.uuid3(_uuid.NAMESPACE_DNS, "example.com"))
         assert _validate_research_id(v3) is True
 
     def test_aceita_uuid_v4(self):
         from server import _validate_research_id
+
         assert _validate_research_id(str(_uuid.uuid4())) is True
 
     def test_aceita_uuid_v5(self):
         from server import _validate_research_id
+
         v5 = str(_uuid.uuid5(_uuid.NAMESPACE_DNS, "example.com"))
         assert _validate_research_id(v5) is True
 
     def test_rejeita_path_traversal(self):
         from server import _validate_research_id
+
         assert _validate_research_id("../../etc/passwd") is False
 
     def test_rejeita_vazio(self):
         from server import _validate_research_id
+
         assert _validate_research_id("") is False
 
     def test_rejeita_lixo(self):
         from server import _validate_research_id
+
         assert _validate_research_id("not-a-uuid") is False
 
 
@@ -175,6 +182,7 @@ class TestCompressorPatchGuard:
     def test_patch_aplicado_ou_avisado(self):
         """Servidor não quebra mesmo se a lib mudou."""
         import server
+
         assert hasattr(server, "_PATCH_OK")
         assert isinstance(server._PATCH_OK, bool)
 
@@ -189,6 +197,7 @@ def test_deep_research_retorna_erro_em_timeout(monkeypatch):
     import asyncio as _asyncio
     from dataclasses import replace
     from unittest.mock import AsyncMock, patch
+
     import percival_research.app as _app
     import percival_research.tools.deep_research as dr
 

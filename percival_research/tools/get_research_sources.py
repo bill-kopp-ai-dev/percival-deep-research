@@ -1,7 +1,7 @@
 """Tool: get_research_sources — metadados das fontes."""
 
-from percival_research.app import mcp
 import percival_research.app as _app
+from percival_research.app import mcp
 from utils import (
     format_sources_for_response,
     format_sources_lines,

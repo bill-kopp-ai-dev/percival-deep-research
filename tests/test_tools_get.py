@@ -8,8 +8,8 @@ from percival_research.tools.deep_research import deep_research
 from percival_research.tools.get_research_context import get_research_context
 from percival_research.tools.get_research_sources import get_research_sources
 
-
 # ── get_research_context ─────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_research_context_sucesso(clean_app_state, mock_gpt_researcher):
@@ -38,6 +38,7 @@ async def test_get_research_context_id_nao_encontrado():
 
 
 # ── get_research_sources ─────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_research_sources_sucesso(clean_app_state, mock_gpt_researcher):

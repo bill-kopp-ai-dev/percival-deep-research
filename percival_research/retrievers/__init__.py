@@ -6,7 +6,7 @@ servidor pode usar o retriever independentemente (ex: tool
 `quick_search` customizada).
 """
 
-from typing import Protocol, Callable
+from typing import Protocol
 
 
 class Retriever(Protocol):
@@ -34,15 +34,12 @@ def register_retriever(name: str, cls: type) -> None:
 def get_retriever(name: str, **kwargs) -> Retriever:
     """Resolve e instancia um retriever pelo nome."""
     if name not in _REGISTRY:
-        raise ValueError(
-            f"Unknown retriever: {name!r}. "
-            f"Available: {sorted(_REGISTRY)}"
-        )
+        raise ValueError(f"Unknown retriever: {name!r}. Available: {sorted(_REGISTRY)}")
     return _REGISTRY[name](**kwargs)
 
 
 # Built-ins (carregados lazy; sem dependências externas obrigatórias)
-from . import duckduckgo as _ddg  # noqa: E402, F401
 from . import brave as _brave  # noqa: E402, F401
+from . import duckduckgo as _ddg  # noqa: E402, F401
 
 __all__ = ["Retriever", "register_retriever", "get_retriever"]

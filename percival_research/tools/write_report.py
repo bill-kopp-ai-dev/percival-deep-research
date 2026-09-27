@@ -6,8 +6,8 @@ from contextlib import redirect_stdout
 
 from loguru import logger
 
-from percival_research.app import mcp
 import percival_research.app as _app
+from percival_research.app import mcp
 from utils import (
     handle_exception,
     new_correlation_id,

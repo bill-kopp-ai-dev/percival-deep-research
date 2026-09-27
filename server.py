@@ -22,33 +22,31 @@ Single source of inference config:
 - OpenAI-compatible fallbacks still accepted with deprecation log
 """
 
-from fastmcp import FastMCP
 from loguru import logger
-
-from percival_research import __version__
-from percival_research.app import (
-    UNIVERSAL_AGENT_NAME,
-    UNIVERSAL_AGENT_ROLE,
-    _settings,
-    mcp,
-    metrics,
-    registry,
-    research_limiter,
-)
-from percival_research.health import _check_inference_configured, _check_retriever_configured
-from percival_research.patches import apply_compressor_patch
 
 # Side-effects: registrar tools, resource e prompt via decorators @mcp.*.
 import percival_research.tools as _tools  # noqa: F401  (registra tools via decorators)
+from percival_research import __version__
+from percival_research import prompts as _prompts  # noqa: F401
+from percival_research import resources as _resources  # noqa: F401
+from percival_research.app import (
+    _settings,
+    mcp,
+    metrics,  # noqa: F401  (re-export para tests: `from server import metrics`)
+    registry,  # noqa: F401  (re-export para tests)
+    research_limiter,  # noqa: F401  (re-export para tests)
+)
+from percival_research.health import (
+    _check_inference_configured,
+    health_check,  # noqa: F401  (registra /health)
+)
+from percival_research.metrics import metrics_endpoint  # noqa: F401  (registra /metrics)
+from percival_research.patches import apply_compressor_patch
 from percival_research.tools.deep_research import deep_research  # noqa: F401
-from percival_research.tools.quick_search import quick_search  # noqa: F401
-from percival_research.tools.write_report import write_report  # noqa: F401
 from percival_research.tools.get_research_context import get_research_context  # noqa: F401
 from percival_research.tools.get_research_sources import get_research_sources  # noqa: F401
-from percival_research import resources as _resources  # noqa: F401
-from percival_research import prompts as _prompts  # noqa: F401
-from percival_research.health import health_check  # noqa: F401  (registra /health)
-from percival_research.metrics import metrics_endpoint  # noqa: F401  (registra /metrics)
+from percival_research.tools.quick_search import quick_search  # noqa: F401
+from percival_research.tools.write_report import write_report  # noqa: F401
 
 # Aplicar monkey-patch do compressor (com guarda) cedo.
 _PATCH_OK = apply_compressor_patch()
@@ -62,6 +60,7 @@ from utils import (  # noqa: E402, F401
     rate_limited,
     validate_research_id,
 )
+
 # Alias histórico (rodada 3): `_validate_research_id` foi usado por 21 testes.
 # Mantido para compat até os testes serem migrados para `validate_research_id`.
 _validate_research_id = validate_research_id
@@ -85,6 +84,7 @@ def run_server() -> None:
     # inicial disparem exit/return que deixam sinks mutados para
     # módulos vizinhos no mesmo processo).
     import sys as _sys
+
     try:
         logger.remove()  # remove o default sink
         logger.add(_sys.stderr, level=settings.log_level)
@@ -124,14 +124,11 @@ def run_server() -> None:
             logger.info("STDIO transport (compatible with Nanobot and Claude Desktop)")
             mcp.run(transport="stdio")
         elif transport == "sse":
-            logger.info(
-                f"SSE mode — binding to {settings.mcp_host}:{settings.mcp_port}"
-            )
+            logger.info(f"SSE mode — binding to {settings.mcp_host}:{settings.mcp_port}")
             mcp.run(transport="sse", host=settings.mcp_host, port=settings.mcp_port)
         elif transport == "streamable-http":
             logger.info(
-                f"Streamable-HTTP mode — binding to "
-                f"{settings.mcp_host}:{settings.mcp_port}"
+                f"Streamable-HTTP mode — binding to {settings.mcp_host}:{settings.mcp_port}"
             )
             mcp.run(
                 transport="streamable-http",

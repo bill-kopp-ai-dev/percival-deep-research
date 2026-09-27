@@ -22,11 +22,13 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 
 WORKDIR /app
 
-# uv tuning — cache byte-code in the venv (slightly larger image, faster
-# runtime import), never download Python interpreters (we use the bundled
-# one), and prefer `copy` link mode for predictable layer diffs.
+# uv tuning — never download Python interpreters (we use the bundled one),
+# and prefer `copy` link mode for predictable layer diffs. We deliberately
+# leave `UV_COMPILE_BYTECODE` UNSET: with Python's `PYTHONDONTWRITEBYTECODE=1`
+# in effect, uv respects that and produces zero `.pyc` files, which saves
+# ~120 MB in the venv (the MCP server is long-running; one-time import cost
+# is negligible compared to gpt-researcher's heavy module loads).
 ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -49,6 +51,23 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --frozen \
     && uv run --no-sync python scripts/patch_gpt_researcher.py
+
+# Strip package bloat that is irrelevant to runtime (saves ~50 MB across
+# the 223 installed packages):
+#   - `tests/` and `test/` directories inside site-packages
+#     (pytest discovery / fixture imports, never used at runtime);
+#   - `*.pyi` type stubs (only consulted by mypy/pyright, not Python);
+#   - `*.dist-info/RECORD` and `INSTALLER` files (pip uses these for
+#     uninstall bookkeeping; the runtime uses importlib.metadata which
+#     reads METADATA + entry_points, both of which we keep).
+# `find ... -prune` skips any directory whose name starts with `_` or
+# `.` to avoid removing private vendor subdirs (e.g. `_pytest`, `__pycache__`,
+# though the latter is already empty thanks to PYTHONDONTWRITEBYTECODE).
+RUN find /app/.venv \
+        -type d \( -name 'tests' -o -name 'test' \) -prune -exec rm -rf {} + \
+    && find /app/.venv -name '*.pyi' -delete \
+    && find /app/.venv -name 'RECORD' -path '*.dist-info/RECORD' -delete \
+    && find /app/.venv -name 'INSTALLER' -path '*.dist-info/INSTALLER' -delete
 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 2: runtime

@@ -9,12 +9,13 @@ Cobre:
 """
 
 import os
-import pytest
 
+import pytest
 
 # ════════════════════════════════════════════════════════════════
 # Fase 1 — Config: INFERENCE_* com fallback OPENAI_*
 # ════════════════════════════════════════════════════════════════
+
 
 class TestInferenceApiKeyFallback:
     """`INFERENCE_API_KEY` substitui `OPENAI_API_KEY` (canônico), com
@@ -26,6 +27,7 @@ class TestInferenceApiKeyFallback:
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.delenv("INFERENCE_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_api_key == "k-canonic"
 
@@ -33,6 +35,7 @@ class TestInferenceApiKeyFallback:
         monkeypatch.delenv("INFERENCE_API_KEY", raising=False)
         monkeypatch.setenv("OPENAI_API_KEY", "sk-legacy")
         from config import load_settings
+
         s = load_settings()
         assert s.inference_api_key == "sk-legacy"
         captured = capsys.readouterr()
@@ -44,6 +47,7 @@ class TestInferenceApiKeyFallback:
         monkeypatch.delenv("INFERENCE_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_api_key == ""
 
@@ -51,6 +55,7 @@ class TestInferenceApiKeyFallback:
         monkeypatch.delenv("INFERENCE_BASE_URL", raising=False)
         monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         from config import load_settings
+
         s = load_settings()
         assert s.inference_base_url == "https://api.openai.com/v1"
 
@@ -62,6 +67,7 @@ class TestProviderAutoDetect:
         monkeypatch.setenv("INFERENCE_BASE_URL", "https://api.venice.ai/api/v1")
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_provider_alias == "venice"
 
@@ -69,6 +75,7 @@ class TestProviderAutoDetect:
         monkeypatch.setenv("INFERENCE_BASE_URL", "https://api.minimax.io/v1")
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_provider_alias == "minimax"
 
@@ -76,6 +83,7 @@ class TestProviderAutoDetect:
         monkeypatch.setenv("INFERENCE_BASE_URL", "https://openrouter.ai/api/v1")
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_provider_alias == "openrouter"
 
@@ -83,6 +91,7 @@ class TestProviderAutoDetect:
         monkeypatch.setenv("INFERENCE_BASE_URL", "https://my-custom-llm.example.com/v1")
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         # None = sem tradução automática, mantém como 'openai:' default
         assert s.inference_provider_alias is None
@@ -91,6 +100,7 @@ class TestProviderAutoDetect:
         monkeypatch.delenv("INFERENCE_BASE_URL", raising=False)
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.inference_provider_alias is None
 
@@ -101,6 +111,7 @@ class TestProviderAutoDetect:
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.setenv("PERCIVAL_LLM_PROVIDER_ALIASES", "minimax:,openrouter:")
         from config import load_settings
+
         s = load_settings()
         assert s.llm_provider_aliases[0] == "venice:"
         assert "minimax:" in s.llm_provider_aliases
@@ -111,10 +122,12 @@ class TestProviderAutoDetect:
 # Fase 1 — Config: RETRIEVER default = duckduckgo
 # ════════════════════════════════════════════════════════════════
 
+
 class TestDefaultRetriever:
     def test_default_e_duckduckgo(self, monkeypatch):
         monkeypatch.delenv("RETRIEVER", raising=False)
         from config import load_settings
+
         s = load_settings()
         assert s.default_retriever == "duckduckgo"
 
@@ -122,6 +135,7 @@ class TestDefaultRetriever:
 # ════════════════════════════════════════════════════════════════
 # Fase 2 — LLM Bridge: slots preenchidos a partir de INFERENCE_LLM
 # ════════════════════════════════════════════════════════════════
+
 
 class TestInferenceSlotsPopulated:
     def test_slots_vazios_sao_populados(self, monkeypatch):
@@ -134,6 +148,7 @@ class TestInferenceSlotsPopulated:
         monkeypatch.setenv("INFERENCE_LLM", "openai:gpt-4o-mini")
         from config import load_settings
         from llm_bridge import apply_env_mappings
+
         s = load_settings()
         apply_env_mappings(s)
         # Os 3 chat slots agora têm o mesmo valor. EMBEDDING_LLM recebe
@@ -152,6 +167,7 @@ class TestInferenceSlotsPopulated:
         monkeypatch.delenv("EMBEDDING_LLM", raising=False)
         from config import load_settings
         from llm_bridge import apply_env_mappings
+
         s = load_settings()
         apply_env_mappings(s)
         # STRATEGIC preservado
@@ -173,6 +189,7 @@ class TestInferenceSlotsPopulated:
         monkeypatch.delenv("EMBEDDING_LLM", raising=False)
         from config import load_settings
         from llm_bridge import apply_env_mappings
+
         s = load_settings()
         apply_env_mappings(s)
         # venice: → openai: (alias auto-prepended de INFERENCE_BASE_URL)
@@ -184,21 +201,22 @@ class TestInferenceSlotsPopulated:
 # Fase 4 — Health Check: schema v2.2
 # ════════════════════════════════════════════════════════════════
 
+
 class TestHealthSchemaV22:
     @pytest.mark.asyncio
     async def test_schema_contem_inference_configured(self):
         """Schema v2.2 troca openai_configured → inference_configured."""
-        from percival_research.app import mcp  # garante mcp carregado
 
         from server import health_check
+
         # Caso degradado (sem env, sem retriever) mas com chaves setadas
         # para forçar só o path unhealthy via retriever.
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("RETRIEVER", "BRAVE_API_KEY")}
+        env = {k: v for k, v in os.environ.items() if k not in ("RETRIEVER", "BRAVE_API_KEY")}
         with patch.dict(os.environ, env, clear=True):
             with patch.dict(os.environ, {"INFERENCE_API_KEY": "x", "RETRIEVER": "brave"}):
                 resp = await health_check(None)
                 import json
+
                 body = json.loads(resp.body)
                 assert "inference_configured" in body["checks"]
                 assert "openai_configured" not in body["checks"]
@@ -210,8 +228,8 @@ class TestHealthSchemaV22:
         """SEM RETRIEVER setado, default é duckduckgo → healthy mesmo
         sem BRAVE_API_KEY."""
         from server import health_check
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("RETRIEVER", "BRAVE_API_KEY")}
+
+        env = {k: v for k, v in os.environ.items() if k not in ("RETRIEVER", "BRAVE_API_KEY")}
         with patch.dict(os.environ, env, clear=True):
             with patch.dict(os.environ, {"INFERENCE_API_KEY": "x"}):
                 resp = await health_check(None)
@@ -221,7 +239,7 @@ class TestHealthSchemaV22:
 # ════════════════════════════════════════════════════════════════
 # Helpers — import monkey para `patch`
 # ════════════════════════════════════════════════════════════════
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: E402
 
 # (Locally imported here so it's available for the @pytest.mark.asyncio
 # classes above.)

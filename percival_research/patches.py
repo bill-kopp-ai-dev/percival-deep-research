@@ -14,14 +14,14 @@ async def _bypass_compressor_completely(
 ) -> str:
     """Zero-latency override: disables semantic embeddings network requests.
 
-    Robusto contra (audits acumulada):
-      - `self.documents = None` (algumas combinações de Retrievers).
-      - `metadata = None` em objects LangChain.
-      - `page_content = None` em objects LangChain.
-      - doc com valor `None` (não deve virar string literal "None" no output).
-      - doc sendo `str` pura (evita aspas extras no output).
-      - doc sendo `dict` no formato de retriever (BraveSearch/Serper).
-..."""
+        Robusto contra (audits acumulada):
+          - `self.documents = None` (algumas combinações de Retrievers).
+          - `metadata = None` em objects LangChain.
+          - `page_content = None` em objects LangChain.
+          - doc com valor `None` (não deve virar string literal "None" no output).
+          - doc sendo `str` pura (evita aspas extras no output).
+          - doc sendo `dict` no formato de retriever (BraveSearch/Serper).
+    ..."""
     docs_text = []
     docs = self.documents if self.documents is not None else []
     if not isinstance(docs, (list, tuple)):
@@ -39,12 +39,7 @@ async def _bypass_compressor_completely(
         if isinstance(d, dict):
             source = d.get("href") or d.get("url", "") or ""
             title = d.get("title", "") or ""
-            content = (
-                d.get("body")
-                or d.get("raw_content")
-                or d.get("content")
-                or ""
-            )
+            content = d.get("body") or d.get("raw_content") or d.get("content") or ""
         else:
             meta = getattr(d, "metadata", None) or {}
             source = meta.get("source", "") or ""
@@ -79,9 +74,7 @@ def apply_compressor_patch() -> bool:
     try:
         actual_params = set(inspect.signature(original).parameters)
     except (TypeError, ValueError) as exc:
-        logger.warning(
-            f"Compressor patch skipped (cannot inspect signature): {exc}"
-        )
+        logger.warning(f"Compressor patch skipped (cannot inspect signature): {exc}")
         return False
 
     if actual_params != expected_params:
@@ -97,7 +90,5 @@ def apply_compressor_patch() -> bool:
         logger.info("Compressor patch applied successfully")
         return True
     except (AttributeError, TypeError) as exc:
-        logger.warning(
-            f"Compressor patch skipped (incompatible gpt-researcher version): {exc}"
-        )
+        logger.warning(f"Compressor patch skipped (incompatible gpt-researcher version): {exc}")
         return False

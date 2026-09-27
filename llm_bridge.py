@@ -24,11 +24,8 @@ from __future__ import annotations
 import os
 import re
 
-from loguru import logger
-
 from config import Settings
 from utils import PLACEHOLDER_OPENERS
-
 
 # ---------------------------------------------------------------------------
 # Constantes de slot
@@ -160,7 +157,7 @@ def _translate_provider(val: str, settings: Settings) -> str:
     # Ordem: percorre aliases (que já incluem o auto-detectado no início).
     for prefix in settings.llm_provider_aliases:
         if val.startswith(prefix):
-            rest = val[len(prefix):]
+            rest = val[len(prefix) :]
             return f"openai:{rest}"
     return val
 
@@ -210,4 +207,3 @@ def _warn_on_malformed_inference_llm(value: str) -> None:
 # Re-export PLACEHOLDER_OPENERS via _LIKELY_PLACEHOLDERS para
 # retro-compat (test_audit_round5_placeholder.py pode referenciar).
 _LIKELY_PLACEHOLDERS = PLACEHOLDER_OPENERS
-

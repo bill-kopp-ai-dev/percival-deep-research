@@ -143,6 +143,34 @@ class TestDockerfile:
             "crashes on import with NameError."
         )
 
+    def test_disables_bytecode_compilation(self, contents: str) -> None:
+        # UV_COMPILE_BYTECODE=1 + PYTHONDONTWRITEBYTECODE=1 would conflict
+        # and bake ~120 MB of .pyc files into the venv. We rely on
+        # PYTHONDONTWRITEBYTECODE alone (uv respects it when
+        # UV_COMPILE_BYTECODE is unset).
+        compile_set = re.search(r"UV_COMPILE_BYTECODE\s*=\s*1", contents)
+        assert not compile_set, (
+            "Dockerfile must NOT set UV_COMPILE_BYTECODE=1 — it conflicts "
+            "with PYTHONDONTWRITEBYTECODE=1 and bakes ~120 MB of .pyc files "
+            "into the venv. Just set PYTHONDONTWRITEBYTECODE=1."
+        )
+        # PYTHONDONTWRITEBYTECODE must be set somewhere (builder or runtime).
+        assert "PYTHONDONTWRITEBYTECODE" in contents, (
+            "Dockerfile must set PYTHONDONTWRITEBYTECODE=1 to avoid .pyc bloat in the image."
+        )
+
+    def test_strips_package_bloat(self, contents: str) -> None:
+        # The cleanup step removes tests/, *.pyi, and *.dist-info/RECORD.
+        # Asserts all three categories are covered.
+        for token, rationale in (
+            ("tests", "removes ~49 MB of tests/ directories from packages"),
+            ("*.pyi", "removes ~2.7 MB of type stubs (.pyi files)"),
+            ("RECORD", "removes pip's RECORD files (uninstall bookkeeping)"),
+        ):
+            assert token in contents, (
+                f"Dockerfile cleanup step must handle `{token}` — {rationale}."
+            )
+
     def test_runs_as_non_root(self, contents: str) -> None:
         # USER directive must be present (and not be `USER root`).
         user_lines = [ln.strip() for ln in contents.splitlines() if ln.strip().startswith("USER ")]

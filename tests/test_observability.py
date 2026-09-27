@@ -13,6 +13,7 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_healthy_quando_tudo_configurado(self):
         from server import health_check
+
         with patch.dict(
             os.environ,
             {"OPENAI_API_KEY": "x", "RETRIEVER": "brave", "BRAVE_API_KEY": "y"},
@@ -26,11 +27,10 @@ class TestHealthCheck:
         incorretamente — deep_research/quick_search falhariam em toda
         chamada real, mas o health check dizia 200. Ver health.py."""
         from server import health_check
+
         env = {k: v for k, v in os.environ.items() if k != "BRAVE_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
-            with patch.dict(
-                os.environ, {"OPENAI_API_KEY": "x", "RETRIEVER": "brave"}
-            ):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "x", "RETRIEVER": "brave"}):
                 resp = await health_check(None)
                 assert resp.status_code == 503
                 body = json.loads(resp.body)
@@ -39,6 +39,7 @@ class TestHealthCheck:
     @pytest.mark.asyncio
     async def test_degraded_sem_openai_key(self):
         from server import health_check
+
         env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
             with patch.dict(os.environ, {"RETRIEVER": "brave"}):
@@ -51,6 +52,7 @@ class TestHealthCheck:
         """v2.2: mudou pra duckduckgo como default. Para testar retriever
         degradado, setar `RETRIEVER=brave` explicitamente sem BRAVE_API_KEY."""
         from server import health_check
+
         env = {k: v for k, v in os.environ.items() if k not in ("RETRIEVER", "BRAVE_API_KEY")}
         with patch.dict(os.environ, env, clear=True):
             with patch.dict(os.environ, {"INFERENCE_API_KEY": "x", "RETRIEVER": "brave"}):
@@ -64,6 +66,7 @@ class TestLogSafeQuery:
     def test_preview_truncado(self):
         # _log_query_safe foi movido para percival_research.metrics
         from percival_research.metrics import log_query_safe
+
         long_q = "a" * 1000
         with patch("percival_research.metrics.logger") as mock_logger:
             log_query_safe("Deep research", long_q, "crl-test")
@@ -74,6 +77,7 @@ class TestLogSafeQuery:
 
     def test_newlines_removidos(self):
         from percival_research.metrics import log_query_safe
+
         with patch("percival_research.metrics.logger") as mock_logger:
             log_query_safe("Deep research", "linha1\nlinha2", "crl-x")
             logged = mock_logger.info.call_args[0][0]
@@ -85,6 +89,7 @@ class TestLogSafeQuery:
         imediatamente — sem precisar de `importlib.reload`."""
         monkeypatch.setenv("PERCIVAL_DEBUG_LOG_QUERIES", "true")
         from percival_research.metrics import log_query_safe
+
         with patch("percival_research.metrics.logger") as mock_logger:
             log_query_safe("Deep research", "secret query", "crl-d")
             mock_logger.debug.assert_called_once()
@@ -109,6 +114,7 @@ class TestMetrics:
 
     def test_snapshot_thread_safe(self):
         import threading
+
         m = Metrics()
 
         def worker():
@@ -144,7 +150,8 @@ class TestMetrics:
 class TestMetricsEndpoint:
     @pytest.mark.asyncio
     async def test_metrics_endpoint_retorna_json(self):
-        from server import metrics_endpoint, metrics
+        from server import metrics, metrics_endpoint
+
         metrics.record_latency("deep_research", 42.0)
         resp = await metrics_endpoint(None)
         assert resp.status_code == 200

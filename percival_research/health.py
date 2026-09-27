@@ -14,8 +14,10 @@ def _check_inference_configured() -> bool:
     setado. Não verifica validade real da chave (assim como a versão
     anterior)."""
     return bool(
-        os.getenv("INFERENCE_API_KEY") or os.getenv("OPENAI_API_KEY")
-        or os.getenv("INFERENCE_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+        os.getenv("INFERENCE_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("INFERENCE_BASE_URL")
+        or os.getenv("OPENAI_BASE_URL")
     )
 
 

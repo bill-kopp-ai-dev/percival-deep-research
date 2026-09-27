@@ -1,15 +1,12 @@
 """Testes da Fase 7 — extensibilidade."""
 
 import asyncio
-from dataclasses import replace
-from unittest.mock import patch
 
 import pytest
 
 from config import load_settings
 from percival_research.cache import InMemoryCache, default_cache
 from percival_research.retrievers import (
-    Retriever,
     _REGISTRY,
     get_retriever,
     register_retriever,
@@ -26,8 +23,10 @@ class TestRetrieverRegistry:
     def test_retriever_custom_registravel(self):
         class FakeRetriever:
             name = "fake"
+
             async def search(self, query, max_results=10):
                 return [{"title": "x", "url": "y", "content": "z"}]
+
             async def close(self):
                 pass
 
@@ -90,6 +89,7 @@ class TestPromptsVersioning:
     def test_default_v1(self, monkeypatch):
         monkeypatch.delenv("PERCIVAL_PROMPT_VERSION", raising=False)
         from percival_research.prompts_versions import get_research_agent_role
+
         role = get_research_agent_role()
         assert "experienced AI research assistant" in role
         assert "When uncertain" not in role  # V1 only
@@ -98,7 +98,9 @@ class TestPromptsVersioning:
         monkeypatch.setenv("PERCIVAL_PROMPT_VERSION", "v2")
         # Recarrega módulo para reavaliar a env
         import importlib
+
         from percival_research import prompts_versions
+
         importlib.reload(prompts_versions)
         role = prompts_versions.get_research_agent_role()
         assert "When uncertain" in role

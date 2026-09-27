@@ -10,12 +10,13 @@ from gpt_researcher import GPTResearcher
 from loguru import logger
 from pydantic import StrictBool
 
+import percival_research.app as _app
 from percival_research.app import (
     UNIVERSAL_AGENT_NAME,
     mcp,
     metrics,
 )
-import percival_research.app as _app
+from percival_research.metrics import log_query_safe
 from utils import (
     format_context_with_sources,
     handle_exception,
@@ -23,8 +24,6 @@ from utils import (
     sanitize_query,
     wrap_untrusted_content,
 )
-from percival_research.metrics import log_query_safe
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # N7 fix (rodada 4): in-flight dedup map.
@@ -101,15 +100,13 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
     existing, status = await _acquire_in_flight_slot(query)
     if existing is not None:
         logger.info(
-            f"[{cid}] deep_research dedup hit — waiting for "
-            f"in-flight task (status={status})"
+            f"[{cid}] deep_research dedup hit — waiting for in-flight task (status={status})"
         )
         try:
             return await existing
         except Exception as e:
             logger.warning(
-                f"[{cid}] dedup waiter caught exception from creator: "
-                f"{type(e).__name__}: {e}"
+                f"[{cid}] dedup waiter caught exception from creator: {type(e).__name__}: {e}"
             )
             return handle_exception(e, "Deep research (dedup waiter)", cid)
 
@@ -142,10 +139,7 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
             _IN_FLIGHT.pop(query, None)
         if not future.done():
             future.set_exception(
-                RuntimeError(
-                    "deep_research cancelled before pipeline started "
-                    "(server busy)"
-                )
+                RuntimeError("deep_research cancelled before pipeline started (server busy)")
             )
         # S3 fix (roda 5): sem este consume explícito, o Python log
         # "Future exception was never retrieved" toda vez que o rate
@@ -229,7 +223,9 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
             logger.error(f"[{cid}] add_researcher failed: {add_err}")
             metrics.record_error("deep_research")
             return handle_exception(
-                add_err, "Deep research (registry full)", cid,
+                add_err,
+                "Deep research (registry full)",
+                cid,
             )
 
         logger.info(f"[{cid}] Research complete. ID: {research_id}")

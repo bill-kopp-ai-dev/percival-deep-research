@@ -1,22 +1,17 @@
 """Testes de regressão para os bugs encontrados na auditoria."""
 
-import time
 import uuid as _uuid
 
 import pytest
 
 from utils import (
-    DEFAULT_RESEARCH_TIMEOUT_S,
     ResearchRegistry,
     create_research_prompt,
     format_sources_lines,
-    sanitize_prompt,
-    sanitize_query,
-    new_correlation_id,
     handle_exception,
+    sanitize_prompt,
     validate_research_id,
 )
-from percival_research.cache import InMemoryCache
 
 
 class TestRegistryPropertiesHonored:
@@ -86,16 +81,20 @@ class TestSettingsCapLimitApplied:
 
 class TestResearchResourceAtomicCache:
     """Documenta necessidade (em outro lugar) de get_or_compute atômico."""
+
     pass
 
 
 class TestValidateResearchIdAnyVersion:
     def test_accepta_v1(self):
         assert validate_research_id(str(_uuid.uuid1())) is True
+
     def test_accepta_v3(self):
         assert validate_research_id(str(_uuid.uuid3(_uuid.NAMESPACE_DNS, "x"))) is True
+
     def test_accepta_v4(self):
         assert validate_research_id(str(_uuid.uuid4())) is True
+
     def test_rejeita_path_traversal(self):
         assert validate_research_id("../../etc/passwd") is False
 
@@ -105,6 +104,7 @@ class TestMetricsRecordLatency:
 
     def test_record_latency_só_latencia_nao_contador_desconhecido(self):
         from utils import Metrics
+
         m = Metrics()
         # Operação desconhecida não corrompe dataclass
         before = m.deep_research_total
@@ -139,7 +139,6 @@ class TestCreateResearchPromptGoalMax:
         assert "2000" in out or goal[:80] in out
 
     def test_goal_acima_2000_chars_recusado(self):
-        from utils import sanitize_prompt
         goal = "g" * 2001
         with pytest.raises(ValueError):
             sanitize_prompt(goal)
@@ -151,6 +150,7 @@ class TestPatchesDefensiveHandling:
 
     def test_apply_compressor_patch_idempotente(self):
         from percival_research.patches import apply_compressor_patch
+
         # Chamar duas vezes não derruba
         r1 = apply_compressor_patch()
         r2 = apply_compressor_patch()
@@ -162,13 +162,13 @@ class TestPatchesDefensiveHandling:
     async def test_bypass_compressor_com_metadata_none(self):
         """Documento LangChain com `metadata=None` não deve explodir."""
         from types import SimpleNamespace
+
         from percival_research.patches import _bypass_compressor_completely
 
         class FakeCompressor:
             documents = [
                 SimpleNamespace(metadata=None, page_content="text"),
-                SimpleNamespace(metadata={"source": "x", "title": "T"},
-                                 page_content=None),
+                SimpleNamespace(metadata={"source": "x", "title": "T"}, page_content=None),
             ]
 
         c = FakeCompressor()
@@ -197,6 +197,7 @@ class TestConfigEnvValidation:
     def test_int_negativo_warn_e_default(self, monkeypatch, capsys):
         monkeypatch.setenv("PERCIVAL_MAX_RESEARCHERS", "-1")
         from config import load_settings
+
         s = load_settings()
         # Deve usar default (50) e avisar
         assert s.max_researchers == 50
@@ -207,6 +208,7 @@ class TestConfigEnvValidation:
     def test_int_zero_recusado(self, monkeypatch, capsys):
         monkeypatch.setenv("PERCIVAL_RESEARCH_TIMEOUT_S", "0")
         from config import load_settings
+
         s = load_settings()
         assert s.research_timeout_s == 90
         captured = capsys.readouterr()
@@ -215,6 +217,7 @@ class TestConfigEnvValidation:
     def test_int_invalido_recusado(self, monkeypatch, capsys):
         monkeypatch.setenv("PERCIVAL_MAX_RESEARCHERS", "abc")
         from config import load_settings
+
         s = load_settings()
         assert s.max_researchers == 50
         captured = capsys.readouterr()
@@ -223,6 +226,7 @@ class TestConfigEnvValidation:
     def test_port_out_of_range(self, monkeypatch, capsys):
         monkeypatch.setenv("PORT", "99999")
         from config import load_settings
+
         s = load_settings()
         assert s.mcp_port == 8000
         captured = capsys.readouterr()
@@ -231,6 +235,7 @@ class TestConfigEnvValidation:
     def test_log_level_whitelist(self, monkeypatch, capsys):
         monkeypatch.setenv("LOG_LEVEL", "FOOBAR")
         from config import load_settings
+
         s = load_settings()
         assert s.log_level == "INFO"
         captured = capsys.readouterr()
@@ -239,19 +244,21 @@ class TestConfigEnvValidation:
     def test_log_level_debug_aceito(self, monkeypatch):
         monkeypatch.setenv("LOG_LEVEL", "DEBUG")
         from config import load_settings
+
         s = load_settings()
         assert s.log_level == "DEBUG"
 
     def test_transport_invalido_recusado(self, monkeypatch, capsys):
         monkeypatch.setenv("MCP_TRANSPORT", "telnet")
         from config import load_settings
+
         s = load_settings()
         assert s.mcp_transport == "stdio"
 
     def test_llm_provider_aliases_env(self, monkeypatch):
-        monkeypatch.setenv("PERCIVAL_LLM_PROVIDER_ALIASES",
-                           "venice:,deepseek:,custom:")
+        monkeypatch.setenv("PERCIVAL_LLM_PROVIDER_ALIASES", "venice:,deepseek:,custom:")
         from config import load_settings
+
         s = load_settings()
         assert "deepseek:" in s.llm_provider_aliases
         assert "custom:" in s.llm_provider_aliases
@@ -259,6 +266,7 @@ class TestConfigEnvValidation:
     def test_minimax_alias_pattern_vazio_vira_default(self, monkeypatch):
         monkeypatch.setenv("MINIMAX_ALIAS_PATTERN", "")
         from config import load_settings
+
         s = load_settings()
         # Não pode ser vazio (corromperia re.sub)
         assert s.minimax_alias_pattern == "minimax-m27"
@@ -271,9 +279,11 @@ class TestLLMBridgeEmbedding:
         monkeypatch.setenv("EMBEDDING_LLM", "venice:my-embedding-model")
         from config import load_settings
         from llm_bridge import normalize_llm_env
+
         s = load_settings()
         normalize_llm_env(s)
         import os
+
         assert os.environ["EMBEDDING_LLM"] == "openai:my-embedding-model"
 
     def test_pattern_vazio_nao_corrompe(self, monkeypatch):
@@ -281,13 +291,19 @@ class TestLLMBridgeEmbedding:
         substituição silenciosa."""
         from config import Settings
         from llm_bridge import _apply_minimax_alias
+
         # Settings com pattern vazio
         s = Settings(
-            max_researchers=50, researcher_ttl_s=3600,
-            max_cached_topics=100, cache_topic_ttl_s=3600,
-            research_timeout_s=90, max_concurrent_research=3,
-            log_level="INFO", debug_log_queries=False,
-            mcp_transport="stdio", mcp_host="127.0.0.1",
+            max_researchers=50,
+            researcher_ttl_s=3600,
+            max_cached_topics=100,
+            cache_topic_ttl_s=3600,
+            research_timeout_s=90,
+            max_concurrent_research=3,
+            log_level="INFO",
+            debug_log_queries=False,
+            mcp_transport="stdio",
+            mcp_host="127.0.0.1",
             mcp_port=8000,
             inference_api_key="",
             inference_base_url="",
@@ -311,9 +327,10 @@ class TestResourceTimeout:
     async def test_resource_respeita_timeout(self, monkeypatch):
         """Se a pesquisa demora mais que o timeout, retorna erro claro."""
         import asyncio
-        from percival_research.resources import _run_research_and_cache
         from dataclasses import replace
+
         import percival_research.app as app
+        from percival_research.resources import _run_research_and_cache
 
         # Reduzir timeout drasticamente
         new_s = replace(app._settings, research_timeout_s=0.2)
@@ -323,6 +340,7 @@ class TestResourceTimeout:
             class FakeResearcher:
                 async def conduct_research(self):
                     await asyncio.sleep(10)
+
             return FakeResearcher()
 
         result = await _run_research_and_cache(
@@ -344,6 +362,7 @@ class TestRunServerOpenAIBaseURL:
         monkeypatch.setenv("OPENAI_BASE_URL", "https://my-gateway")
         # Import lazy para não disparar side-effects
         from server import run_server
+
         # run_server tenta subir mcp.run — vai dar erro em outro lugar.
         # Verificamos que *passa* pelo guard de OPENAI_API_KEY.
         try:
@@ -375,13 +394,8 @@ class TestNoDeadCode:
     """Sanity: nenhum import circular."""
 
     def test_todos_modulos_importam(self):
-        from utils import ResearchRegistry, Metrics, RateLimiter
-        from config import load_settings, Settings
-        from llm_bridge import normalize_llm_env, _translate_provider
-        from percival_research.app import (
-            mcp, registry, metrics, research_limiter, _settings,
-        )
         from percival_research import __version__
+
         assert __version__
 
 
@@ -390,6 +404,7 @@ class TestDockerComposeHost:
 
     def test_docker_compose_define_mcp_host(self):
         import os
+
         import yaml
 
         caminho = "/home/bill/Codes/mcp-servers-percival/percival-deep-research/docker-compose.yml"

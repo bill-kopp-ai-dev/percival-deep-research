@@ -235,7 +235,7 @@ the SSE boot.
 | | |
 |---|---|
 | Base | `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` (builder) → `python:3.11-slim` (runtime) |
-| Size | ~1.7 GB (pulls the full `gpt-researcher` + ML deps stack) |
+| Size | ~1.37 GB (pulls the full `gpt-researcher` + ML deps stack; venv bloat stripped — `tests/`, `*.pyi`, `*.dist-info/RECORD`, no `.pyc` files) |
 | User | non-root `percival` (UID 1000) |
 | Signal | PID 1 = `tini` → forwards SIGTERM to the MCP server |
 | Default transport | `stdio` |
@@ -409,6 +409,7 @@ await client.read_resource("research://S%C3%A3o%20Paulo")
 
 # Option B: encode at the call site
 import urllib.parse
+
 uri = "research://" + urllib.parse.quote("São Paulo", safe="")
 await client.read_resource(uri)
 ```

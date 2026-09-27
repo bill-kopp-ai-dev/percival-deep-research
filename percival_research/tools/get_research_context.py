@@ -1,7 +1,7 @@
 """Tool: get_research_context — texto sintetizado do contexto."""
 
-from percival_research.app import mcp
 import percival_research.app as _app
+from percival_research.app import mcp
 from utils import (
     handle_exception,
     new_correlation_id,

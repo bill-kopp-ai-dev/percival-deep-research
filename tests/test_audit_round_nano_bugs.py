@@ -9,10 +9,9 @@ Cobre:
       apenas quando o provider é OpenAI-compatível.
 """
 
-import asyncio
 import os
-import pytest
 
+import pytest
 
 # ─── Helpers ────────────────────────────────────────────────────
 
@@ -22,11 +21,19 @@ def fresh_env(monkeypatch):
     """Limpa todas as env vars que tocam em LLM/embedding, deixando
     o teste em um estado limpo e conhecido."""
     for var in (
-        "FAST_LLM", "SMART_LLM", "STRATEGIC_LLM", "EMBEDDING_LLM",
-        "OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_BASE",
-        "INFERENCE_API_KEY", "INFERENCE_BASE_URL", "INFERENCE_LLM",
+        "FAST_LLM",
+        "SMART_LLM",
+        "STRATEGIC_LLM",
+        "EMBEDDING_LLM",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_BASE",
+        "INFERENCE_API_KEY",
+        "INFERENCE_BASE_URL",
+        "INFERENCE_LLM",
         "PERCIVAL_LLM_PROVIDER_ALIASES",
-        "MINIMAX_MODEL_ALIAS", "MINIMAX_ALIAS_PATTERN",
+        "MINIMAX_MODEL_ALIAS",
+        "MINIMAX_ALIAS_PATTERN",
     ):
         monkeypatch.delenv(var, raising=False)
     return monkeypatch
@@ -151,22 +158,26 @@ class TestGetPromptChainFunction:
     @pytest.mark.asyncio
     async def test_get_prompt_via_client_retorna_messages(self):
         """Smoke test do B2: client.get_prompt() não retorna None."""
-        import sys
         import os
+
         server_py = os.path.join(
-            os.path.dirname(__file__), "..", "server.py",
+            os.path.dirname(__file__),
+            "..",
+            "server.py",
         )
         server_py = os.path.abspath(server_py)
         # Carrega server.py sem o `if __name__` para não disparar run_server
         with open(server_py) as f:
             src = f.read().replace(
-                'if __name__ == "__main__":\n    run_server()', 'pass',
+                'if __name__ == "__main__":\n    run_server()',
+                "pass",
             )
         ns = {"__name__": "srv_test"}
         exec(compile(src, server_py, "exec"), ns)
         mcp = ns["mcp"]
 
         import fastmcp
+
         client = fastmcp.Client(mcp)
         async with client:
             r = await client.get_prompt(
@@ -224,4 +235,5 @@ class TestChatSlotsDoNotReceiveEmbeddingOverride:
 if __name__ == "__main__":
     # Manual run: pytest tests/test_audit_round_nano_bugs.py -v
     import sys
+
     sys.exit(pytest.main([__file__, "-v"]))

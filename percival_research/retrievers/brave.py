@@ -13,6 +13,7 @@ class BraveRetriever:
         if not self.api_key:
             raise ValueError("BRAVE_API_KEY required for brave retriever")
         import httpx  # lazy import
+
         self._client = httpx.AsyncClient(
             base_url="https://api.search.brave.com",
             headers={"X-Subscription-Token": self.api_key},

@@ -18,11 +18,11 @@ from __future__ import annotations
 import os
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from loguru import logger
-from utils import PLACEHOLDER_OPENERS
 
+from utils import PLACEHOLDER_OPENERS
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 _VALID_TRANSPORTS = {"stdio", "sse", "streamable-http"}
@@ -154,14 +154,14 @@ class Settings:
     mcp_port: int
 
     # ── Inference (v2.2 — canônico) ──
-    inference_api_key: str         # INFERENCE_API_KEY (fallback OPENAI_API_KEY)
-    inference_base_url: str        # INFERENCE_BASE_URL (fallback OPENAI_BASE_URL)
-    inference_llm: str             # INFERENCE_LLM (default: openai:gpt-4o-mini)
+    inference_api_key: str  # INFERENCE_API_KEY (fallback OPENAI_API_KEY)
+    inference_base_url: str  # INFERENCE_BASE_URL (fallback OPENAI_BASE_URL)
+    inference_llm: str  # INFERENCE_LLM (default: openai:gpt-4o-mini)
     inference_provider_alias: str | None  # auto-detectado da base_url (None se não reconhecido)
-    default_retriever: str         # RETRIEVER (default: duckduckgo)
+    default_retriever: str  # RETRIEVER (default: duckduckgo)
 
     # ── LLM bridge (legacy — fallback) ──
-    llm_provider_aliases: tuple    # PERCIVAL_LLM_PROVIDER_ALIASES (deprecated)
+    llm_provider_aliases: tuple  # PERCIVAL_LLM_PROVIDER_ALIASES (deprecated)
     minimax_model_alias: str
     minimax_alias_pattern: str
 
@@ -194,15 +194,10 @@ def load_settings() -> Settings:
         "PERCIVAL_LLM_PROVIDER_ALIASES",
         "venice:,minimax:,openrouter:",
     )
-    aliases = tuple(
-        a.strip() for a in raw_aliases.split(",") if a.strip()
-    )
+    aliases = tuple(a.strip() for a in raw_aliases.split(",") if a.strip())
     aliases = tuple(a if a.endswith(":") else f"{a}:" for a in aliases)
     # Se o provider auto-detectado não estiver nos aliases, prepend.
-    if (
-        inference_provider_alias
-        and f"{inference_provider_alias}:" not in aliases
-    ):
+    if inference_provider_alias and f"{inference_provider_alias}:" not in aliases:
         aliases = (f"{inference_provider_alias}:",) + aliases
 
     return Settings(
@@ -211,29 +206,27 @@ def load_settings() -> Settings:
         researcher_ttl_s=_env_int("PERCIVAL_RESEARCHER_TTL_S", 3_600, min_value=1),
         max_cached_topics=_env_int("PERCIVAL_MAX_CACHED_TOPICS", 100, min_value=1),
         cache_topic_ttl_s=_env_int("PERCIVAL_CACHE_TOPIC_TTL_S", 3_600, min_value=1),
-
         # Runtime
         research_timeout_s=_env_int("PERCIVAL_RESEARCH_TIMEOUT_S", 90, min_value=1),
         max_concurrent_research=_env_int(
-            "PERCIVAL_MAX_CONCURRENT_RESEARCH", 3, min_value=1, max_value=256,
+            "PERCIVAL_MAX_CONCURRENT_RESEARCH",
+            3,
+            min_value=1,
+            max_value=256,
         ),
-
         # Logging
         log_level=_env_str_choice("LOG_LEVEL", "INFO", _VALID_LOG_LEVELS),
         debug_log_queries=_env_bool("PERCIVAL_DEBUG_LOG_QUERIES", False),
-
         # Transport
         mcp_transport=_env_str_choice("MCP_TRANSPORT", "stdio", _VALID_TRANSPORTS),
         mcp_host=_env_str("MCP_HOST", "127.0.0.1"),
         mcp_port=_env_int("PORT", 8000, min_value=1, max_value=65535),
-
         # Inference (v2.2 — canônico)
         inference_api_key=inference_api_key,
         inference_base_url=inference_base_url,
         inference_llm=inference_llm,
         inference_provider_alias=inference_provider_alias,
         default_retriever=_env_str("RETRIEVER", "duckduckgo"),
-
         # Legacy
         llm_provider_aliases=aliases,
         minimax_model_alias=_env_str("MINIMAX_MODEL_ALIAS", "MiniMax-M2.7"),

@@ -62,6 +62,75 @@ Mudança puramente operacional de packaging.
   A imagem antiga nunca bootou de fato em produção — agora boot via
   smoke test real em ambos os transports.
 
+## [Unreleased] — 2026-09-27 (lint pass + image shrink)
+
+### 🧹 Lint pass — 161 → 0 ruff errors + 46 → 0 files needing reformat
+
+**Auto-fixável (149):**
+- `F401` × 55 (imports não usados)
+- `I001` × 49 (imports fora de ordem)
+- `W292` × 40 (newline ausente no EOF)
+- `F811` × 6 (redefinição de identificador)
+
+**Manual (12):**
+- 1 `F821` (dead code `_dr if False else _app` em `tests/test_audit_round3.py:88`
+  — substituído por `_app` direto, era unreachable branch).
+- 5 `F841` (vars locais não usadas em tests — renomeadas para `_var`).
+- 5 `E402` (imports mid-file movidos para o topo em `utils.py:610-612`;
+  2 mantidos no local de uso com `# noqa: E402` em `utils.py:825` e
+  `tests/test_v22_simplification.py:223`).
+
+**Bug real encontrado pelo lint:**
+`tests/test_audit_round3.py:88` tinha o ramo morto
+`_dr if False else _app` — `_dr` nunca foi importado; o branch sempre
+resolvia para `_app`. Removido pelo ruff `F821`. Sem impacto em runtime
+mas é indicador de código incompleto deixado num round de bug-hunt.
+
+**Regressão evitada:** o auto-fix removeu 5 imports que pareciam não
+usados mas eram re-exports para tests (`metrics`, `registry`,
+`research_limiter`). Restaurados manualmente com `# noqa: F401` (testes
+fazem `from server import metrics`, etc.).
+
+**Resultado:**
+- `uv run --with ruff ruff check .` → **All checks passed**
+- `uv run --with ruff ruff format --check .` → **53 files already formatted**
+- `uv run pytest -q` → **410 passed, 4 skipped** (zero regressão; +2
+  testes novos para Dockerfile em `tests/test_docker.py`).
+
+### 📦 Imagem Docker — 1.7 GB → 1.37 GB (–330 MB, –19.4%)
+
+**Causas do inchaço identificadas via `du`:**
+
+| Categoria | Tamanho | Causa |
+|---|---|---|
+| `__pycache__/` no venv | **121 MB** | Conflito entre `UV_COMPILE_BYTECODE=1` (força compilação) e `PYTHONDONTWRITEBYTECODE=1` (proíbe). uv honrou `UV_COMPILE_BYTECODE` e gravou `.pyc`. |
+| `tests/` em packages | **49 MB** | Nenhum lido em runtime (só por pytest). |
+| `.dist-info/` | **11 MB** | Usado por `importlib.metadata` — mantido. |
+| `*.pyi` (type stubs) | **2.7 MB** | Só mypy/pyright usam. |
+
+**Ações aplicadas (todas no builder stage, sem risco para runtime):**
+1. **Removido `UV_COMPILE_BYTECODE=1`** do Dockerfile. `PYTHONDONTWRITEBYTECODE=1`
+   sozinho garante zero `.pyc`. Custo: ~1-2% mais lento no primeiro
+   import por execução do container (uma vez por lifetime).
+2. **Etapa de cleanup** que remove:
+   - `tests/` e `test/` em `site-packages/*` (~49 MB)
+   - `*.pyi` (~2.7 MB)
+   - `*.dist-info/RECORD` e `INSTALLER` (pip uninstall bookkeeping,
+     não usado em runtime; mantém `METADATA` e `entry_points.txt`)
+
+**Não aplicado (fora de escopo, alto risco):**
+- Remover `spacy`/`llvmlite`/`numba` (~340 MB combinados) — transitivo
+  do `gpt-researcher`; remover pode quebrar import interno.
+- Trocar `python:3.11-slim` por `alpine` (~50-100 MB) — musl/glibc
+  incompat em algumas deps (cryptography, grpcio).
+
+**Verificações:**
+- `docker build` → sucesso em ~30 s (cache quente)
+- `bash scripts/docker_smoke_test.sh` → stdio ✅ + HTTP/SSE ✅
+- `uv run pytest -q` → **410 passed, 4 skipped** (sem regressão)
+
+
+
 ## [3.0.1] — 2026-09-27
 
 ### 🐛 Bug-hunt round 6 — 14 issues fixed in deep_research, utils, health, observability
@@ -284,10 +353,10 @@ update. Sample workflow with the new prompts:
 prompt = await client.get_prompt("research_query", {...})
 
 # After (v3.0): dedicated prompt for each workflow
-prompt = await client.get_prompt("research_query", {...})           # full
-prompt = await client.get_prompt("research_quick_brief", {...})    # raw
-prompt = await client.get_prompt("research_synthesis", {...})       # reformat
-prompt = await client.get_prompt("research_health_diagnose", {...}) # triage
+prompt = await client.get_prompt("research_query", {...})  # full
+prompt = await client.get_prompt("research_quick_brief", {...})  # raw
+prompt = await client.get_prompt("research_synthesis", {...})  # reformat
+prompt = await client.get_prompt("research_health_diagnose", {...})  # triage
 ```
 
 ### Known limitations (v3.0.x)

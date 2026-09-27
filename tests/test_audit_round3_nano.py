@@ -11,7 +11,6 @@ import socket
 
 import pytest
 
-
 # ─── B6: drift de versão ───────────────────────────────────────
 
 
@@ -22,15 +21,12 @@ class TestVersionMatchesPyproject:
     """
 
     def test_version_correto_no_runtime(self):
-        import re
         import tomllib
         from pathlib import Path
 
         from percival_research import __version__
 
-        pyproject = (
-            Path(__file__).resolve().parent.parent / "pyproject.toml"
-        )
+        pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
         with open(pyproject, "rb") as f:
             data = tomllib.load(f)
         pyproject_version = data["project"]["version"]
@@ -41,10 +37,11 @@ class TestVersionMatchesPyproject:
         )
 
     def test_version_format_semver(self):
-        from percival_research import __version__
-
         # x.y.z sem prefixos estranhos
         import re
+
+        from percival_research import __version__
+
         assert re.match(r"^\d+\.\d+\.\d+(\+\S+)?$", __version__), (
             f"__version__ {__version__!r} não segue semver"
         )
@@ -67,27 +64,31 @@ class TestResourceTemplateSingleRegistration:
         """Carrega server.py via exec() e mede o tamanho de
         `client.list_resource_templates()`."""
         import os
+
         server_py = os.path.join(
-            os.path.dirname(__file__), "..", "server.py",
+            os.path.dirname(__file__),
+            "..",
+            "server.py",
         )
         server_py = os.path.abspath(server_py)
         with open(server_py) as f:
             src = f.read().replace(
-                'if __name__ == "__main__":\n    run_server()', 'pass',
+                'if __name__ == "__main__":\n    run_server()',
+                "pass",
             )
         ns = {"__name__": "srv_test_b8"}
         exec(compile(src, server_py, "exec"), ns)
         mcp = ns["mcp"]
 
         import fastmcp
+
         client = fastmcp.Client(mcp)
         async with client:
             templates = await client.list_resource_templates()
 
         # Apenas uma cópia do resource template `research://{topic}`.
         research_templates = [
-            t for t in templates
-            if getattr(t, "uriTemplate", "") == "research://{topic}"
+            t for t in templates if getattr(t, "uriTemplate", "") == "research://{topic}"
         ]
         assert len(research_templates) == 1, (
             f"Esperado 1 template research://{{topic}}, "
@@ -100,29 +101,31 @@ class TestResourceTemplateSingleRegistration:
         """Analogamente ao B8 acima, garante que `research_query`
         é registrado uma única vez."""
         import os
+
         server_py = os.path.join(
-            os.path.dirname(__file__), "..", "server.py",
+            os.path.dirname(__file__),
+            "..",
+            "server.py",
         )
         server_py = os.path.abspath(server_py)
         with open(server_py) as f:
             src = f.read().replace(
-                'if __name__ == "__main__":\n    run_server()', 'pass',
+                'if __name__ == "__main__":\n    run_server()',
+                "pass",
             )
         ns = {"__name__": "srv_test_b8_prompt"}
         exec(compile(src, server_py, "exec"), ns)
         mcp = ns["mcp"]
 
         import fastmcp
+
         client = fastmcp.Client(mcp)
         async with client:
             prompts = await client.list_prompts()
 
-        research_prompts = [
-            p for p in prompts if getattr(p, "name", "") == "research_query"
-        ]
+        research_prompts = [p for p in prompts if getattr(p, "name", "") == "research_query"]
         assert len(research_prompts) == 1, (
-            f"Esperado 1 prompt 'research_query', encontrado "
-            f"{len(research_prompts)}."
+            f"Esperado 1 prompt 'research_query', encontrado {len(research_prompts)}."
         )
 
     @pytest.mark.asyncio
@@ -130,26 +133,30 @@ class TestResourceTemplateSingleRegistration:
         """Confirmado pelo report Nano: 5 tools no surface.
         Aqui valida que não há duplicação de tools."""
         import os
+
         server_py = os.path.join(
-            os.path.dirname(__file__), "..", "server.py",
+            os.path.dirname(__file__),
+            "..",
+            "server.py",
         )
         server_py = os.path.abspath(server_py)
         with open(server_py) as f:
             src = f.read().replace(
-                'if __name__ == "__main__":\n    run_server()', 'pass',
+                'if __name__ == "__main__":\n    run_server()',
+                "pass",
             )
         ns = {"__name__": "srv_test_b8_tools"}
         exec(compile(src, server_py, "exec"), ns)
         mcp = ns["mcp"]
 
         import fastmcp
+
         client = fastmcp.Client(mcp)
         async with client:
             tools = await client.list_tools()
 
         assert len(tools) == 5, (
-            f"Esperado 5 tools, encontrado {len(tools)}. "
-            f"Tools: {[t.name for t in tools]}"
+            f"Esperado 5 tools, encontrado {len(tools)}. Tools: {[t.name for t in tools]}"
         )
 
 
@@ -165,12 +172,12 @@ class TestIntegrationSkipWithoutServer:
 
     def test_probe_retorna_false_sem_server(self):
         from conftest import _probe_server
+
         # 127.0.0.1:1 nunca deve estar disponível (porta reservada)
         assert _probe_server("127.0.0.1", 1, timeout=0.2) is False
 
     def test_probe_retorna_true_quando_server_up(self):
         """Levanta um socket server local e confirma `probe=True`."""
-        import contextlib
 
         from conftest import _probe_server
 
@@ -188,7 +195,6 @@ class TestIntegrationSkipWithoutServer:
         Marca artificialmente uma função e checa via `request`."""
         import pytest
 
-
         @pytest.mark.integration
         def fake_integration_test(request):
             return request
@@ -205,4 +211,5 @@ class TestIntegrationSkipWithoutServer:
         # Aqui só validamos que o helper `_probe_server` retorna booleano;
         # o skip real é decidido dentro do fixture do conftest.
         from conftest import _probe_server
+
         assert isinstance(_probe_server("127.0.0.1", 1, timeout=0.1), bool)

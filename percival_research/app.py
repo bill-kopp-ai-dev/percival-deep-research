@@ -29,6 +29,7 @@ def _get_universal_agent_role() -> str:
     de capturar valor fixo no import-time.
     """
     from percival_research.prompts_versions import get_research_agent_role
+
     return get_research_agent_role()
 
 
