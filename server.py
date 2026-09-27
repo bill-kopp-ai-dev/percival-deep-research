@@ -33,8 +33,6 @@ from percival_research.app import (
     _settings,
     mcp,
     metrics,  # noqa: F401  (re-export para tests: `from server import metrics`)
-    registry,  # noqa: F401  (re-export para tests)
-    research_limiter,  # noqa: F401  (re-export para tests)
 )
 from percival_research.health import (
     _check_inference_configured,

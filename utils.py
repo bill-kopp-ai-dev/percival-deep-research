@@ -826,8 +826,9 @@ def _quote_for_resource_uri(topic: str) -> str:
     Audit rodada 2 BUG-11: mesmo após sanitize_topic (que remove control
     chars e normaliza Unicode), o topic pode conter chars que conflitem
     com a sintaxe de URI (ex.: '/', '\\', '%', '#', '?', etc.).
-    Aplicamos `quote(safe="/")` que escapa tudo exceto a barra — segura
-    e reversível.
+    Aplicamos `quote(safe="")` para escapar **todos** os chars com
+    significado de URI — inclusive `/`. O consumidor decodifica via
+    percent-decode server-side (ver ``resources.py``).
     """
     return _urllib_parse.quote(topic, safe="")
 

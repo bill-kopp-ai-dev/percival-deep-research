@@ -26,7 +26,7 @@ Plus four prompts (`research_query`, `research_quick_brief`,
 docker run -i --rm \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
-  percival/percival-deep-research
+  mcp/percival-deep-research
 ```
 
 The container speaks stdio by default, so it can be plugged into any MCP
@@ -40,7 +40,7 @@ docker run -d --rm \
   -e MCP_TRANSPORT=sse \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
-  percival/percival-deep-research
+  mcp/percival-deep-research
 ```
 
 ## Configuration

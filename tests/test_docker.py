@@ -368,3 +368,53 @@ class TestDockerCatalogMetadata:
             assert "name" in tool and "description" in tool, (
                 f"tool entry must have `name` and `description`: {tool!r}"
             )
+
+    def test_tools_json_signatures_match_actual_functions(self, tools_json: Path) -> None:
+        """Regression: docker/tools.json argument names MUST match the actual
+        tool function signatures. If someone changes a parameter name in the
+        function but forgets to update tools.json, the Docker MCP catalog
+        would advertise a non-working interface.
+
+        This test inspects the actual tool handlers and verifies each
+        argument declared in tools.json is a real parameter (and vice versa).
+        """
+        import inspect
+
+        # Map tool name -> actual async function. The functions are imported
+        # from the same modules that register them via @mcp.tool(name=...).
+        tool_modules = {
+            "research_deep": "percival_research.tools.deep_research",
+            "research_quick_search": "percival_research.tools.quick_search",
+            "research_get_context": "percival_research.tools.get_research_context",
+            "research_get_sources": "percival_research.tools.get_research_sources",
+            "research_write_report": "percival_research.tools.write_report",
+        }
+        function_names = {
+            "research_deep": "deep_research",
+            "research_quick_search": "quick_search",
+            "research_get_context": "get_research_context",
+            "research_get_sources": "get_research_sources",
+            "research_write_report": "write_report",
+        }
+
+        tools = json.loads(tools_json.read_text())
+        for tool in tools:
+            name = tool["name"]
+            module = tool_modules[name]
+            func_name = function_names[name]
+            func = getattr(__import__(module, fromlist=[func_name]), func_name)
+            sig = inspect.signature(func)
+            actual_params = set(sig.parameters)
+            declared_args = {a["name"] for a in tool.get("arguments", [])}
+
+            missing_in_json = actual_params - declared_args
+            extra_in_json = declared_args - actual_params
+            assert not missing_in_json, (
+                f"tools.json entry for `{name}` is missing arguments that "
+                f"the real function declares: {sorted(missing_in_json)}"
+            )
+            assert not extra_in_json, (
+                f"tools.json entry for `{name}` declares arguments the real "
+                f"function does NOT accept (will fail at runtime): "
+                f"{sorted(extra_in_json)}"
+            )

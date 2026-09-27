@@ -124,7 +124,64 @@ fazem `from server import metrics`, etc.).
 - Trocar `python:3.11-slim` por `alpine` (~50-100 MB) — musl/glibc
   incompat em algumas deps (cryptography, grpcio).
 
-**Verificações:**
+## [Unreleased] — 2026-09-27 (post-merge review)
+
+### 🔍 Code review pós-merge
+
+Deep review de todos os arquivos criados/modificados nas sessões de
+Docker + lint pass. Surface pública preservada.
+
+#### Fixed (bug real introduzido por esta sessão)
+
+- **`docker/tools.json` tinha 2 erros de assinatura**:
+  - `research_deep` declarava argumento `topic` — parâmetro real é `query`
+    (em `percival_research/tools/deep_research.py:61`).
+  - `research_quick_search` declarava `max_results` — parâmetro inexistente
+    na função real (`percival_research/tools/quick_search.py:20` aceita só
+    `query`).
+
+  **Impacto**: o Docker MCP catalog anunciaria uma interface não-funcional;
+  agentes invocando essas tools pelo catalog receberiam erro de argumento
+  desconhecido. Corrigido.
+
+- **`docker/README.md` citava imagem `percival/percival-deep-research`** mas
+  o `docker/server.yaml` declara `mcp/percival-deep-research` (canônico
+  para o catalog do Docker MCP Toolkit). Corrigido para `mcp/...`.
+
+#### Fixed (cleanup / dead code)
+
+- **`utils.py:829`** docstring dizia `quote(safe="/")` mas o código usava
+  `safe=""` desde o fix audit rodada 2 BUG-11. Docstring corrigida para
+  refletir a realidade e remover a claim incorreta de "reversível".
+
+- **`server.py:36-37`** tinha re-exports `registry` e `research_limiter`
+  marcados com `# noqa: F401` "re-export para tests", mas nenhum test
+  importa esses símbolos via `from server import ...`. Verificado via
+  `grep -rn 'from server import' --include='*.py'`. Removidos — agora
+  apenas `metrics` permanece re-exportado (usado por
+  `tests/test_observability.py:153` e `tests/test_tools_deep_research.py:103`).
+
+#### Added (regressão preventiva)
+
+- **`tests/test_docker.py::test_tools_json_signatures_match_actual_functions`**:
+  novo teste que usa `inspect.signature()` para verificar que cada
+  argumento em `docker/tools.json` corresponde a um parâmetro real da
+  função `@mcp.tool(name=...)` correspondente, e vice-versa. Detecta
+  drift futuro entre metadata de catalog e implementação.
+
+#### Out of scope (pré-existente, não introduzido por esta sessão)
+
+- `tests/test_audit_round3.py:99`: `monkeypatch.setattr(dr, "_app.research_limiter", ...)`
+  trata `"_app.research_limiter"` como nome literal de atributo, não como
+  path. Test passa silenciosamente porque o `setattr` anterior já fez o
+  trabalho. Endereçável em PR de bug-hunt separado.
+
+#### Verificações
+
+- `uv run pytest -q` → **411 passed, 4 skipped** (+1 teste de regressão)
+- `uv run --with ruff ruff check .` → All checks passed
+- `uv run --with ruff ruff format --check .` → 53 files already formatted
+- `bash scripts/docker_smoke_test.sh` → stdio ✅ + HTTP/SSE ✅ (imagem 1.37 GB)
 - `docker build` → sucesso em ~30 s (cache quente)
 - `bash scripts/docker_smoke_test.sh` → stdio ✅ + HTTP/SSE ✅
 - `uv run pytest -q` → **410 passed, 4 skipped** (sem regressão)
