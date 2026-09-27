@@ -1,86 +1,202 @@
-# 🤖 Percival Deep Research - percival.OS MCP
+# 🤖 Percival Deep Research — percival.OS MCP
 
-**Version 3.0.0**
+**Version 3.0.1** · [CHANGELOG](CHANGELOG.md) · [percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
 
 [![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
-[![percival.OS](https://img.shields.io/badge/percival.OS-ecosystem-orange.svg)](https://github.com/bill-kopp-ai-dev/percival.OS)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-411%20passed-blue.svg)]()
+
+Multi-source web research and report generation, exposed as an MCP server
+for the [Nanobot](https://github.com/HKUDS/nanobot) agent ecosystem. Also
+compatible with [OpenCode](https://github.com/anomalyco/opencode),
+[Claude Desktop](https://claude.ai/download), the
+[Docker MCP Toolkit / Catalog](https://docs.docker.com/ai/mcp-catalog-and-toolkit/),
+and any generic MCP client.
+
+## ✨ Highlights
+
+- **5 tools + 1 resource template + 4 prompts** — covers the full research
+  workflow (deep dive → quick lookup → follow-up reads → long-form report).
+- **Single-endpoint inference** — one LLM (`INFERENCE_LLM`) for all tasks;
+  works with OpenAI, Venice, MiniMax, OpenRouter, and any OpenAI-compatible
+  gateway.
+- **Defense-in-depth hardening** — input sanitization against prompt
+  injection, `[SECURITY WARNING:...]` wrapping of untrusted web content,
+  strict-bool validation at the framework layer.
+- **Docker-ready** — multi-stage image (`~1.37 GB`), non-root, stdio by
+  default, OCI/MCP labels for catalog submission.
+- **Battle-tested** — 411 tests passing (zero integration deps needed); 48
+  bugs closed across 4 official bug-hunt rounds + 2 internal reviews.
+
+## 📑 Table of Contents
+
+- [Description](#-description)
+- [percival.OS Principles](#-percivalos-principles)
+- [Surface](#-surface-v301)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Docker Deployment](#-docker-deployment)
+- [Architecture](#-architecture)
+- [Known Limitations](#-known-limitations-v301)
+- [Development & Testing](#-development--testing)
+- [Troubleshooting](#-troubleshooting-v301)
+- [About the Project](#-about-the-project)
+- [Versioning](#-versioning)
+- [Acknowledgements](#-acknowledgements)
+
+---
 
 ## 📋 Description
-**Percival Deep Research** is a highly capable MCP server designed to equip the Nanobot agent with autonomous, deep-dive web research capabilities. It explores and validates numerous sources, focusing only on relevant, trusted, and up-to-date information.
 
-This server is part of the **percival.OS** ecosystem, a Personal Agentic Operating System designed for autonomy, security, and absolute privacy.
+**Percival Deep Research** is a highly capable MCP server designed to equip
+the Nanobot agent with autonomous, deep-dive web research capabilities. It
+explores and validates numerous sources, focusing only on relevant, trusted,
+and up-to-date information.
 
-> **v3.0 highlights** — 48 bugs closed across 4 official bug-hunt rounds and 2 internal code-reviews; surface expanded to **5 tools + 1 resource template + 4 prompts**. Same single-endpoint inference model as v2.2.x. See [CHANGELOG.md](CHANGELOG.md) for the full history.
+This server is part of the **percival.OS** ecosystem, a Personal Agentic
+Operating System designed for autonomy, security, and absolute privacy.
+
+> **v3.0.1 highlights** — 48 bugs closed across 4 official bug-hunt rounds
+> + 2 internal code-reviews; surface expanded to **5 tools + 1 resource
+> template + 4 prompts**. New in v3.0.1: **Docker encapsulation**
+> (multi-stage image, stdio default, Docker MCP Toolkit catalog metadata),
+> **lint pass** (161 → 0 ruff errors), and **image shrink** (1.7 GB →
+> 1.37 GB, –19.4%). See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
 ---
 
 ## 🛡️ percival.OS Principles
-Like all components of `percival.OS`, this MCP server strictly follows our core principles:
 
-- **Privacy & Governance**: The entire research and synthesis process is governed by your API keys and local configurations.
-- **Data Sovereignty**: Knowledge extracted from the web is processed locally and integrated into your agent's context without external harvesting.
-- **Hardened Security**: We implement *Defense-in-depth* with strict input sanitization against prompt injection and isolation of untrusted web content.
-- **Transparency**: Based on the `GPT Researcher` project, but extensively refactored and hardened for the Percival ecosystem.
+Like all components of `percival.OS`, this MCP server strictly follows our
+core principles:
+
+- **Privacy & Governance** — the entire research and synthesis process is
+  governed by your API keys and local configurations; no telemetry leaves
+  your machine.
+- **Data Sovereignty** — knowledge extracted from the web is processed
+  locally and integrated into your agent's context without external
+  harvesting.
+- **Hardened Security** — *defense-in-depth* with strict input sanitization
+  against prompt injection, isolation of untrusted web content (XML
+  envelope / `[SECURITY WARNING:...]` prefix), and framework-level
+  strict-bool validation.
+- **Transparency** — based on the `gpt-researcher` project, but extensively
+  refactored and hardened for the Percival ecosystem.
 
 ---
 
-## 🚀 Surface (v3.0.0)
+## 🚀 Surface (v3.0.1)
 
 ### Tools (5)
 
-| Nome | Função | Assinatura | Latência | Notas |
+| Name | Function | Signature | Latency | Notes |
 |---|---|---|---|---|
-| `research_deep` | Pesquisa profunda multi-source | `(query, include_context: StrictBool=False) → str` | 30–120 s | Rate-limited; in-flight dedup; retorna `research_id` |
-| `research_quick_search` | Raw snippets, sem LLM | `(query) → str` | 3–10 s | Rate-limited; sem synthesis |
-| `research_get_context` | Contexto crudo wrappado | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefixo |
-| `research_get_sources` | Metadados das fontes wrappados | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefixo |
-| `research_write_report` | Report Markdown final | `(research_id, custom_prompt=None) → str` | 5–30 s | LLM-free se custom_prompt=None |
+| `research_deep` | Multi-source deep research | `(query, include_context: StrictBool=False) → str` | 30–120 s | Rate-limited; in-flight dedup; returns `research_id` |
+| `research_quick_search` | Raw snippets, no LLM synthesis | `(query) → str` | 3–10 s | Rate-limited; no synthesis |
+| `research_get_context` | Wrapped research context | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
+| `research_get_sources` | Wrapped source metadata | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
+| `research_write_report` | Final markdown report | `(research_id, custom_prompt=None) → str` | 5–30 s | LLM-free when `custom_prompt=None` |
 
 ### Resource (1)
 
-- `research://{topic}` — context direto (sem session). Percent-decode server-side.
+- `research://{topic}` — direct context lookup (no session). Percent-decoded
+  server-side (so callers may use either `research://São Paulo` or
+  `research://S%C3%A3o%20Paulo`).
 
-### Prompts (4) ✨ new in v3.0
+### Prompts (4)
 
-| Prompt | Quando usar |
+| Prompt | When to use |
 |---|---|
-| `research_query(topic, goal?, report_format?)` | Workflow completo (deep + report) |
-| `research_quick_brief(topic)` 🆕 | Raw snippets sem síntese (atalho, sem LLM) |
-| `research_synthesis(research_id, audience?, length?)` 🆕 | Re-formata research existente por audience (general / executive / technical / academic) |
-| `research_health_diagnose(symptoms)` 🆕 | Triagem de erros via `/health` + `/metrics` (decision tree retry/rephrase/escalate/report) |
+| `research_query(topic, goal?, report_format?)` | Full workflow (deep + report) |
+| `research_quick_brief(topic)` | Raw snippets without synthesis (shortcut, no LLM) |
+| `research_synthesis(research_id, audience?, length?)` | Re-format existing research by audience (`general` / `executive` / `technical` / `academic`) |
+| `research_health_diagnose(symptoms)` | Error triage via `/health` + `/metrics` (decision tree: retry / rephrase / escalate / report) |
 
 ---
 
-## ⚙️ Configuration in percival.OS (Nanobot)
+## 📦 Installation
 
-### Quickstart (v3.0.0 — recommended)
+### Prerequisites
 
-The server uses **a single inference endpoint** (one LLM). Same setup works
-for **any** OpenAI-compatible gateway (OpenAI, Venice, MiniMax, OpenRouter,
-local LLMs, etc.):
+- **Python ≥ 3.11** (tested on 3.11 and 3.12)
+- **uv** ([install instructions](https://docs.astral.sh/uv/getting-started/installation/))
+- For Docker: **Docker Engine ≥ 23** (BuildKit enabled by default)
+- An **inference API key** (OpenAI, Venice, MiniMax, OpenRouter, or any
+  OpenAI-compatible endpoint)
 
-```json
-{
-  "mcpServers": {
-    "percival-deep-research": {
-      "command": "uv",
-      "args": ["run", "--no-sync", "percival-deep-research"],
-      "env": {
-        "PYTHONUNBUFFERED": "1",
-        "MCP_TRANSPORT": "stdio",
-        "INFERENCE_API_KEY": "YOUR_KEY",
-        "INFERENCE_BASE_URL": "https://api.minimax.io/v1",
-        "INFERENCE_LLM": "minimax:MiniMax-M3",
-        "RETRIEVER": "duckduckgo"
-      },
-      "tool_timeout": 300
-    }
-  }
-}
+### Install from source
+
+```bash
+git clone https://github.com/bill-kopp-ai-dev/percival.OS.git
+cd percival.OS/percival-deep-research   # this directory
+
+uv sync                                  # installs deps + applies gpt-researcher patch
+uv run percival-deep-research            # boots in stdio mode
 ```
 
-> **⚠️ Use literals** — `INFERENCE_LLM=${INFERENCE_LLM:-default}` e similares são **template bash-style não-interpolados**. v3.0 detecta isso e emite WARN, mas a pipeline quebra silenciosamente se não trocar. Em caso de dúvida, copie valor direto: `INFERENCE_LLM=openai:gpt-4o-mini`.
+> **Note**: this server lives in the `percival-deep-research/` subdirectory
+> of the `percival.OS` monorepo. All commands below assume you're inside
+> that directory.
+
+### Pre-built Docker image
+
+```bash
+docker build -t percival-deep-research:local .
+```
+
+See [Docker Deployment](#-docker-deployment) for full instructions.
+
+### Install as a tool (optional)
+
+```bash
+uv tool install --from . percival-deep-research
+percival-deep-research --help        # verify install
+```
+
+---
+
+## ⚙️ Configuration
+
+All configuration is via environment variables. See
+[`.env.example`](.env.example) for the full template.
+
+### Required
+
+| Variable | Purpose |
+|---|---|
+| `INFERENCE_API_KEY` | API key for the inference endpoint |
+
+### Single-endpoint inference (v3.0+)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `INFERENCE_LLM` | `openai:gpt-4o-mini` | `provider:model` format — provider is auto-detected from `INFERENCE_BASE_URL` host |
+| `INFERENCE_BASE_URL` | (auto) | OpenAI-compatible URL; `venice:`/`minimax:`/`openrouter:` aliases are auto-detected |
+
+### Retriever (web search backend)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RETRIEVER` | `duckduckgo` | `duckduckgo` (no API key) or `brave` (needs `BRAVE_API_KEY`) |
+| `BRAVE_API_KEY` | — | Required only if `RETRIEVER=brave` |
+
+### Transport
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MCP_TRANSPORT` | `stdio` | `stdio` (Nanobot / OpenCode / gateway), `sse` (HTTP), or `streamable-http` |
+| `MCP_HOST` | `0.0.0.0` | Bind address for HTTP transports |
+| `PORT` | `8000` | Bind port for HTTP transports |
+
+### Tuning
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | Standard log levels |
+| `PERCIVAL_RESEARCH_TIMEOUT_S` | `90` | Max seconds for one research |
+| `PERCIVAL_MAX_CONCURRENT_RESEARCH` | `3` | Concurrent in-flight researches |
 
 ### Migration from v2.x
 
@@ -96,10 +212,11 @@ local LLMs, etc.):
 + "INFERENCE_API_KEY": "...",
 + "INFERENCE_BASE_URL": "...",
 + "INFERENCE_LLM": "<provider>:<model>",
-+ "RETRIEVER": "duckduckgo"   // ou "brave" + BRAVE_API_KEY se quiser
++ "RETRIEVER": "duckduckgo"   // or "brave" + BRAVE_API_KEY
 ```
 
 **Breaking changes v2.x → v3.0:**
+
 - ❌ `OPENAI_*` env vars (still accepted as fallback with deprecation log;
   will be removed in v4.0).
 - ❌ `FAST_LLM`/`SMART_LLM`/`STRATEGIC_LLM`/`EMBEDDING_LLM` per-slot
@@ -112,6 +229,96 @@ local LLMs, etc.):
 - ✅ v3.0 NEW: strict validation on `deep_research(include_context)` —
   accepts only real `bool`. `'yes'`/`'false'`/`1` are rejected at the
   framework level (Pydantic StrictBool in the type annotation).
+
+> **⚠️ Use literals** — `INFERENCE_LLM=${INFERENCE_LLM:-default}` and
+> similar bash-style placeholders are **not interpolated**. v3.0 detects
+> this and emits WARN [S6], but the pipeline breaks silently if you don't
+> fix it. Always copy the value directly:
+> `INFERENCE_LLM=openai:gpt-4o-mini`.
+
+---
+
+## 🚀 Usage
+
+The server speaks **stdio by default**, which is the canonical MCP
+transport. Below are the three most common ways to wire it up.
+
+### With Nanobot (or any MCP client via `command`/`args`)
+
+Add to `~/.nanobot/config.json` (or via the WebUI **Apps** tab):
+
+```json
+{
+  "mcpServers": {
+    "percival-deep-research": {
+      "command": "uv",
+      "args": ["run", "--no-sync", "percival-deep-research"],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "MCP_TRANSPORT": "stdio",
+        "INFERENCE_API_KEY": "YOUR_KEY",
+        "INFERENCE_BASE_URL": "https://api.openai.com/v1",
+        "INFERENCE_LLM": "openai:gpt-4o-mini",
+        "RETRIEVER": "duckduckgo"
+      },
+      "tool_timeout": 300
+    }
+  }
+}
+```
+
+### With OpenCode
+
+Add to `.opencode/mcp.json` (project) or `~/.config/opencode/mcp.json`
+(global):
+
+```json
+{
+  "mcp": {
+    "percival-deep-research": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["run", "--no-sync", "percival-deep-research"],
+      "env": {
+        "INFERENCE_API_KEY": "YOUR_KEY",
+        "INFERENCE_LLM": "openai:gpt-4o-mini"
+      }
+    }
+  }
+}
+```
+
+### With the Docker MCP Toolkit / Catalog
+
+After building the image (`docker build -t percival-deep-research:local .`):
+
+```bash
+docker mcp catalog import ./docker/
+docker mcp gateway run --profile my_profile
+```
+
+The catalog metadata (`docker/server.yaml` + `docker/tools.json` +
+`docker/README.md`) declares the server as `mcp/percival-deep-research`
+with `INFERENCE_API_KEY` and `BRAVE_API_KEY` as secrets. See
+[Docker Deployment](#-docker-deployment) for full integration recipes.
+
+### Programmatic (Python MCP client)
+
+```python
+import asyncio
+from fastmcp import Client
+
+async def main():
+    async with Client("uv://run?percival-deep-research") as client:
+        tools = await client.list_tools()
+        result = await client.call_tool(
+            "research_deep",
+            {"query": "what is the capital of France?"},
+        )
+        print(result)
+
+asyncio.run(main())
+```
 
 ---
 
@@ -165,7 +372,7 @@ secrets from a local `.env` (which is **optional** — env vars also work).
 
 ### Integration with MCP clients
 
-**Nanobot** — add to `~/.nanobot/config.json` (or via the WebUI **Apps** tab):
+**Nanobot via Docker** — add to `~/.nanobot/config.json`:
 
 ```json
 {
@@ -187,8 +394,7 @@ secrets from a local `.env` (which is **optional** — env vars also work).
 }
 ```
 
-**OpenCode** — add to `.opencode/mcp.json` (project) or
-`~/.config/opencode/mcp.json` (global):
+**OpenCode via Docker** — add to `.opencode/mcp.json`:
 
 ```json
 {
@@ -243,7 +449,46 @@ the SSE boot.
 
 ---
 
+## 🏗️ Architecture
 
+The server sits between an MCP client (Nanobot, OpenCode, Claude Desktop,
+the Docker MCP gateway, or any stdio consumer) and `gpt-researcher`, which
+in turn drives the configured inference endpoint and retriever:
+
+```
+MCP client ──stdio/HTTP──▶ FastMCP app ──▶ gpt-researcher
+                                │                  │
+                                │                  ├──▶ OpenAI-compatible LLM (chat + summary)
+                                │                  └──▶ DuckDuckGo / Brave / SearXNG (retrieval)
+                                │
+                                ├──▶ research_limiter (rate-limit / dedup)
+                                ├──▶ registry (active sessions + cached results)
+                                ├──▶ metrics (Prometheus-style counters)
+                                ├──▶ /health + /metrics custom routes
+                                └──▶ @mcp.tool decorators expose the 5 public tools
+```
+
+**Security boundary** — untrusted web content (returned by `research_get_*`)
+is wrapped with a `[SECURITY WARNING:...]` prefix so the calling agent
+treats it as data, not instruction. The XML envelope is applied at the
+`utils.py` level for the `research://{topic}` resource. Input sanitization
+lives in `sanitize_query()` / `sanitize_topic()` (utils.py).
+
+**Determinism guarantees** — `StrictBool` on `include_context` is enforced
+at the Pydantic layer (FastMCP 3.4+) before our handler runs, so a v2.x
+agent that passed `'yes'` fails fast with a clear `ToolError` instead of
+silently being coerced.
+
+**Single-endpoint inference** — `INFERENCE_LLM` drives chat, summary, and
+strategy. `populate_inference_slots()` (`llm_bridge.py`) propagates the
+canonical `INFERENCE_*` env vars to the legacy `OPENAI_*` namespace that
+`gpt-researcher/memory/embeddings.py` reads directly — this is the only
+way to make non-OpenAI gateways (Venice, MiniMax, OpenRouter, local LLMs)
+work end-to-end without forking the upstream.
+
+---
+
+## ⚠️ Known Limitations (v3.0.1)
 
 These are honest design constraints, not bug reports:
 
@@ -266,6 +511,7 @@ These are honest design constraints, not bug reports:
    annotations` patch in our local venv (see `scripts/patch_gpt_researcher.py`).
    Without it, the server never boots. If you destroy your venv,
    re-run `uv run python scripts/patch_gpt_researcher.py` after `uv sync`.
+   The Docker image runs the patch inside its build stage automatically.
 
 4. **DuckDuckGo retriever rate-limits on heavy traffic.** DuckDuckGo
    doesn't publish rate limits but returns `HTTP 429` after sustained
@@ -282,7 +528,7 @@ These are honest design constraints, not bug reports:
 ## 🛠️ Development & Testing
 
 ```bash
-cd percival.OS_Dev
+# Inside the percival-deep-research/ directory of the monorepo:
 uv sync
 uv run percival-deep-research
 ```
@@ -290,21 +536,74 @@ uv run percival-deep-research
 ### Test runs
 
 ```bash
-# Whole suite (353 passed + 3 skipped; no integration deps needed).
+# Whole suite (411 passed + 4 skipped; no integration deps needed).
 uv run pytest -q
 
-# Just the round 4+5 regression tests (placeholder detection, dedup, etc.).
+# Just the regression tests for placeholder detection / dedup / bloat.
 uv run pytest tests/test_audit_round4_nano.py tests/test_audit_round5_placeholder.py -v
 
+# Docker packaging regressions (Dockerfile, .dockerignore, server.py, catalog metadata).
+uv run pytest tests/test_docker.py -v
+
 # Smoke test (boots, version prints):
-INFERENCE_API_KEY=sk-fake INFERENCE_BASE_URL=https://api.minimax.io/v1 \
-  INFERENCE_LLM=minimax:MiniMax-M3 \
+INFERENCE_API_KEY=sk-fake INFERENCE_BASE_URL=https://api.openai.com/v1 \
+  INFERENCE_LLM=openai:gpt-4o-mini \
   timeout 4 uv run --no-sync percival-deep-research
+
+# Docker end-to-end smoke (build + stdio JSON-RPC + HTTP/SSE /health):
+bash scripts/docker_smoke_test.sh
 ```
 
 ---
 
-## 🛟 Troubleshooting (v3.0.x)
+## 🛟 Troubleshooting (v3.0.1)
+
+### Docker container marked "unhealthy" in stdio mode
+
+This is **expected**, not a bug. The HEALTHCHECK directive in the
+Dockerfile hits `GET /health` on port 8000, but stdio mode never binds
+that port. The container is fully functional for MCP stdio traffic — the
+"unhealthy" label is informational only. To silence it:
+
+```bash
+docker run --rm -i --health-cmd=none ...    # or
+docker run --rm -i --no-healthcheck ...
+```
+
+If you actually want a healthy container, run with HTTP/SSE:
+
+```bash
+MCP_TRANSPORT=sse docker compose up percival-deep-research
+```
+
+### `docker compose up` fails with `port 8000 is already allocated`
+
+Another process on the host is bound to 8000. Override the port:
+
+```bash
+PORT=8765 docker compose up percival-deep-research
+# or for docker run:
+docker run -p 8765:8000 -e PORT=8000 ...
+```
+
+### `docker build` fails with `NameError: name 'Any' is not defined`
+
+Means `scripts/patch_gpt_researcher.py` did not run inside the build.
+Verify the builder stage contains the `uv run --no-sync python
+scripts/patch_gpt_researcher.py` line. If you're on `gpt-researcher <
+0.16.0`, the patch is a no-op (idempotent) and you should NOT see this
+error.
+
+### Nanobot / OpenCode can't see the server after `docker compose run`
+
+Common causes:
+- `MCP_TRANSPORT` was set to `sse` somewhere (e.g. shell env) — stdio
+  mode requires `MCP_TRANSPORT=stdio` explicitly when an env var
+  shadows the Dockerfile default.
+- The `command` in `mcp.json` doesn't match the image name. Confirm
+  `docker images | grep percival-deep-research` shows your tag.
+- The MCP client doesn't ship stdin over the `docker run -i` pipe —
+  verify with `docker run --rm -i <image> < /dev/null` returns cleanly.
 
 ### `Error: Unsupported ${INFERENCE_LLM.` (N0)
 
@@ -467,10 +766,17 @@ Possible causes (after v3.0 review):
 ---
 
 ## 📚 About the Project
-This server is an integral module of the **percival.OS** project. It enables Nanobot to perform complex research tasks that require multiple steps of validation and synthesis.
 
-- **Main Repository**: [https://github.com/bill-kopp-ai-dev/percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
-- **License**: MIT
+This server is an integral module of the **percival.OS** project — a
+Personal Agentic Operating System designed for autonomy, security, and
+absolute privacy. It equips the Nanobot agent (and any other MCP client)
+with multi-step research capabilities that require validation and
+synthesis across numerous sources.
+
+- **percival.OS monorepo**: [github.com/bill-kopp-ai-dev/percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
+- **This server's directory**: `percival.OS/percival-deep-research/`
+- **Issues**: [github.com/bill-kopp-ai-dev/percival.OS/issues](https://github.com/bill-kopp-ai-dev/percival.OS/issues)
+- **License**: [MIT](LICENSE)
 
 ---
 
@@ -478,7 +784,8 @@ This server is an integral module of the **percival.OS** project. It enables Nan
 
 | Version | Status | Notes |
 |---|---|---|
-| 3.0.0 | ✅ current | 4 new prompts; strict-bool on `include_context`; INFERENCE_LLM placeholder detector |
+| 3.0.1 | ✅ current | Docker encapsulation (multi-stage image, stdio default, MCP catalog metadata); lint pass (161 → 0); image shrink (1.7 GB → 1.37 GB) |
+| 3.0.0 | 🟠 superseded | 4 new prompts; strict-bool on `include_context`; INFERENCE_LLM placeholder detector |
 | 2.3.x | 🟠 superseded | last with `include_context='yes'` accepted |
 | 2.2.x | 🟠 superseded | single-endpoint inference introduced |
 | 2.1.x | 🟢 legacy | four-slot `FAST_LLM`/`SMART_LLM`/… model |
@@ -487,4 +794,16 @@ This server is an integral module of the **percival.OS** project. It enables Nan
 See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 
 ---
+
+## 🙏 Acknowledgements
+
+- [`HKUDS/nanobot`](https://github.com/HKUDS/nanobot) — the consumer
+  agent this server is optimized for.
+- [`assafelovic/gpt-researcher`](https://github.com/assafelovic/gpt-researcher)
+  — upstream research engine; locally patched for Python 3.11/3.12 compat.
+- [`jlowin/fastmcp`](https://github.com/jlowin/fastmcp) and the broader
+  [MCP ecosystem](https://modelcontextprotocol.io/).
+
+---
+
 *Developed with ❤️ by the percival.OS Team*
