@@ -38,7 +38,14 @@ class InMemoryCache:
 
     async def set(self, key: str, value: Any, ttl_s: int | None = None) -> None:
         with self._lock:
-            expires_at = time.monotonic() + ttl_s if ttl_s else None
+            # Round 6 fix (bug-hunt): antes `ttl_s=0` (falsy) virava
+            # `expires_at=None` (sem expiry), impossibilitando "expira
+            # imediatamente". Usar `is not None` para que apenas `None`
+            # signifique "sem expiry"; `ttl_s=0` expira já.
+            if ttl_s is None:
+                expires_at = None
+            else:
+                expires_at = time.monotonic() + ttl_s
             self._store[key] = (value, expires_at)
 
     async def delete(self, key: str) -> None:

@@ -50,6 +50,12 @@ async def _run_research_and_cache(query: str, factory, cid: str) -> str:
             await asyncio.wait_for(_do_research(), timeout=timeout_s)
         except asyncio.TimeoutError:
             _app.metrics.record_timeout("research_resource")
+            # Round 6 fix (bug-hunt): timeouts não estavam alimentando o
+            # deque de latências, enviesando p50_latency_ms em direção
+            # aos sucessos rápidos. Agora todos os caminhos de saída
+            # chamam record_latency.
+            elapsed_ms = (time.monotonic() - start) * 1000
+            _app.metrics.record_latency("research_resource", elapsed_ms)
             sys.stderr.write(
                 f"research://{query!r} timed out after {timeout_s}s\n"
             )

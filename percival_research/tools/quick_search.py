@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+import time
 from contextlib import redirect_stdout
 
 from gpt_researcher import GPTResearcher
@@ -10,7 +11,6 @@ from loguru import logger
 from percival_research.app import (
     UNIVERSAL_AGENT_NAME,
     mcp,
-    metrics,
 )
 import percival_research.app as _app
 from utils import handle_exception, new_correlation_id, sanitize_query
@@ -33,16 +33,25 @@ async def quick_search(query: str) -> str:
     try:
         await _app.research_limiter.acquire()
     except asyncio.TimeoutError:
-        metrics.record_timeout("quick_search")
+        _app.metrics.record_timeout("quick_search")
         logger.warning(f"[{cid}] quick_search rate limit acquire timeout")
         return (
             f"Error: Server is busy (concurrent research limit reached). "
             f"Try again in a few seconds. (correlation_id={cid})"
         )
 
+    start = time.monotonic()
     try:
         return await _do_quick_search(query, cid)
     finally:
+        # Round 6 fix (bug-hunt): antes, `quick_search_total` nunca era
+        # incrementado (só erros/timeouts eram registrados). Agora o
+        # caminho de sucesso também atualiza o contador e o deque de
+        # latências, tornando `quick_search_total` utilizável em
+        # `/metrics`. Usa `_app.metrics` (runtime lookup) em vez do
+        # símbolo `metrics` capturado no import.
+        elapsed_ms = (time.monotonic() - start) * 1000
+        _app.metrics.record_latency("quick_search", elapsed_ms)
         _app.research_limiter.release()
 
 
@@ -59,7 +68,7 @@ async def _do_quick_search(query: str, cid: str) -> str:
         with redirect_stdout(sys.stderr):
             search_results = await researcher.quick_search(query=query)
     except Exception as e:
-        metrics.record_error("quick_search")
+        _app.metrics.record_error("quick_search")
         return handle_exception(e, "Quick search", cid)
 
     logger.info(f"[{cid}] Quick search complete. query={query!r}")

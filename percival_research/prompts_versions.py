@@ -4,7 +4,9 @@ Versionamento de prompts (Fase 7).
 Permite A/B testing e rollback via env `PERCIVAL_PROMPT_VERSION`.
 """
 
-import sys
+import os
+
+from loguru import logger
 
 V1_RESEARCH_AGENT_ROLE = (
     "You are an experienced AI research assistant. Your primary goal is to "
@@ -25,17 +27,19 @@ def get_research_agent_role() -> str:
 
     Audit rodada 2 BUG-cleanups: typos no env (ex.: `v3`, `V1` com case)
     agora logam WARN em stderr para que o operador perceba.
+
+    Round 6 fix (bug-hunt): usa `logger.warning` do loguru em vez de
+    `print(..., file=sys.stderr)`, alinhando com o resto do projeto e
+    permitindo captura por handlers customizados.
     """
-    import os
     raw = os.getenv("PERCIVAL_PROMPT_VERSION", "v1")
     if raw == "v2":
         return V2_RESEARCH_AGENT_ROLE
     if raw == "v1":
         return V1_RESEARCH_AGENT_ROLE
     # Valor desconhecido → fallback com WARN para debug operacional.
-    print(
-        f"WARN: PERCIVAL_PROMPT_VERSION={raw!r} não reconhecido; "
-        f"esperado um de {sorted(_KNOWN_VERSIONS)}; usando v1.",
-        file=sys.stderr,
+    logger.warning(
+        f"PERCIVAL_PROMPT_VERSION={raw!r} não reconhecido; "
+        f"esperado um de {sorted(_KNOWN_VERSIONS)}; usando v1."
     )
     return V1_RESEARCH_AGENT_ROLE

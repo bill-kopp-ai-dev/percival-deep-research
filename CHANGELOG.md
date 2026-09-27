@@ -4,6 +4,71 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/),
 versioning follows [SemVer](https://semver.org/).
 
+## [3.0.1] — 2026-09-27
+
+### 🐛 Bug-hunt round 6 — 14 issues fixed in deep_research, utils, health, observability
+
+**Bumps:** v3.0.0 → v3.0.1 (semver-patch: bug fixes only; surface pública preservada).
+
+**Headline metrics:**
+- **14 bugs fixed** across `deep_research`, `utils`, `health`, `quick_search`, `write_report`,
+  `resources`, `llm_bridge`, `prompts_versions`, `cache`, `patches`.
+- **28 regression tests** added em `tests/test_audit_round6_bughunt.py`.
+- Cobertura sobe de ~85% para **88.88%** (`uv run pytest --cov`).
+
+### Fixed
+
+#### Contrato público preservado (5 tools + 1 resource + 4 prompts — inalterado):
+
+- **B1 (CRITICAL) — dedup waiter exception leak.** Quando o creator do `_IN_FLIGHT`
+  é rejeitado pelo rate limiter, a Future compartilhada recebia uma exceção crua
+  (`RuntimeError`) e qualquer waiter fazia `return await existing` → re-raise cru.
+  Agora o waiter captura via `handle_exception`, devolvendo mensagem
+  `Error: ... (correlation_id=...)` em vez de vazar stack trace.
+- **B2 (HIGH) — `_do_deep_research` re-levantava exceção crua.** Substituído `raise`
+  por `return handle_exception(...)` — alinhado com o padrão de `get_research_context`,
+  `get_research_sources`, `write_report`.
+- **B3 (HIGH) — `RateLimiter.release` podia liberar semáforo errado.** Se
+  `_recreate_sem` rodava entre acquire e release (loop-mismatch), `release()`
+  liberava o semáforo NOVO enquanto o original ficava permanentemente saturado.
+  Adicionado contador `_pending` (atômico com `_lock`) que desacopla release
+  da identidade do semáforo atual.
+- **B4 (HIGH) — `Metrics.record_latency` ignorava operations sem campo dataclass.**
+  `research_resource`, `get_research_context`, etc. não incrementavam counter
+  (`hasattr` falhava silenciosamente). Substituído por `defaultdict(int)` interno
+  `_totals`, exposto em `snapshot()['totals_by_tool']`.
+- **B5 (MEDIUM) — `quick_search_total` / `write_report_total` nunca incrementavam.**
+  Caminho de sucesso agora chama `record_latency` (no `finally`) — alinhando
+  `/metrics` com a realidade do tráfego. Também trocado `metrics` importado por
+  `_app.metrics` (runtime lookup) para honrar patches em testes.
+- **B6 (MEDIUM) — `/health` reportava `"version": "2.2.0"` hardcoded.** Agora lê
+  `percival_research.__version__` (3.0.0+), single source of truth.
+- **B7 (MEDIUM) — `_check_retriever_configured` aceitava retriever desconhecido
+  como configurado.** `RETRIEVER=bing` retornava `True` (healthy mentiroso). Agora
+  valida contra `percival_research.retrievers._REGISTRY`.
+- **B8 (MEDIUM) — `populate_inference_slots` substring match `"openai:"`**
+  aceitava falsos positivos (`custom-openai-compatible:foo`). Trocado por
+  `startswith("openai:")`.
+- **B9 (MEDIUM) — `resources.py` timeout path não alimentava deque de latências.**
+  Adicionado `record_latency("research_resource", elapsed_ms)` na branch
+  TimeoutError — p50 deixa de ser enviesado em direção aos sucessos rápidos.
+- **B10 (MEDIUM) — `_evict_expired` / `_evict_expired_cache` logavam 1 INFO por
+  item expirado** (flood em registry saturado). Agora 1 mensagem agregada
+  com a contagem total.
+- **B11 (LOW) — `validate_research_id` não capturava `TypeError`** (`UUID(12345)`
+  levanta `TypeError`, não `ValueError`). Adicionado ao `except`.
+- **B12 (LOW) — `cache.ttl_s=0` tratado como "sem expiry"** (falsy). Agora
+  `is None` é a checagem correta; `ttl_s=0` expira imediatamente.
+- **B13 (LOW) — `format_context_with_sources` O(n²) em whitespace collapse.**
+  Trocado `while "  " in s: replace()` por `re.sub(r" {2,}", " ", s)`.
+- **B14 (LOW) — `prompts_versions` usava `print(..., file=sys.stderr)`** em vez
+  de `logger.warning`. Alinhado com o resto do projeto.
+- **B15 (LOW) — `_translate_all_slots` tinha `seen: set[str]` dead code.** Removido.
+- **B16 (LOW) — `scripts/patch_gpt_researcher.py` inseria em posição errada**
+  (depois de outros imports), quebrando com `SyntaxError` em 0.16.1+. Reescrito
+  para detectar docstring e inserir como PRIMEIRA linha executável;
+  também deduplica `from __future__` em re-aplicações.
+
 ## [3.0.0] — 2026-07-23
 
 ### 🎯 Major release — consolidation of 4 Nano bug-hunt rounds + 2 internal code-reviews

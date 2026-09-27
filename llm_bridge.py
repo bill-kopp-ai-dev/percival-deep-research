@@ -88,9 +88,14 @@ def populate_inference_slots(settings: Settings) -> None:
     #    OpenAI-compatível com embedding conhecido. Caso contrário, deixar
     #    unset (gpt-researcher falha limpo, em vez de aceitar silenciosamente
     #    um modelo errado e gerar embeddings lixo).
+    #
+    #    Round 6 fix (bug-hunt): antes `"openai:" in settings.inference_llm`
+    #    aceitava QUALQUER string contendo "openai:" como substring
+    #    (e.g. "custom-openai-compatible:foo"), forçando embedding default
+    #    em endpoints que podem não suportar. Usar startswith para checagem
+    #    exata de prefixo.
     if not os.getenv("EMBEDDING_LLM"):
-        is_openai_compatible = "openai:" in settings.inference_llm
-        if is_openai_compatible:
+        if settings.inference_llm.startswith("openai:"):
             os.environ["EMBEDDING_LLM"] = _DEFAULT_OPENAI_EMBEDDING
 
     # 3. Bridge BUG-3 fix: `gpt-researcher/memory/embeddings.py:104` ainda
@@ -120,11 +125,15 @@ def apply_env_mappings(settings: Settings) -> None:
 def _translate_all_slots(settings: Settings) -> None:
     """Para cada slot setado no env (FAST/SMART/STRATEGIC/EMBEDDING/INFERENCE),
     aplica `_translate_provider` e `_apply_minimax_alias`.
-    Idempotente — só reescreve se o valor mudar."""
-    seen: set[str] = set()
+    Idempotente — só reescreve se o valor mudar.
+
+    Round 6 fix (bug-hunt): removido `seen: set[str]` — era dead code.
+    O for itera sobre nomes únicos (`*_SLOT_VARS` é uma tupla, somada a
+    `"INFERENCE_LLM"`), então `seen` nunca era populado de forma que
+    afetasse iteração. Mantido comentário como defesa contra futura
+    refatoração que introduza aliases duplicados.
+    """
     for var in (*_SLOT_VARS, "INFERENCE_LLM"):
-        if var in seen:
-            continue
         val = os.getenv(var)
         if not val:
             continue
@@ -133,7 +142,6 @@ def _translate_all_slots(settings: Settings) -> None:
         val = _apply_minimax_alias(val, settings)
         if val != original:
             os.environ[var] = val
-            seen.add(var)
 
 
 def normalize_llm_env(settings: Settings) -> None:
@@ -202,3 +210,4 @@ def _warn_on_malformed_inference_llm(value: str) -> None:
 # Re-export PLACEHOLDER_OPENERS via _LIKELY_PLACEHOLDERS para
 # retro-compat (test_audit_round5_placeholder.py pode referenciar).
 _LIKELY_PLACEHOLDERS = PLACEHOLDER_OPENERS
+

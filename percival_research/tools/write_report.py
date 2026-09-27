@@ -1,6 +1,7 @@
 """Tool: write_report — gera relatório estruturado de uma sessão de pesquisa."""
 
 import sys
+import time
 from contextlib import redirect_stdout
 
 from loguru import logger
@@ -35,6 +36,7 @@ async def write_report(research_id: str, custom_prompt: str | None = None) -> st
 
     logger.info(f"[{cid}] Generating report for ID: {research_id}")
 
+    start = time.monotonic()
     try:
         with redirect_stdout(sys.stderr):
             report = await researcher.write_report(custom_prompt=custom_prompt)
@@ -48,4 +50,15 @@ async def write_report(research_id: str, custom_prompt: str | None = None) -> st
             _app.registry.evict_researcher(research_id)
         except Exception:
             pass
+        _app.metrics.record_error("write_report")
         return handle_exception(e, "Report generation", cid)
+    finally:
+        # Round 6 fix (bug-hunt): antes, `write_report_total` nunca era
+        # incrementado (só erros eram registrados via record_error).
+        # Agora o caminho de sucesso também alimenta o counter e o deque
+        # de latências, alinhando `/metrics` com a realidade do tráfego.
+        # Usa `_app.metrics` (lookup em runtime) em vez de `metrics`
+        # capturado no import, para honrar patches em testes
+        # (ex.: `clean_app_state` em conftest).
+        elapsed_ms = (time.monotonic() - start) * 1000
+        _app.metrics.record_latency("write_report", elapsed_ms)

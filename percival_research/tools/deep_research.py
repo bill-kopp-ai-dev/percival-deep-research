@@ -92,13 +92,26 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
     # N7 fix (rodada 4): in-flight dedup ANTES do rate-limiter. Se outro
     # task já está rodando o mesmo topic, recuperamos a Future compartilhada
     # e esperamos — economiza um slot do rate-limiter E o pipeline completo.
+    #
+    # Round 6 fix (bug-hunt): se a Future compartilhada termina em exceção
+    # (e.g. creator foi rejeitado pelo rate limiter e setou RuntimeError
+    # nela), o `await existing` re-levanta cru. Capturamos e devolvemos
+    # via handle_exception para preservar o contrato público (resposta
+    # começa com "Error: ...") e não vazar stack trace para o agente.
     existing, status = await _acquire_in_flight_slot(query)
     if existing is not None:
         logger.info(
             f"[{cid}] deep_research dedup hit — waiting for "
             f"in-flight task (status={status})"
         )
-        return await existing
+        try:
+            return await existing
+        except Exception as e:
+            logger.warning(
+                f"[{cid}] dedup waiter caught exception from creator: "
+                f"{type(e).__name__}: {e}"
+            )
+            return handle_exception(e, "Deep research (dedup waiter)", cid)
 
     # Caller_creates path: registramos a Future neste slot.
     loop = asyncio.get_running_loop()
@@ -159,9 +172,14 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
             future.set_result(result)
         return result
     except Exception as exc:
+        # Round 6 fix (bug-hunt): seta exception na Future para waiters
+        # do dedup (que capturam via handle_exception), MAS retorna uma
+        # mensagem segura para o criador em vez de re-levantar. Antes
+        # disso, `raise` deixava o FastMCP serializar a exceção crua —
+        # quebrando o contrato público de "Error: ..." seguro.
         if not future.done():
             future.set_exception(exc)
-        raise
+        return handle_exception(exc, "Deep research", cid)
     finally:
         _app.research_limiter.release()
         # Remove a in-flight slot DEPOIS de set_result/set_exception.

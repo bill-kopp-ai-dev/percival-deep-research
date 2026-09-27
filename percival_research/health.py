@@ -4,6 +4,7 @@ import os
 
 from fastapi.responses import JSONResponse
 
+from percival_research import __version__
 from percival_research.app import mcp
 
 
@@ -25,12 +26,32 @@ def _check_retriever_configured() -> bool:
     se for explicitamente listado em `RETRIEVER` (com `BRAVE_API_KEY`
     setada). Lista separada por vírgula suportada (fallback entre
     múltiplos retrievers).
+
+    Round 6 fix (bug-hunt): antes qualquer retriever não-"brave" era
+    implicitamente tratado como "OK" (sem credencial necessária). Agora
+    valida contra o registry de retrievers conhecidos — um typo
+    (`RETRIEVER=bing`) falha em vez de reportar "healthy" mentirosamente.
     """
     raw = os.getenv("RETRIEVER", "duckduckgo")
     retrievers = [r.strip().lower() for r in raw.split(",") if r.strip()]
-    if "brave" in retrievers:
-        return bool(os.getenv("BRAVE_API_KEY"))
-    # duckduckgo (e outros) não exigem API key
+    if not retrievers:
+        return False
+
+    # Lazy import: registry é populado por side-effect em retrievers/__init__.py
+    try:
+        from percival_research.retrievers import _REGISTRY
+    except ImportError:
+        _REGISTRY = {}
+
+    for name in retrievers:
+        if name == "brave":
+            if not bool(os.getenv("BRAVE_API_KEY")):
+                return False
+        elif name not in _REGISTRY:
+            # Retriever desconhecido — health-check deve falhar para o
+            # operador ver o problema em vez de descobrir só em runtime.
+            return False
+        # Outros retrievers registrados não exigem API key
     return True
 
 
@@ -57,7 +78,7 @@ async def health_check(request):
     body = {
         "status": "healthy" if healthy else "degraded",
         "service": "gptr-mcp",
-        "version": "2.2.0",
+        "version": __version__,
         "checks": {
             "inference_configured": inference_ok,
             "retriever_configured": retriever_ok,
