@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────
+# .dockerignore — exclude from the build context.
+# Without this, the host's .venv, .git, .env, coverage cache etc. ship
+# into the image, overwriting the venv we just built and leaking secrets.
+# Keep this list focused on paths the Dockerfile does NOT need.
+# ─────────────────────────────────────────────────────────────────────
+
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.mypy_cache/
+.pyre/
+.pytype/
+.hypothesis/
+.ruff_cache/
+.pytest_cache/
+
+# Test artifacts / coverage
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+coverage.xml
+nosetests.xml
+*.cover
+*.py,cover
+.tox/
+.nox/
+
+# Build / dist artifacts
+*.egg-info/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+.installed.cfg
+
+# Venvs / interpreters
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Secrets / runtime state (NEVER ship into the image)
+.env
+.env.*
+!.env.example
+logs/
+.positronic/
+
+# VCS / editor / IDE
+.git/
+.gitattributes
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+.editorconfig
+.idea/
+.vscode/
+.spyderproject
+.spyproject
+.ropeproject
+.DS_Store
+Thumbs.db
+
+# Tooling for humans (not needed inside the image)
+docs/
+CHANGELOG.md
+AGENTS.md
+Makefile
+
+# docker/ catalog metadata — only used by humans for catalog submission,
+# never read by the running server. Dockerfile does NOT COPY from docker/.
+docker/

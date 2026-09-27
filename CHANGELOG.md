@@ -4,6 +4,64 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/),
 versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased] — 2026-09-27
+
+### 🐳 Docker encapsulation — compatível com Nanobot, OpenCode e Docker MCP Toolkit
+
+Surface pública **preservada** (5 tools + 1 resource + 4 prompts — inalterado).
+Mudança puramente operacional de packaging.
+
+#### Added
+
+- **Dockerfile multi-stage** (builder `ghcr.io/astral-sh/uv:python3.11-bookworm-slim`
+  → runtime `python:3.11-slim`) com aplicação automática do patch
+  `gpt-researcher >= 0.16.0` no stage de build (resolve
+  `NameError: name 'Any'` no import).
+- **`.dockerignore`** rigoroso — bloqueia `.venv`, `.git`, `.env`, caches
+  (`__pycache__`, `.pytest_cache`, `.ruff_cache`, `.coverage*`) e artefatos
+  de tooling. Sem ele o build context poluía a imagem com o venv do host.
+- **Labels OCI + MCP** (`org.opencontainers.image.{title,source,licenses,version,…}`
+  + `io.modelcontextprotocol.server.name=percival-deep-research`) para
+  catalog e gateway do Docker MCP Toolkit.
+- **Usuário não-root** `percival` (UID 1000) + **tini** como PID 1 para
+  forwarding correto de `SIGTERM`.
+- **Default transport = `stdio`** dentro da imagem — compatível com Nanobot,
+  OpenCode, Claude Desktop e Docker MCP gateway (todos esperam stdio via
+  `docker run -i`).
+- **`docker-compose.yml`** modernizado: removida chave `version:` obsoleta,
+  `RETRIEVER` default alinhado com `.env.example` (`duckduckgo`), `.env`
+  marcado como opcional, profile `production` com nginx.
+- **`docker/server.yaml` + `docker/tools.json` + `docker/README.md`** —
+  metadata pronta para PR em `docker/mcp-registry` (publicação no
+  hub.docker.com/mcp).
+- **`scripts/docker_smoke_test.sh`** — boot real do container em ambos os
+  transports, com `initialize` JSON-RPC sobre stdio e `curl /health` em
+  SSE.
+- **`tests/test_docker.py`** — 28 regressões estáticas: presença de
+  `.dockerignore`, labels OCI/MCP, patch no build, non-root UID ≥ 1000,
+  exec form do `ENTRYPOINT`, default `stdio`, ausência do auto-switch
+  SSE em `server.py`, e validação do metadata do catalog.
+- **Seção Docker no README** com snippets `mcp.json` prontos para Nanobot
+  e OpenCode.
+
+#### Changed (breaking para setups existentes)
+
+- **Removido auto-switch para SSE em `server.py:110-112`.** Antes, quando
+  `/.dockerenv` ou `DOCKER_CONTAINER=true` era detectado, o server forçava
+  `transport = "sse"`. Isso **quebrou** todos os usos como MCP server
+  stdio (Nanobot, OpenCode, Docker MCP gateway). Agora o transporte é
+  puramente controlado por `MCP_TRANSPORT`; o default da imagem é `stdio`.
+  Operadores que rodavam a imagem anterior em modo HTTP precisam setar
+  `MCP_TRANSPORT=sse` explicitamente (ou usar `docker compose run` /
+  `docker compose --profile production up`).
+
+#### Fixed (na própria Dockerfile)
+
+- O Dockerfile **anterior** não aplicava `scripts/patch_gpt_researcher.py`,
+  então `gpt-researcher >= 0.16.0` quebrava em import dentro do container.
+  A imagem antiga nunca bootou de fato em produção — agora boot via
+  smoke test real em ambos os transports.
+
 ## [3.0.1] — 2026-09-27
 
 ### 🐛 Bug-hunt round 6 — 14 issues fixed in deep_research, utils, health, observability

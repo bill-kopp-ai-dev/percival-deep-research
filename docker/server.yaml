@@ -1,0 +1,105 @@
+# Docker MCP Catalog metadata for `percival-deep-research`.
+#
+# Reference: https://github.com/docker/mcp-registry/blob/main/CONTRIBUTING.md
+#
+# To list this server in the public catalog (hub.docker.com/mcp) and the
+# Docker MCP Toolkit in Docker Desktop, open a PR against
+# `docker/mcp-registry` adding this file under `servers/percival-deep-research/`
+# alongside `tools.json` and `readme.md`. Docker will build and sign the image
+# in the `mcp/` namespace; if you'd rather self-host, change `image:` to your
+# own registry path and pass `--image` to `task create`.
+
+name: percival-deep-research
+image: mcp/percival-deep-research
+type: server
+
+meta:
+  category: research
+  tags:
+    - research
+    - web
+    - mcp
+    - ai
+    - gpt-researcher
+    - nanobot
+
+about:
+  title: Percival Deep Research
+  description: >-
+    Multi-source web research and report generation MCP server, optimized for
+    the Nanobot agent ecosystem. Five tools (research_deep,
+    research_quick_search, research_get_context, research_get_sources,
+    research_write_report), one resource template (research://{topic}), and
+    four prompts cover the full research workflow.
+  icon: https://avatars.githubusercontent.com/u/182288589?s=200&v=4
+
+source:
+  project: https://github.com/bill-kopp-ai-dev/percival.OS
+  # `commit` is filled in at PR time with the pinned release SHA.
+  commit: PLACEHOLDER_RELEASE_COMMIT_SHA
+
+config:
+  description: >-
+    Configure the inference endpoint and web retriever. Defaults to DuckDuckGo
+    (no API key needed) and `openai:gpt-4o-mini`. Any OpenAI-compatible
+    inference gateway works (Venice, MiniMax, OpenRouter, local LLMs).
+  secrets:
+    - name: percival-deep-research.inference_api_key
+      env: INFERENCE_API_KEY
+      example: <YOUR_INFERENCE_API_KEY>
+    - name: percival-deep-research.brave_api_key
+      env: BRAVE_API_KEY
+      example: <YOUR_BRAVE_API_KEY>
+  env:
+    - name: INFERENCE_BASE_URL
+      example: https://api.openai.com/v1
+    - name: INFERENCE_LLM
+      example: openai:gpt-4o-mini
+    - name: RETRIEVER
+      example: duckduckgo
+    - name: MCP_TRANSPORT
+      example: stdio
+    - name: LOG_LEVEL
+      example: INFO
+  parameters:
+    type: object
+    properties:
+      inference_api_key:
+        type: string
+        description: API key for the inference endpoint (required).
+      inference_base_url:
+        type: string
+        description: OpenAI-compatible URL — provider is auto-detected from host.
+        default: https://api.openai.com/v1
+      inference_llm:
+        type: string
+        description: "Model in `provider:model` format. Same LLM is used for all tasks unless overridden."
+        default: openai:gpt-4o-mini
+      brave_api_key:
+        type: string
+        description: Required only if RETRIEVER=brave.
+      retriever:
+        type: string
+        description: Web retriever backend.
+        default: duckduckgo
+        enum:
+          - duckduckgo
+          - brave
+      mcp_transport:
+        type: string
+        description: Transport mode.
+        default: stdio
+        enum:
+          - stdio
+          - sse
+          - streamable-http
+      log_level:
+        type: string
+        default: INFO
+        enum:
+          - DEBUG
+          - INFO
+          - WARNING
+          - ERROR
+    required:
+      - inference_api_key

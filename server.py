@@ -22,8 +22,6 @@ Single source of inference config:
 - OpenAI-compatible fallbacks still accepted with deprecation log
 """
 
-import os
-
 from fastmcp import FastMCP
 from loguru import logger
 
@@ -107,9 +105,6 @@ def run_server() -> None:
             return
 
         transport = settings.mcp_transport
-        if os.path.exists("/.dockerenv") or os.getenv("DOCKER_CONTAINER"):
-            transport = "sse"
-            logger.info("Docker environment detected — switching to SSE transport.")
 
         # v2.2: loga o provider auto-detectado e o LLM em uso para
         # facilitar o debug operacional (operador vê na log ao subir).

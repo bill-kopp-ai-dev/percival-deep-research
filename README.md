@@ -115,7 +115,135 @@ local LLMs, etc.):
 
 ---
 
-## ⚠️ Known Limitations (v3.0.x)
+## 🐳 Docker Deployment
+
+The server ships as a multi-stage Docker image compatible with **Nanobot**,
+**OpenCode**, the **Docker MCP Toolkit / Catalog**, Claude Desktop, and any
+generic MCP client. The container speaks **stdio by default**; HTTP/SSE is
+opt-in via env.
+
+### Quickstart — `docker run` (stdio)
+
+```bash
+docker run -i --rm \
+  -e INFERENCE_API_KEY=<your-key> \
+  -e INFERENCE_LLM=openai:gpt-4o-mini \
+  percival-deep-research:local
+```
+
+`-i` keeps stdin open so the container can receive JSON-RPC over stdio.
+This is the canonical invocation for MCP clients that spawn the server as a
+subprocess.
+
+### Quickstart — `docker run` (HTTP/SSE)
+
+```bash
+docker run -d --rm -p 8000:8000 \
+  -e MCP_TRANSPORT=sse \
+  -e INFERENCE_API_KEY=<your-key> \
+  -e INFERENCE_LLM=openai:gpt-4o-mini \
+  percival-deep-research:local
+```
+
+Browse `http://127.0.0.1:8000/health` to confirm the boot status.
+
+### Docker Compose
+
+```bash
+# Stdio (one-shot):
+docker compose run --rm percival-deep-research
+
+# HTTP/SSE (long-running):
+MCP_TRANSPORT=sse docker compose up percival-deep-research
+
+# Production stack with nginx reverse proxy:
+docker compose --profile production up
+```
+
+The compose file mounts `./logs` and `./reports` for persistence and reads
+secrets from a local `.env` (which is **optional** — env vars also work).
+
+### Integration with MCP clients
+
+**Nanobot** — add to `~/.nanobot/config.json` (or via the WebUI **Apps** tab):
+
+```json
+{
+  "mcpServers": {
+    "percival-deep-research": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "INFERENCE_API_KEY",
+        "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
+        "-e", "MCP_TRANSPORT=stdio",
+        "percival-deep-research:local"
+      ],
+      "env": {
+        "INFERENCE_API_KEY": "YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+**OpenCode** — add to `.opencode/mcp.json` (project) or
+`~/.config/opencode/mcp.json` (global):
+
+```json
+{
+  "mcp": {
+    "percival-deep-research": {
+      "type": "stdio",
+      "command": [
+        "docker", "run", "-i", "--rm",
+        "-e", "INFERENCE_API_KEY",
+        "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
+        "-e", "MCP_TRANSPORT=stdio",
+        "percival-deep-research:local"
+      ],
+      "env": {
+        "INFERENCE_API_KEY": "YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+**Docker MCP Toolkit / Catalog** — the image is annotated with the
+required OCI + MCP labels (`io.modelcontextprotocol.server.name=
+percival-deep-research`) and ships the catalog metadata under
+`docker/server.yaml` + `docker/tools.json` + `docker/README.md`. To
+publish to the public catalog (hub.docker.com/mcp), PR those files into
+[`docker/mcp-registry`](https://github.com/docker/mcp-registry) under
+`servers/percival-deep-research/`.
+
+### Smoke test
+
+A scripted end-to-end test that boots the image in both transports and
+verifies the JSON-RPC initialize roundtrip + `/health` endpoint:
+
+```bash
+bash scripts/docker_smoke_test.sh
+```
+
+Build takes ~30 s on a warm cache; the full run takes ~45 s including
+the SSE boot.
+
+### Image details
+
+| | |
+|---|---|
+| Base | `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` (builder) → `python:3.11-slim` (runtime) |
+| Size | ~1.7 GB (pulls the full `gpt-researcher` + ML deps stack) |
+| User | non-root `percival` (UID 1000) |
+| Signal | PID 1 = `tini` → forwards SIGTERM to the MCP server |
+| Default transport | `stdio` |
+| Health endpoint | `GET /health` (200 healthy / 503 degraded) — only meaningful in HTTP mode |
+
+---
+
+
 
 These are honest design constraints, not bug reports:
 

@@ -1,0 +1,40 @@
+[
+  {
+    "name": "research_deep",
+    "description": "Run a multi-source deep research on a topic and return a curated summary plus a research_id for follow-up reads.",
+    "arguments": [
+      {"name": "topic", "type": "string", "desc": "The research topic."},
+      {"name": "include_context", "type": "boolean", "desc": "Whether to include surrounding context in the response. Strict-bool.", "required": false}
+    ]
+  },
+  {
+    "name": "research_quick_search",
+    "description": "Fast single-query web search returning the top hits with snippets.",
+    "arguments": [
+      {"name": "query", "type": "string", "desc": "The search query."},
+      {"name": "max_results", "type": "integer", "desc": "Maximum number of results (default 5).", "required": false}
+    ]
+  },
+  {
+    "name": "research_get_context",
+    "description": "Fetch the full research context for a given research_id. Output is wrapped with a [SECURITY WARNING:...] prefix to mark untrusted content.",
+    "arguments": [
+      {"name": "research_id", "type": "string", "desc": "The ID returned by a previous research_deep call."}
+    ]
+  },
+  {
+    "name": "research_get_sources",
+    "description": "Fetch the list of sources (URLs, titles, snippets) for a given research_id. Output is wrapped with a [SECURITY WARNING:...] prefix.",
+    "arguments": [
+      {"name": "research_id", "type": "string", "desc": "The ID returned by a previous research_deep call."}
+    ]
+  },
+  {
+    "name": "research_write_report",
+    "description": "Write a long-form report for a given research_id and return the file path or markdown body.",
+    "arguments": [
+      {"name": "research_id", "type": "string", "desc": "The ID returned by a previous research_deep call."},
+      {"name": "custom_prompt", "type": "string", "desc": "Optional override prompt for the synthesis step.", "required": false}
+    ]
+  }
+]
