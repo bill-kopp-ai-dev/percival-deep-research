@@ -259,6 +259,19 @@ class TestServerNoAutoSwitch:
             "should set `MCP_TRANSPORT` explicitly when they want HTTP."
         )
 
+    def test_server_loads_mounted_env_before_settings_imports(self) -> None:
+        server_py = PROJECT_ROOT / "server.py"
+        text = server_py.read_text()
+        bootstrap_position = text.index("import runtime_env as _runtime_env")
+        first_settings_import = min(
+            text.index("import percival_research.tools"),
+            text.index("from percival_research import"),
+        )
+        assert bootstrap_position < first_settings_import, (
+            "the runtime environment bootstrap must run before imports "
+            "construct the process-wide settings snapshot"
+        )
+
 
 # ─────────────────────────────────────────────────────────────────────
 # docker-compose.yml

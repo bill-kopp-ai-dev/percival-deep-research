@@ -22,6 +22,8 @@ Single source of inference config:
 - OpenAI-compatible fallbacks still accepted with deprecation log
 """
 
+import runtime_env as _runtime_env  # noqa: F401, I001 -- must run before settings imports
+
 from loguru import logger
 
 # Side-effects: registrar tools, resource e prompt via decorators @mcp.*.
