@@ -18,7 +18,7 @@
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: builder
 # ──────────────────────────────────────────────────────────────────────
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim@sha256:f6bb96a2e3c5abe90eb9835a7f543067434d1d2d99d670315a9e826ba5f6fed9 AS builder
 
 WORKDIR /app
 
@@ -72,7 +72,7 @@ RUN find /app/.venv \
 # ──────────────────────────────────────────────────────────────────────
 # Stage 2: runtime
 # ──────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM python:3.11-slim@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e AS runtime
 
 ARG VERSION=0.0.0
 ARG GIT_SHA=unknown
@@ -91,11 +91,15 @@ LABEL org.opencontainers.image.title="percival-deep-research" \
 
 # Runtime essentials: curl is used by the HTTP-only Compose health probe;
 # tini is PID 1 so it reaps zombies and forwards SIGTERM.
-RUN apt-get update \
+ARG DEBIAN_SNAPSHOT=20261005T000000Z
+RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources \
+    && sed -i "s|http://deb.debian.org/debian |http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/|" /etc/apt/sources.list.d/debian.sources \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
+        ca-certificates \
         curl \
         tini \
-        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user (UID 1000 matches the convention used by HKUDS/nanobot).

@@ -57,6 +57,11 @@ ENV/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+secrets/
+workspace/
+tmp/
 logs/
 .positronic/
 
