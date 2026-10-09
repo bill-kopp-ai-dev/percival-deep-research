@@ -85,8 +85,8 @@ LABEL org.opencontainers.image.title="percival-deep-research" \
       org.opencontainers.image.version="3.0.1" \
       io.modelcontextprotocol.server.name="percival-deep-research"
 
-# Runtime essentials: curl for HEALTHCHECK, tini for proper signal
-# forwarding (PID 1 must reap zombies and forward SIGTERM).
+# Runtime essentials: curl is used by the HTTP-only Compose health probe;
+# tini is PID 1 so it reaps zombies and forwards SIGTERM.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
@@ -138,11 +138,3 @@ USER percival
 # ENTRYPOINT exec form: signals reach the Python process directly.
 ENTRYPOINT ["/usr/bin/tini", "--", "percival-deep-research"]
 CMD []
-
-# HEALTHCHECK only meaningful for SSE/streamable-http transports; in
-# stdio mode no port is bound and the check will fail (marking the
-# container "unhealthy"), which is informational — stdio servers are
-# still functional. Operators using stdio can pass `--no-healthcheck`
-# or `--health-cmd=none` to silence it.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1 || exit 1

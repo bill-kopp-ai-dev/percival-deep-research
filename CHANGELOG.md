@@ -4,6 +4,16 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/),
 versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased] — 2026-10-09
+
+### Fixed
+
+- Docker Compose now separates stdio and HTTP services. Stdio has no
+  published port, HTTP healthcheck, TTY, duplicate init, or persistent
+  restart policy; the HTTP profile owns the `/health` liveness probe.
+- HTTP health treats both 200 (`healthy`) and 503 (`degraded`) as a serving
+  process, while preserving the readiness details in the response body.
+
 ## [Unreleased] — 2026-09-27
 
 ### 🐳 Docker encapsulation — compatível com Nanobot, OpenCode e Docker MCP Toolkit

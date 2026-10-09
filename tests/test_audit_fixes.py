@@ -400,21 +400,19 @@ class TestNoDeadCode:
 
 
 class TestDockerComposeHost:
-    """Garante que docker-compose propaga MCP_HOST=0.0.0.0 para o container."""
+    """HTTP binds inside the container; host publishing is loopback by default."""
 
     def test_docker_compose_define_mcp_host(self):
-        import os
+        from pathlib import Path
 
         import yaml
 
-        caminho = "/home/bill/Codes/mcp-servers-percival/percival-deep-research/docker-compose.yml"
-        if not os.path.exists(caminho):
-            pytest.skip("docker-compose não disponível no workspace")
+        caminho = Path(__file__).resolve().parents[1] / "docker-compose.yml"
         with open(caminho) as f:
             config = yaml.safe_load(f)
         # docker-compose: estrutura é config["services"]["<service-name>"]
         services = config.get("services", {})
-        svc = services.get("percival-deep-research", {})
+        svc = services.get("percival-deep-research-http", {})
         env = svc.get("environment", [])
         # docker-compose permite env como dict ou list
         env_dict = {}
@@ -426,6 +424,8 @@ class TestDockerComposeHost:
                     k, v = item.split("=", 1)
                     env_dict[k] = v
         assert env_dict.get("MCP_HOST") == "0.0.0.0", (
-            "docker-compose deve propagar MCP_HOST=0.0.0.0 — senão "
-            "container não aceita conexões externas (binda 127.0.0.1)"
+            "HTTP service must listen on the container interface"
+        )
+        assert svc.get("ports") == ["${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8000}:8000"], (
+            "HTTP must publish on host loopback by default"
         )

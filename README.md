@@ -187,7 +187,7 @@ All configuration is via environment variables. See
 | Variable | Default | Purpose |
 |---|---|---|
 | `MCP_TRANSPORT` | `stdio` | `stdio` (Nanobot / OpenCode / gateway), `sse` (HTTP), or `streamable-http` |
-| `MCP_HOST` | `0.0.0.0` | Bind address for HTTP transports |
+| `MCP_HOST` | `127.0.0.1` | Bind address for HTTP; container services override to `0.0.0.0` internally |
 | `PORT` | `8000` | Bind port for HTTP transports |
 
 ### Tuning
@@ -345,8 +345,9 @@ subprocess.
 ### Quickstart — `docker run` (HTTP/SSE)
 
 ```bash
-docker run -d --rm -p 8000:8000 \
+docker run -d --rm -p 127.0.0.1:8000:8000 \
   -e MCP_TRANSPORT=sse \
+  -e MCP_HOST=0.0.0.0 \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
   percival-deep-research:local
@@ -357,18 +358,22 @@ Browse `http://127.0.0.1:8000/health` to confirm the boot status.
 ### Docker Compose
 
 ```bash
-# Stdio (one-shot):
-docker compose run --rm percival-deep-research
+# Stdio (one-shot; no TTY, published port, healthcheck, or restart policy):
+docker compose run --rm -T percival-deep-research-stdio
 
-# HTTP/SSE (long-running):
-MCP_TRANSPORT=sse docker compose up percival-deep-research
+# HTTP/SSE (opt-in; host loopback by default):
+HTTP_PORT=8765 docker compose --profile http up -d percival-deep-research-http
 
-# Production stack with nginx reverse proxy:
-docker compose --profile production up
+# Production stack with nginx reverse proxy (requires reviewed ./nginx.conf):
+docker compose --profile production up -d
 ```
 
-The compose file mounts `./logs` and `./reports` for persistence and reads
-secrets from a local `.env` (which is **optional** — env vars also work).
+Stdio and HTTP use separate Compose services. Both mount `./logs` and
+`./reports` for persistence and read secrets from an optional local `.env`.
+The HTTP profile publishes only on `127.0.0.1` by default; do not expose this
+unauthenticated HTTP service directly to an untrusted network.
+The `production` profile bind-mounts `./nginx.conf`; supply and review that
+proxy configuration before starting the profile.
 
 ### Integration with MCP clients
 
@@ -558,32 +563,28 @@ bash scripts/docker_smoke_test.sh
 
 ## 🛟 Troubleshooting (v3.0.1)
 
-### Docker container marked "unhealthy" in stdio mode
+### Stdio container has no Docker health status
 
-This is **expected**, not a bug. The HEALTHCHECK directive in the
-Dockerfile hits `GET /health` on port 8000, but stdio mode never binds
-that port. The container is fully functional for MCP stdio traffic — the
-"unhealthy" label is informational only. To silence it:
+Stdio has no HTTP healthcheck: Docker process liveness cannot prove MCP
+protocol readiness. Validate it with `initialize` and `tools/list` through
+the MCP client or `scripts/docker_smoke_test.sh`.
+
+The HTTP profile probes `GET /health`. Its `healthy`/`degraded` body reports
+configuration readiness; both HTTP 200 and 503 prove the endpoint is serving,
+so a missing upstream credential is not misreported as a dead process.
 
 ```bash
-docker run --rm -i --health-cmd=none ...    # or
-docker run --rm -i --no-healthcheck ...
+HTTP_PORT=8765 docker compose --profile http up -d percival-deep-research-http
 ```
 
-If you actually want a healthy container, run with HTTP/SSE:
+### HTTP port is already allocated
+
+Choose another host port. The container continues listening on port 8000:
 
 ```bash
-MCP_TRANSPORT=sse docker compose up percival-deep-research
-```
-
-### `docker compose up` fails with `port 8000 is already allocated`
-
-Another process on the host is bound to 8000. Override the port:
-
-```bash
-PORT=8765 docker compose up percival-deep-research
-# or for docker run:
-docker run -p 8765:8000 -e PORT=8000 ...
+HTTP_PORT=8765 docker compose --profile http up -d percival-deep-research-http
+# or for docker run (bind to loopback):
+docker run -p 127.0.0.1:8765:8000 -e MCP_TRANSPORT=sse ...
 ```
 
 ### `docker build` fails with `NameError: name 'Any' is not defined`

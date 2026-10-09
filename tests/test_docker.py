@@ -23,6 +23,15 @@ DOCKER_COMPOSE = PROJECT_ROOT / "docker-compose.yml"
 DOCKER_DIR = PROJECT_ROOT / "docker"
 
 
+def _service_block(contents: str, service_name: str) -> str:
+    """Return one top-level Compose service block for focused contract checks."""
+    start = re.search(rf"^  {re.escape(service_name)}:\s*$", contents, re.MULTILINE)
+    assert start, f"Compose service {service_name!r} must exist"
+    next_service = re.search(r"^  [a-zA-Z0-9_-]+:\s*$", contents[start.end() :], re.MULTILINE)
+    end = start.end() + next_service.start() if next_service else len(contents)
+    return contents[start.start() : end]
+
+
 # ─────────────────────────────────────────────────────────────────────
 # .dockerignore
 # ─────────────────────────────────────────────────────────────────────
@@ -214,9 +223,9 @@ class TestDockerfile:
             f"Got: {m.group(1)!r}"
         )
 
-    def test_healthcheck_present(self, contents: str) -> None:
-        assert "HEALTHCHECK" in contents, (
-            "Dockerfile must include a HEALTHCHECK directive for SSE/HTTP mode."
+    def test_image_has_no_transport_agnostic_healthcheck(self, contents: str) -> None:
+        assert not re.search(r"^HEALTHCHECK\b", contents, re.MULTILINE), (
+            "The image defaults to stdio; HTTP health belongs only to the HTTP Compose service."
         )
 
     def test_exposes_8000(self, contents: str) -> None:
@@ -293,14 +302,26 @@ class TestDockerCompose:
             "Compose v2 ignores it and its presence is obsolete."
         )
 
-    def test_stdin_and_tty_enabled(self, contents: str) -> None:
-        # Required for `docker compose run` with stdio transport.
-        assert "stdin_open: true" in contents, (
-            "stdin_open: true is required for stdio MCP transport via `docker compose run`."
-        )
-        assert "tty: true" in contents, (
-            "tty: true is required for clean signal handling in stdio mode."
-        )
+    def test_stdio_service_is_separate_and_has_no_http_runtime(self, contents: str) -> None:
+        stdio = _service_block(contents, "percival-deep-research-stdio")
+        assert 'profiles: ["stdio"]' in stdio
+        assert "stdin_open: true" in stdio
+        assert "tty: false" in stdio
+        for http_only in ("ports:", "healthcheck:", "restart:"):
+            assert http_only not in stdio
+        assert "init: true" not in contents, "tini in the image is the only init"
+
+    def test_http_profile_owns_port_healthcheck_and_persistence(self, contents: str) -> None:
+        http = _service_block(contents, "percival-deep-research-http")
+        assert 'profiles: ["http", "production"]' in http
+        assert "MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}" in http
+        assert "MCP_HOST: 0.0.0.0" in http
+        assert "HTTP_BIND_ADDRESS:-127.0.0.1" in http
+        assert "ports:" in http
+        assert "/health" in http
+        assert "200|503" in http
+        assert "restart: unless-stopped" in http
+        assert "depends_on:" not in _service_block(contents, "percival-deep-research-stdio")
 
     def test_env_file_is_optional(self, contents: str) -> None:
         # `required: false` means operators without a .env file still work.

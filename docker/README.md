@@ -32,16 +32,23 @@ docker run -i --rm \
 The container speaks stdio by default, so it can be plugged into any MCP
 client (Nanobot, OpenCode, Claude Desktop, Docker MCP gateway).
 
-For HTTP/SSE mode (e.g. behind a reverse proxy):
+For HTTP/SSE mode, publish only on loopback unless a separately reviewed
+reverse proxy and access controls are in place:
 
 ```bash
 docker run -d --rm \
-  -p 8000:8000 \
+  -p 127.0.0.1:8000:8000 \
   -e MCP_TRANSPORT=sse \
+  -e MCP_HOST=0.0.0.0 \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
   mcp/percival-deep-research
 ```
+
+The Dockerfile has no transport-agnostic healthcheck. The Compose HTTP
+profile checks `GET /health`; responses 200 (`healthy`) and 503 (`degraded`)
+both indicate that the HTTP process is serving. Stdio readiness is verified
+with MCP `initialize` and `tools/list`, not an HTTP probe.
 
 ## Configuration
 

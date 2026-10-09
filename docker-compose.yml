@@ -1,73 +1,70 @@
-# docker-compose.yml — Percival Deep Research MCP server.
+# Percival Deep Research MCP server.
 #
-# Usage:
-#   # Stdio (canonical for Nanobot / OpenCode / Docker MCP gateway)
-#   docker compose run --rm percival-deep-research
+# Stdio (one-shot MCP client process):
+#   docker compose run --rm -T percival-deep-research-stdio
 #
-#   # HTTP/SSE for direct browser/curl access (auto-publishes port)
-#   MCP_TRANSPORT=sse docker compose up percival-deep-research
+# HTTP/SSE (opt-in, host loopback by default):
+#   docker compose --profile http up -d percival-deep-research-http
 #
-#   # Production stack (adds nginx reverse proxy)
-#   docker compose --profile production up
+# Production profile also starts the HTTP service and nginx; provide a reviewed
+# local ./nginx.conf before starting that profile.
+
+x-runtime-environment: &runtime-environment
+  INFERENCE_API_KEY: ${INFERENCE_API_KEY:-}
+  INFERENCE_BASE_URL: ${INFERENCE_BASE_URL:-}
+  INFERENCE_LLM: ${INFERENCE_LLM:-openai:gpt-4o-mini}
+  RETRIEVER: ${RETRIEVER:-duckduckgo}
+  BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+  PYTHONUNBUFFERED: "1"
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: ${PERCIVAL_DEEP_RESEARCH_IMAGE:-percival-deep-research:local}
+  env_file:
+    - path: ./.env
+      required: false
+  volumes:
+    - ./logs:/app/logs
+    - ./reports:/app/reports
 
 services:
-  percival-deep-research:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: percival-deep-research:local
-    # init:true injects a tiny init (tini-like) as PID 1 for proper
-    # signal forwarding and zombie reaping — matches the runtime's
-    # own tini binary, so signals reach the MCP server on Ctrl-C / SIGTERM.
-    init: true
-    # stdin_open + tty are required for `docker compose run` with stdio.
+  percival-deep-research-stdio:
+    <<: *common
+    profiles: ["stdio"]
     stdin_open: true
-    tty: true
+    tty: false
     environment:
-      # Transport: stdio (default) | sse | streamable-http.
-      # Override per-call: `MCP_TRANSPORT=sse docker compose up ...`
-      MCP_TRANSPORT: ${MCP_TRANSPORT:-stdio}
+      <<: *runtime-environment
+      MCP_TRANSPORT: stdio
+
+  percival-deep-research-http:
+    <<: *common
+    profiles: ["http", "production"]
+    environment:
+      <<: *runtime-environment
+      MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}
       MCP_HOST: 0.0.0.0
-      PORT: ${PORT:-8000}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-
-      # Single-endpoint inference (v3.0+ canonical).
-      INFERENCE_API_KEY: ${INFERENCE_API_KEY:-}
-      INFERENCE_BASE_URL: ${INFERENCE_BASE_URL:-}
-      INFERENCE_LLM: ${INFERENCE_LLM:-openai:gpt-4o-mini}
-
-      # Retriever: duckduckgo (default, no key) | brave (needs BRAVE_API_KEY).
-      # Aligns with `.env.example` (default = duckduckgo).
-      RETRIEVER: ${RETRIEVER:-duckduckgo}
-      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
-
-      PYTHONUNBUFFERED: "1"
-    # `.env` is OPTIONAL — operators using a secrets manager or env-only
-    # setup should not be blocked by its absence.
-    env_file:
-      - path: ./.env
-        required: false
-    # Port mapping is unconditional; it's a no-op for stdio (no listener).
-    # For SSE mode, set `MCP_TRANSPORT=sse` and the server binds 8000.
+      PORT: "8000"
     ports:
-      - "${PORT:-8000}:8000"
-    volumes:
-      # Persistent logs and reports outside the container.
-      - ./logs:/app/logs
-      - ./reports:/app/reports
-    # Healthcheck mirrors the Dockerfile directive. In stdio mode this
-    # check will fail (no port bound) and Docker marks the container
-    # "unhealthy" — informational only, the stdio server is still working.
-    # Pass `--no-healthcheck` to silence.
+      - "${HTTP_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8000}:8000"
+    restart: unless-stopped
+    # /health reports configuration readiness (200 healthy / 503 degraded),
+    # not upstream API availability. Either response proves the HTTP process
+    # is serving; an upstream/configuration issue must not look like a dead PID.
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:${PORT:-8000}/health || exit 1"]
+      test:
+        - CMD-SHELL
+        - >-
+          code=$$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3
+          http://127.0.0.1:8000/health || true);
+          case "$$code" in 200|503) exit 0 ;; *) exit 1 ;; esac
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
-    restart: unless-stopped
 
-  # Optional reverse proxy (only spun up under the `production` profile).
   nginx:
     image: nginx:alpine
     profiles: ["production"]
@@ -77,7 +74,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      percival-deep-research:
+      percival-deep-research-http:
         condition: service_healthy
     restart: unless-stopped
 
