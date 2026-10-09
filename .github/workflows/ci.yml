@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+          python-version: "3.12"
+      - run: uv sync --locked --extra dev
+      - name: Restore required gpt-researcher runtime patch after sync
+        run: uv run --no-sync python scripts/patch_gpt_researcher.py
+      - name: Lint and check formatting
+        run: |
+          uv run --with ruff==0.16.10 ruff check .
+          uv run --with ruff==0.16.10 ruff format --check .
+      - run: uv run --no-sync pytest -q
+
+  docker:
+    name: Docker build + stdio conformance (linux/amd64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Resolve image version
+        id: meta
+        run: echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" >> "$GITHUB_OUTPUT"
+      - name: Build image locally
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: percival-deep-research:ci
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Inspect identity and privilege posture
+        run: |
+          test "$(docker image inspect percival-deep-research:ci --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect percival-deep-research:ci --format '{{.Config.User}}')" != ""
+          test "$(docker image inspect percival-deep-research:ci --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}')" = "$GITHUB_SHA"
+          test "$(docker image inspect percival-deep-research:ci --format '{{json .Config.Healthcheck}}')" = null
+      - name: MCP stdio conformance (offline, no TTY or ports)
+        run: >-
+          python3 scripts/docker-ci-conformance.py
+          --image percival-deep-research:ci
+          --secret-env INFERENCE_API_KEY=ci-sentinel-not-a-secret
+          --env INFERENCE_BASE_URL=https://api.openai.com/v1
+          --env MCP_TRANSPORT=stdio
+          --expected-tool research_quick_search
+          --expected-uid 1000
+          --compose-service percival-deep-research-stdio
+          --compose-profile stdio
+      - name: Missing inference credential fails closed
+        run: |
+          set +e
+          output=$(docker run --rm --network none percival-deep-research:ci 2>&1)
+          status=$?
+          set -e
+          test "$status" -ne 0
+          echo "$output" | grep -Fq INFERENCE_API_KEY
+          ! echo "$output" | grep -Fq ci-sentinel-not-a-secret
+      - name: Render Compose contracts
+        env:
+          HTTP_BIND_ADDRESS: 127.0.0.1
+          HTTP_PORT: "18000"
+          INFERENCE_API_KEY: ci-inference-key-not-a-secret
+          INFERENCE_BASE_URL: https://api.openai.com/v1
+        run: |
+          mkdir -p logs reports
+          docker compose config --quiet
+          docker compose --profile http config --quiet
+      - name: HTTP profile listener health and loopback bind
+        env:
+          HTTP_BIND_ADDRESS: 127.0.0.1
+          HTTP_PORT: "18000"
+          INFERENCE_API_KEY: ci-inference-key-not-a-secret
+          INFERENCE_BASE_URL: https://api.openai.com/v1
+        run: |
+          docker compose --profile http up --build -d --wait percival-deep-research-http
+          bind=$(docker compose --profile http port percival-deep-research-http 8000)
+          test "$bind" = "127.0.0.1:18000"
+          code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:18000/health)
+          case "$code" in 200|503) ;; *) echo "unexpected health response: $code" >&2; exit 1 ;; esac
+          id=$(docker compose --profile http ps -q percival-deep-research-http)
+          test "$(docker inspect --format '{{.State.Health.Status}}' "$id")" = healthy
+          docker compose --profile http down --remove-orphans
+      - name: Write build manifest
+        run: python3 scripts/write_docker_ci_manifest.py --image percival-deep-research:ci --source-sha "$GITHUB_SHA" --lock uv.lock --output docker-build-manifest.json
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: percival-deep-research:ci
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-evidence-deep-research-${{ github.sha }}
+          path: |
+            docker-build-manifest.json
+            sbom.cdx.json
+          if-no-files-found: error

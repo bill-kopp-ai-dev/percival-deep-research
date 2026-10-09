@@ -14,7 +14,6 @@ Designed to be invoked from ``scripts/docker_smoke_test.sh``; the
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 import time
@@ -24,44 +23,60 @@ INIT_REQ = (
     '"params":{"protocolVersion":"2024-11-05","capabilities":{},'
     '"clientInfo":{"name":"smoke-test","version":"0.0.0"}}}'
 )
-INITIALIZED = (
-    '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-)
+INITIALIZED = '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
 TOOLS_REQ = '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--image-tag", required=True, help="image:tag to launch via docker run",
+        "--image-tag",
+        required=True,
+        help="image:tag to launch via docker run",
     )
     parser.add_argument(
-        "--expected-tool", action="append", required=True,
+        "--expected-tool",
+        action="append",
+        required=True,
         help="tool name that must appear in the server's response",
     )
     parser.add_argument(
-        "--dummy-key", default="smoke-test-dummy-key-not-real",
+        "--dummy-key",
+        default="smoke-test-dummy-key-not-real",
         help="placeholder INFERENCE_API_KEY value",
     )
     parser.add_argument(
-        "--read-timeout", type=float, default=20.0,
+        "--read-timeout",
+        type=float,
+        default=20.0,
         help="seconds to wait for the server to exit after closing stdin",
     )
     args = parser.parse_args()
 
     proc = subprocess.Popen(
         [
-            "docker", "run", "--rm", "-i",
-            "-e", f"INFERENCE_API_KEY={args.dummy_key}",
-            "-e", "INFERENCE_BASE_URL=https://api.openai.com/v1",
-            "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
-            "-e", "RETRIEVER=duckduckgo",
-            "-e", "MCP_TRANSPORT=stdio",
-            "-e", "LOG_LEVEL=WARNING",
+            "docker",
+            "run",
+            "--rm",
+            "-i",
+            "-e",
+            f"INFERENCE_API_KEY={args.dummy_key}",
+            "-e",
+            "INFERENCE_BASE_URL=https://api.openai.com/v1",
+            "-e",
+            "INFERENCE_LLM=openai:gpt-4o-mini",
+            "-e",
+            "RETRIEVER=duckduckgo",
+            "-e",
+            "MCP_TRANSPORT=stdio",
+            "-e",
+            "LOG_LEVEL=WARNING",
             args.image_tag,
         ],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, text=True,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
     )
     assert proc.stdin is not None
     for line in (INIT_REQ, INITIALIZED, TOOLS_REQ):
