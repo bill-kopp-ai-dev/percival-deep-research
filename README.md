@@ -361,7 +361,7 @@ Browse `http://127.0.0.1:8000/health` to confirm the boot status.
 # Stdio (one-shot; no TTY, published port, healthcheck, or restart policy):
 docker compose run --rm -T percival-deep-research-stdio
 
-# HTTP/SSE (opt-in; host loopback by default):
+# Streamable HTTP (opt-in; host loopback by default):
 HTTP_PORT=8765 docker compose --profile http up -d percival-deep-research-http
 
 # Production stack with nginx reverse proxy (requires reviewed ./nginx.conf):
@@ -369,9 +369,12 @@ docker compose --profile production up -d
 ```
 
 Stdio and HTTP use separate Compose services. Both mount `./logs` and
-`./reports` for persistence and read secrets from an optional local `.env`.
-The HTTP profile publishes only on `127.0.0.1` by default; do not expose this
-unauthenticated HTTP service directly to an untrusted network.
+`./reports` for persistence; create these host directories and make them
+writable by image UID/GID `1000:1000` before starting Compose. They read secrets
+from an optional local `.env`.
+The HTTP profile publishes only on `127.0.0.1` and uses Streamable HTTP;
+it has no built-in authentication, so do not expose it directly to an
+untrusted network. Use a reviewed TLS/authentication proxy and firewall.
 The `production` profile bind-mounts `./nginx.conf`; supply and review that
 proxy configuration before starting the profile.
 

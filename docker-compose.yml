@@ -3,11 +3,11 @@
 # Stdio (one-shot MCP client process):
 #   docker compose run --rm -T percival-deep-research-stdio
 #
-# HTTP/SSE (opt-in, host loopback by default):
+# Streamable HTTP (opt-in, host loopback by default):
 #   docker compose --profile http up -d percival-deep-research-http
 #
 # Production profile also starts the HTTP service and nginx; provide a reviewed
-# local ./nginx.conf before starting that profile.
+# local ./nginx.conf with authentication/TLS policy before starting that profile.
 
 x-runtime-environment: &runtime-environment
   INFERENCE_API_KEY: ${INFERENCE_API_KEY:-}
@@ -26,8 +26,17 @@ x-common: &common
     - path: ./.env
       required: false
   volumes:
-    - ./logs:/app/logs
-    - ./reports:/app/reports
+    # These host directories must exist and be writable by image UID/GID 1000.
+    - type: bind
+      source: ./logs
+      target: /app/logs
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ./reports
+      target: /app/reports
+      bind:
+        create_host_path: false
 
 services:
   percival-deep-research-stdio:
@@ -80,4 +89,4 @@ services:
 
 networks:
   default:
-    name: percival-deep-research-net
+    name: ${COMPOSE_PROJECT_NAME:-percival-deep-research}_net
