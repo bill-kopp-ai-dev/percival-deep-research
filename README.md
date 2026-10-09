@@ -143,7 +143,7 @@ uv run percival-deep-research            # boots in stdio mode
 ### Pre-built Docker image
 
 ```bash
-docker build -t percival-deep-research:local .
+python /home/bill/Projects/nanobot/scripts/percival-docker-build.py deep-research --dev-alias
 ```
 
 See [Docker Deployment](#-docker-deployment) for full instructions.
@@ -290,7 +290,7 @@ Add to `.opencode/mcp.json` (project) or `~/.config/opencode/mcp.json`
 
 ### With the Docker MCP Toolkit / Catalog
 
-After building the image (`docker build -t percival-deep-research:local .`):
+After building the image with the canonical local build script:
 
 ```bash
 docker mcp catalog import ./docker/
@@ -335,7 +335,7 @@ opt-in via env.
 docker run -i --rm \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
-  percival-deep-research:local
+  percival-deep-research:dev
 ```
 
 `-i` keeps stdin open so the container can receive JSON-RPC over stdio.
@@ -350,7 +350,7 @@ docker run -d --rm -p 127.0.0.1:8000:8000 \
   -e MCP_HOST=0.0.0.0 \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
-  percival-deep-research:local
+  percival-deep-research:dev
 ```
 
 Browse `http://127.0.0.1:8000/health` to confirm the boot status.
@@ -389,7 +389,7 @@ proxy configuration before starting the profile.
         "-e", "INFERENCE_API_KEY",
         "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
         "-e", "MCP_TRANSPORT=stdio",
-        "percival-deep-research:local"
+        "percival-deep-research:dev"
       ],
       "env": {
         "INFERENCE_API_KEY": "YOUR_KEY"
@@ -411,7 +411,7 @@ proxy configuration before starting the profile.
         "-e", "INFERENCE_API_KEY",
         "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
         "-e", "MCP_TRANSPORT=stdio",
-        "percival-deep-research:local"
+        "percival-deep-research:dev"
       ],
       "env": {
         "INFERENCE_API_KEY": "YOUR_KEY"

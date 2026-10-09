@@ -74,15 +74,19 @@ RUN find /app/.venv \
 # ──────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
 
+ARG VERSION=0.0.0
+ARG GIT_SHA=unknown
+
 # OCI / MCP catalog metadata — queryable via `docker inspect` and
 # required for the Docker MCP Catalog (hub.docker.com/mcp).
 LABEL org.opencontainers.image.title="percival-deep-research" \
       org.opencontainers.image.description="Multi-source web research and report generation MCP server, optimized for the Nanobot agent ecosystem." \
-      org.opencontainers.image.source="https://github.com/bill-kopp-ai-dev/percival.OS" \
-      org.opencontainers.image.documentation="https://github.com/bill-kopp-ai-dev/percival.OS/blob/main/percival-deep-research/README.md" \
+      org.opencontainers.image.source="https://github.com/bill-kopp-ai-dev/percival-deep-research" \
+      org.opencontainers.image.documentation="https://github.com/bill-kopp-ai-dev/percival-deep-research/blob/main/README.md" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.vendor="percival.OS contributors" \
-      org.opencontainers.image.version="3.0.1" \
+      org.opencontainers.image.vendor="Positronic Bean Labs" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
       io.modelcontextprotocol.server.name="percival-deep-research"
 
 # Runtime essentials: curl is used by the HTTP-only Compose health probe;

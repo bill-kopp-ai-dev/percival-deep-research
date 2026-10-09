@@ -11,7 +11,8 @@ cd "${PROJECT_ROOT}"
 
 IMAGE_TAG="${IMAGE_TAG:-percival-deep-research:smoke}"
 DOCKERFILE="${DOCKERFILE:-Dockerfile}"
-SOURCE_REVISION="${SOURCE_REVISION:-$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)}"
+SOURCE_VERSION="${SOURCE_VERSION:-$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')}"
+SOURCE_REVISION="${SOURCE_REVISION:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 DUMMY_KEY="${DUMMY_KEY:-smoke-test-dummy-key-not-real}"
 HTTP_NAME="percival-deep-research-f1-smoke-$$"
 HTTP_CID=""
@@ -40,6 +41,8 @@ log "Building ${IMAGE_TAG} for linux/amd64 (revision=${SOURCE_REVISION})..."
 docker build \
     --platform linux/amd64 \
     --file "${DOCKERFILE}" \
+    --build-arg "VERSION=${SOURCE_VERSION}" \
+    --build-arg "GIT_SHA=${SOURCE_REVISION}" \
     --tag "${IMAGE_TAG}" \
     --label "org.opencontainers.image.revision=${SOURCE_REVISION}" \
     --label "smoke.test=percival-deep-research" \
@@ -56,26 +59,23 @@ IMAGE_ENTRYPOINT=$(docker image inspect --format '{{json .Config.Entrypoint}}' "
 ok "Image defaults have no HTTP healthcheck and use one tini init."
 
 log "STDIO smoke: initialize and tools/list without a TTY or published port..."
-INIT_REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.0.0"}}}'
-INITIALIZED='{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-TOOLS_REQ='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
-STDIO_RES=$(printf '%s\n%s\n%s\n' "${INIT_REQ}" "${INITIALIZED}" "${TOOLS_REQ}" \
-    | docker run --rm -i \
-        -e INFERENCE_API_KEY="${DUMMY_KEY}" \
-        -e INFERENCE_BASE_URL="https://api.openai.com/v1" \
-        -e INFERENCE_LLM="openai:gpt-4o-mini" \
-        -e RETRIEVER="duckduckgo" \
-        -e MCP_TRANSPORT=stdio \
-        -e LOG_LEVEL=WARNING \
-        "${IMAGE_TAG}" 2>"${STDIO_LOG}") \
+# FastMCP 3.4+ answers tools/list only when the client keeps the pipe open
+# after initialize/notifications/initialized. scripts/docker_stdio_probe.py
+# runs the request sequence in a Python coprocess so the container's stdin
+# stays alive long enough for both responses to arrive.
+STDIO_RES=$(python3 "$(dirname -- "${BASH_SOURCE[0]}")/docker_stdio_probe.py" \
+    --image-tag "${IMAGE_TAG}" --dummy-key "${DUMMY_KEY}" \
+    --expected-tool research_deep \
+    --expected-tool research_quick_search \
+    --expected-tool research_get_context \
+    --expected-tool research_get_sources \
+    --expected-tool research_write_report) \
     || { printf '%s\n' "$(tail -40 "${STDIO_LOG}")"; fail "stdio container exited non-zero"; }
 
-for expected in '"jsonrpc"' research_deep research_quick_search research_get_context research_get_sources research_write_report; do
-    [[ "${STDIO_RES}" == *"${expected}"* ]] || {
-        printf 'STDIO response (first 1000 chars):\n%.1000s\n' "${STDIO_RES}"
-        fail "stdio response missing ${expected}"
-    }
-done
+[[ "${STDIO_RES}" == *'"jsonrpc"'* ]] || {
+    printf 'STDIO response (first 1000 chars):\n%.1000s\n' "${STDIO_RES}"
+    fail "stdio response missing jsonrpc envelope"
+}
 ok "STDIO initialize and all five tools passed over JSON-RPC."
 
 log "HTTP/SSE smoke: start isolated fixture on a loopback-only ephemeral port..."

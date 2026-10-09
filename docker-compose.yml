@@ -21,7 +21,7 @@ x-common: &common
   build:
     context: .
     dockerfile: Dockerfile
-  image: ${PERCIVAL_DEEP_RESEARCH_IMAGE:-percival-deep-research:local}
+  image: ${PERCIVAL_DEEP_RESEARCH_IMAGE:-percival-deep-research:dev}
   env_file:
     - path: ./.env
       required: false
