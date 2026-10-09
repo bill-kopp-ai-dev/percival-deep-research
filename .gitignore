@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Local Percival integration working note (not for the public repo)
+docs/percival-integration.md
