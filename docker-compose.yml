@@ -66,8 +66,7 @@ services:
       test:
         - CMD-SHELL
         - >-
-          code=$$(curl -sS -o /dev/null -w '%{http_code}' --max-time 3
-          http://127.0.0.1:8000/health || true);
+          code=$$(python -c "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=3); c.request('GET','/health'); s=c.getresponse().status; sys.exit(0 if s in (200,503) else 1)" 2>/dev/null && echo 200 || echo 000);
           case "$$code" in 200|503) exit 0 ;; *) exit 1 ;; esac
       interval: 30s
       timeout: 5s

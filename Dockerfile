@@ -38,7 +38,7 @@ COPY pyproject.toml uv.lock README.md LICENSE ./
 
 # Install deps without installing the project itself (fast path).
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --no-install-project --frozen
+    uv sync --no-dev --no-install-project --no-install-package nltk --frozen
 
 # Now copy the full source tree and install the project (so the
 # `percival-deep-research` console script is registered in the venv).
@@ -49,7 +49,7 @@ COPY . .
 # import of gpt_researcher.actions.query_processing with
 # `NameError: name 'Any' is not defined` on Python 3.11/3.12.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --frozen \
+    uv sync --no-dev --no-install-package nltk --frozen \
     && uv run --no-sync python scripts/patch_gpt_researcher.py
 
 # Strip package bloat that is irrelevant to runtime (saves ~50 MB across
@@ -89,8 +89,7 @@ LABEL org.opencontainers.image.title="percival-deep-research" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       io.modelcontextprotocol.server.name="percival-deep-research"
 
-# Runtime essentials: curl is used by the HTTP-only Compose health probe;
-# tini is PID 1 so it reaps zombies and forwards SIGTERM.
+# Runtime essentials: tini is PID 1 so it reaps zombies and forwards SIGTERM.
 ARG DEBIAN_SNAPSHOT=20261009T000000Z
 RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/%s trixie main\n' "$DEBIAN_SNAPSHOT" > /etc/apt/sources.list \
     && printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/%s trixie-security main\n' "$DEBIAN_SNAPSHOT" >> /etc/apt/sources.list \
@@ -98,10 +97,18 @@ RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian
     && apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
-         ca-certificates=20250419 \
-         curl=8.14.1-2+deb13u5 \
-         tini=0.19.0-3+b8 \
+          ca-certificates=20250419 \
+          tini=0.19.0-3+b8 \
+    && chmod u-s /usr/bin/mount \
+    && rm -f /usr/bin/nsenter /usr/bin/infocmp \
     && rm -rf /var/lib/apt/lists/*
+
+# The application runs from /app/.venv. Remove unused bootstrap setuptools
+# and its vendored wheel copy inherited from the upstream Python base image.
+RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools \
+           /usr/local/lib/python3.11/site-packages/setuptools-*.dist-info \
+           /usr/local/lib/python3.11/site-packages/_distutils_hack \
+           /usr/local/bin/easy_install*
 
 # Non-root user (UID 1000 matches the convention used by HKUDS/nanobot).
 RUN groupadd --system --gid 1000 percival \
