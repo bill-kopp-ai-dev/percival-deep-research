@@ -14,6 +14,8 @@ Designed to be invoked from ``scripts/docker_smoke_test.sh``; the
 from __future__ import annotations
 
 import argparse
+import json
+import select
 import subprocess
 import sys
 import time
@@ -78,30 +80,66 @@ def main() -> int:
         stderr=subprocess.DEVNULL,
         text=True,
     )
-    assert proc.stdin is not None
-    for line in (INIT_REQ, INITIALIZED, TOOLS_REQ):
-        proc.stdin.write(line + "\n")
+    assert proc.stdin is not None and proc.stdout is not None
+    output_lines: list[str] = []
+
+    def read_response(response_id: int) -> dict[str, object]:
+        deadline = time.monotonic() + args.read_timeout
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([proc.stdout], [], [], deadline - time.monotonic())
+            if not ready:
+                break
+            line = proc.stdout.readline()
+            if not line:
+                break
+            output_lines.append(line)
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(message, dict) and message.get("id") == response_id:
+                return message
+        raise TimeoutError(f"server did not answer JSON-RPC id {response_id}")
+
+    try:
+        proc.stdin.write(INIT_REQ + "\n")
         proc.stdin.flush()
+        initialize = read_response(1)
+        if "error" in initialize or not isinstance(initialize.get("result"), dict):
+            raise RuntimeError(f"initialize failed: {initialize}")
+
+        proc.stdin.write(INITIALIZED + "\n" + TOOLS_REQ + "\n")
+        proc.stdin.flush()
+        tools_response = read_response(2)
+        result = tools_response.get("result")
+        tools = result.get("tools") if isinstance(result, dict) else None
+        if "error" in tools_response or not isinstance(tools, list):
+            raise RuntimeError(f"tools/list failed: {tools_response}")
+        available = {
+            tool.get("name") for tool in tools if isinstance(tool, dict)
+        }
+        missing = [tool for tool in args.expected_tool if tool not in available]
+    except (TimeoutError, RuntimeError) as exc:
+        sys.stderr.write(f"MCP handshake failed: {exc}\n")
+        sys.stderr.write("".join(output_lines))
+        proc.stdin.close()
+        proc.terminate()
+        proc.wait(timeout=5)
+        if proc.stderr is not None:
+            sys.stderr.write(proc.stderr.read())
+        return 2
+
     proc.stdin.close()
-    output_chunks: list[str] = []
-    deadline = time.monotonic() + args.read_timeout
-    while True:
-        chunk = proc.stdout.read(1)
-        if not chunk:
-            break
-        output_chunks.append(chunk)
-        if proc.poll() is not None and time.monotonic() > deadline:
-            break
     try:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired:
         proc.kill()
-    output = "".join(output_chunks)
+        proc.wait(timeout=5)
+    output = "".join(output_lines)
     if proc.returncode and proc.returncode != 0:
         sys.stderr.write(f"server exited {proc.returncode}\n")
         sys.stderr.write(output)
         return 2
-    missing = [tool for tool in args.expected_tool if tool not in output]
     if missing:
         sys.stderr.write("server response (first 1000 chars):\n")
         sys.stderr.write(output[:1000] + "\n")
