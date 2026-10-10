@@ -91,15 +91,16 @@ LABEL org.opencontainers.image.title="percival-deep-research" \
 
 # Runtime essentials: curl is used by the HTTP-only Compose health probe;
 # tini is PID 1 so it reaps zombies and forwards SIGTERM.
-ARG DEBIAN_SNAPSHOT=20261005T000000Z
-RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources \
-    && sed -i "s|http://deb.debian.org/debian |http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/|" /etc/apt/sources.list.d/debian.sources \
+ARG DEBIAN_SNAPSHOT=20261009T000000Z
+RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/%s trixie main\n' "$DEBIAN_SNAPSHOT" > /etc/apt/sources.list \
+    && printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/%s trixie-security main\n' "$DEBIAN_SNAPSHOT" >> /etc/apt/sources.list \
+    && rm -f /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Check-Valid-Until=false update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        tini \
+         ca-certificates=20250419 \
+         curl=8.14.1-2+deb13u5 \
+         tini=0.19.0-3+b8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user (UID 1000 matches the convention used by HKUDS/nanobot).
