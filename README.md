@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-411%20passed-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-414%20passed-blue.svg)]()
 
 Multi-source web research and report generation, exposed as an MCP server
 for the [Nanobot](https://github.com/HKUDS/nanobot) agent ecosystem. Also
@@ -26,7 +26,7 @@ and any generic MCP client.
   strict-bool validation at the framework layer.
 - **Docker-ready** — multi-stage image (`~1.37 GB`), non-root, stdio by
   default, OCI/MCP labels for catalog submission.
-- **Battle-tested** — 411 tests passing (zero integration deps needed); 48
+- **Battle-tested** — 414 tests passing (zero integration deps needed); 48
   bugs closed across 4 official bug-hunt rounds + 2 internal reviews.
 
 ## 📑 Table of Contents
@@ -142,8 +142,22 @@ uv run percival-deep-research            # boots in stdio mode
 
 ### Pre-built Docker image
 
+Build from this directory (no external helper script needed — the
+`Dockerfile` runs the `gpt-researcher` patch inside the builder stage
+automatically):
+
 ```bash
-python /home/bill/Projects/nanobot/scripts/percival-docker-build.py deep-research --dev-alias
+# Bake the pyproject version + git SHA into image labels (recommended):
+VERSION=$(.venv/bin/python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])") \
+GIT_SHA=$(git rev-parse --short HEAD) \
+  docker build -t percival-deep-research:dev .
+```
+
+For a quick smoke image without version metadata, drop the `--build-arg`
+lines:
+
+```bash
+docker build -t percival-deep-research:dev .
 ```
 
 See [Docker Deployment](#-docker-deployment) for full instructions.
@@ -544,7 +558,7 @@ uv run percival-deep-research
 ### Test runs
 
 ```bash
-# Whole suite (411 passed + 4 skipped; no integration deps needed).
+# Whole suite (414 passed + 3 skipped; no integration deps needed).
 uv run pytest -q
 
 # Just the regression tests for placeholder detection / dedup / bloat.
