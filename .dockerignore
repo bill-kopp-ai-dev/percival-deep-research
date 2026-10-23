@@ -70,6 +70,7 @@ logs/
 .gitattributes
 .gitignore
 .dockerignore
+.mailmap
 Dockerfile
 docker-compose.yml
 .editorconfig
