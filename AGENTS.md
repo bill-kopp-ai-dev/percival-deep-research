@@ -26,3 +26,17 @@ the global `AGENTS.md`, `SOUL.md` and `USER.md`.
 
 - Automatizar `scripts/patch_gpt_researcher.py` em CI / pre-commit?
 - Estrategia de branchamento para LTS (HEAD em `main` direto ate v3.0.0)?
+
+
+## Docker MCP operations
+
+- Keep the image's documented stdio/HTTP transport contract; stdio stdout is
+  JSON-RPC-only and must not use an HTTP healthcheck. Verify the exact mode
+  before interpreting Docker health.
+- The owning manager controls production containers; Compose is a local fixture.
+  Percival and Positronic have separate state and supported interfaces.
+- Before mutation, identify owner, image ID, revision, mounts/data and rollback;
+  use only the owning manager with freshly read CAS values. Never edit state by
+  hand or expose provider credentials in reports.
+- Keep provider-backed research smoke opt-in and isolated from real accounts.
+  Verify MCP handshake and a safe fixture response before/after rollback.
