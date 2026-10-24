@@ -84,6 +84,7 @@ ok "STDIO initialize and all five tools passed over JSON-RPC."
 log "HTTP/SSE smoke: start isolated fixture on a loopback-only ephemeral port..."
 HTTP_CID=$(docker run -d \
     --name "${HTTP_NAME}" \
+    --init \
     -p 127.0.0.1::8000 \
     --health-cmd 'python -c "import http.client,sys; c=http.client.HTTPConnection(\"127.0.0.1\",8000,timeout=3); c.request(\"GET\",\"/health\"); s=c.getresponse().status; sys.exit(0 if s in (200,503) else 1)"' \
     --health-interval=2s \
@@ -103,10 +104,10 @@ HTTP_CID=$(docker run -d \
 HTTP_PORT=$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8000/tcp") 0).HostPort}}' "${HTTP_CID}")
 HTTP_BIND=$(docker port "${HTTP_CID}" 8000/tcp)
 [[ "${HTTP_BIND}" == "127.0.0.1:${HTTP_PORT}" ]] || fail "HTTP fixture is not loopback-only: ${HTTP_BIND}"
-HTTP_PID1=$(docker inspect --format '{{.Path}}' "${HTTP_CID}")
 HTTP_INIT=$(docker inspect --format '{{.HostConfig.Init}}' "${HTTP_CID}")
-[[ "${HTTP_PID1}" == "/usr/bin/tini" && "${HTTP_INIT}" != "true" ]] \
-    || fail "expected exactly one init (image tini), Path=${HTTP_PID1}, HostConfig.Init=${HTTP_INIT}"
+HTTP_PID1=$(docker exec "${HTTP_CID}" sh -c "awk '/^Name:/{print \$2}' /proc/1/status")
+[[ "${HTTP_INIT}" == "true" && "${HTTP_PID1}" == "docker-init" ]] \
+    || fail "expected the launcher-owned init (HostConfig.Init=true, PID 1 = docker-init), got PID 1=${HTTP_PID1}, HostConfig.Init=${HTTP_INIT}"
 
 HEALTH=""
 for _ in {1..40}; do
