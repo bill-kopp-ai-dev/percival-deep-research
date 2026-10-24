@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "displayName": "Percival Deep Research",
+  "createdAt": 1790503821889,
+  "description": "Servidor MCP de pesquisa profunda multi-source para o Nanobot dentro do ecossistema percival.OS. Superficie publica v3.0.0: 5 tools + 1 resource + 4 prompts. Hardening contra prompt injection, single-endpoint inference OpenAI-compatible, retrievers DuckDuckGo/Brave."
+}
