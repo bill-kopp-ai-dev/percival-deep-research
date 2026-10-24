@@ -175,3 +175,11 @@ cython_debug/
 
 # Local Percival integration working note (not for the public repo)
 docs/percival-integration.md
+
+# Positronic runtime state — never tracked. The project brief, policy and
+# metadata under .positronic/ are versioned; the memory store is not.
+.positronic/cache/
+.positronic/journal.lock
+.positronic/memory/
+.positronic/scratch/
+.positronic/*.local.*
