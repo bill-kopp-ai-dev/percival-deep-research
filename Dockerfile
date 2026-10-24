@@ -89,7 +89,12 @@ LABEL org.opencontainers.image.title="percival-deep-research" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       io.modelcontextprotocol.server.name="percival-deep-research"
 
-# Runtime essentials: tini is PID 1 so it reaps zombies and forwards SIGTERM.
+# Runtime essentials.
+#
+# The image deliberately embeds no init: the launcher owns the init layer
+# (``docker run --init`` / Compose ``init: true``). A tini embedded here plus
+# the launcher's own init would stack two supervision layers, and the outer
+# one masks which process is actually responsible for SIGTERM.
 ARG DEBIAN_SNAPSHOT=20261009T000000Z
 RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/%s trixie main\n' "$DEBIAN_SNAPSHOT" > /etc/apt/sources.list \
     && printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/%s trixie-security main\n' "$DEBIAN_SNAPSHOT" >> /etc/apt/sources.list \
@@ -98,7 +103,6 @@ RUN printf 'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
           ca-certificates=20250419 \
-          tini=0.19.0-3+b8 \
     && chmod u-s /usr/bin/mount \
     && rm -f /usr/bin/nsenter /usr/bin/infocmp \
     && rm -rf /var/lib/apt/lists/*
@@ -150,7 +154,8 @@ EXPOSE 8000
 
 USER percival
 
-# tini reaps zombies + forwards signals (SIGTERM → graceful shutdown).
+# The init layer belongs to the launcher (``docker run --init`` / Compose
+# ``init: true``), so this image must not embed a second one.
 # ENTRYPOINT exec form: signals reach the Python process directly.
-ENTRYPOINT ["/usr/bin/tini", "--", "percival-deep-research"]
+ENTRYPOINT ["percival-deep-research"]
 CMD []

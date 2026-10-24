@@ -233,12 +233,21 @@ class TestDockerfile:
             "Dockerfile must EXPOSE 8000 (the SSE/HTTP mode port)."
         )
 
-    def test_uses_tini_for_signal_forwarding(self, contents: str) -> None:
-        # tini as PID 1 (or ENTRYPOINT) ensures SIGTERM reaches the Python process.
-        assert re.search(r"\btini\b", contents), (
-            "Dockerfile should use `tini` for proper signal forwarding "
-            "(PID 1 zombie reaping + SIGTERM to the MCP server)."
+    def test_image_embeds_no_init_so_the_launcher_owns_it(self, contents: str) -> None:
+        # The launcher owns the init layer (``docker run --init`` / Compose
+        # ``init: true``). A tini embedded in the image stacks a second
+        # supervision layer on top of the launcher's own init, and the outer
+        # layer masks which process is actually responsible for SIGTERM.
+        instructions = "\n".join(
+            line for line in contents.splitlines() if not line.lstrip().startswith("#")
         )
+        assert not re.search(r"\btini\b", instructions), (
+            "the image must not embed an init; the launcher provides it "
+            "(docker run --init / compose init: true)"
+        )
+        entrypoint = re.search(r"^ENTRYPOINT\s+\[(.+)\]$", contents, re.MULTILINE)
+        assert entrypoint, "Dockerfile must declare an exec-form ENTRYPOINT"
+        assert "tini" not in entrypoint.group(1)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -309,7 +318,10 @@ class TestDockerCompose:
         assert "tty: false" in stdio
         for http_only in ("ports:", "healthcheck:", "restart:"):
             assert http_only not in stdio
-        assert "init: true" not in contents, "tini in the image is the only init"
+        assert "init: true" in contents, (
+            "the launcher owns the init layer; the compose service must "
+            "declare init: true so the container stops cleanly on SIGTERM"
+        )
 
     def test_http_profile_owns_port_healthcheck_and_persistence(self, contents: str) -> None:
         http = _service_block(contents, "percival-deep-research-http")

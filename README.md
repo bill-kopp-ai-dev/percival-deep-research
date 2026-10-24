@@ -359,7 +359,7 @@ subprocess.
 ### Quickstart — `docker run` (HTTP/SSE)
 
 ```bash
-docker run -d --rm -p 127.0.0.1:8000:8000 \
+docker run -d --rm --init -p 127.0.0.1:8000:8000 \
   -e MCP_TRANSPORT=sse \
   -e MCP_HOST=0.0.0.0 \
   -e INFERENCE_API_KEY=<your-key> \
@@ -465,7 +465,7 @@ the SSE boot.
 | Base | `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` (builder) → `python:3.11-slim` (runtime) |
 | Size | ~1.37 GB (pulls the full `gpt-researcher` + ML deps stack; venv bloat stripped — `tests/`, `*.pyi`, `*.dist-info/RECORD`, no `.pyc` files) |
 | User | non-root `percival` (UID 1000) |
-| Signal | PID 1 = `tini` → forwards SIGTERM to the MCP server |
+| Signal | PID 1 = the launcher (`--init` / compose `init: true`); the image embeds no init |
 | Default transport | `stdio` |
 | Health endpoint | `GET /health` (200 healthy / 503 degraded) — only meaningful in HTTP mode |
 

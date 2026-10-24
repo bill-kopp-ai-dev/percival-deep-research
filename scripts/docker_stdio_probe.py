@@ -61,6 +61,7 @@ def main() -> int:
             "run",
             "--rm",
             "-i",
+            "--init",
             "-e",
             f"INFERENCE_API_KEY={args.dummy_key}",
             "-e",

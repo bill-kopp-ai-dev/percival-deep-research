@@ -33,8 +33,9 @@ Mudança puramente operacional de packaging.
 - **Labels OCI + MCP** (`org.opencontainers.image.{title,source,licenses,version,…}`
   + `io.modelcontextprotocol.server.name=percival-deep-research`) para
   catalog e gateway do Docker MCP Toolkit.
-- **Usuário não-root** `percival` (UID 1000) + **tini** como PID 1 para
-  forwarding correto de `SIGTERM`.
+- **Usuário não-root** `percival` (UID 1000); a camada de init pertence ao
+  launcher (`docker run --init` / Compose `init: true`) — a imagem não embute
+  init, evitando duas camadas de supervisão sobrepostas.
 - **Default transport = `stdio`** dentro da imagem — compatível com Nanobot,
   OpenCode, Claude Desktop e Docker MCP gateway (todos esperam stdio via
   `docker run -i`).

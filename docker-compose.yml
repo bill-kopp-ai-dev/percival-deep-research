@@ -22,6 +22,8 @@ x-common: &common
     context: .
     dockerfile: Dockerfile
   image: ${PERCIVAL_DEEP_RESEARCH_IMAGE:-percival-deep-research:dev}
+  # The launcher owns the init layer; the image embeds none. One init only.
+  init: true
   env_file:
     - path: ./.env
       required: false

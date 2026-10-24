@@ -50,13 +50,16 @@ docker build \
 ok "Candidate image built and retained: ${IMAGE_TAG}."
 
 # The image is consumed in stdio mode by default, so it must not carry an
-# HTTP healthcheck. Tini in the image is the sole init for both transports.
+# HTTP healthcheck. The launcher owns the init layer; the image embeds none.
 IMAGE_HEALTHCHECK=$(docker image inspect --format '{{json .Config.Healthcheck}}' "${IMAGE_TAG}")
 [[ "${IMAGE_HEALTHCHECK}" == "null" ]] || fail "stdio image has a healthcheck: ${IMAGE_HEALTHCHECK}"
 IMAGE_ENTRYPOINT=$(docker image inspect --format '{{json .Config.Entrypoint}}' "${IMAGE_TAG}")
-[[ "${IMAGE_ENTRYPOINT}" == '["/usr/bin/tini","--","percival-deep-research"]' ]] \
-    || fail "expected tini as the single image init, got ${IMAGE_ENTRYPOINT}"
-ok "Image defaults have no HTTP healthcheck and use one tini init."
+case "${IMAGE_ENTRYPOINT}" in
+    *tini*|*docker-init*)
+        fail "image must not embed an init; the launcher owns it: ${IMAGE_ENTRYPOINT}"
+        ;;
+esac
+ok "Image defaults have no HTTP healthcheck and embed no init."
 
 log "STDIO smoke: initialize and tools/list without a TTY or published port..."
 # FastMCP 3.4+ answers tools/list only when the client keeps the pipe open
@@ -131,6 +134,6 @@ ok "HTTP /health responded on loopback (${HEALTH_STATUS}; body=${HEALTH})."
 docker stop --time 10 "${HTTP_CID}" >/dev/null
 EXIT_CODE=$(docker inspect --format '{{.State.ExitCode}}' "${HTTP_CID}")
 [[ "${EXIT_CODE}" != "137" ]] || fail "HTTP container required SIGKILL; graceful stop timed out"
-ok "SIGTERM reached the HTTP process through the single tini init (exit=${EXIT_CODE})."
+ok "SIGTERM reached the HTTP process through the single launcher-owned init (exit=${EXIT_CODE})."
 
 log "All Deep Research F1 smoke checks passed."
