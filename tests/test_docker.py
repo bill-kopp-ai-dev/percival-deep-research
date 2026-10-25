@@ -316,8 +316,9 @@ class TestDockerCompose:
         assert 'profiles: ["stdio"]' in stdio
         assert "stdin_open: true" in stdio
         assert "tty: false" in stdio
-        for http_only in ("ports:", "healthcheck:", "restart:"):
+        for http_only in ("ports:", "healthcheck:"):
             assert http_only not in stdio
+        assert 'restart: "no"' in stdio
         assert "init: true" in contents, (
             "the launcher owns the init layer; the compose service must "
             "declare init: true so the container stops cleanly on SIGTERM"
@@ -326,7 +327,7 @@ class TestDockerCompose:
     def test_http_profile_owns_port_healthcheck_and_persistence(self, contents: str) -> None:
         http = _service_block(contents, "percival-deep-research-http")
         assert 'profiles: ["http", "production"]' in http
-        assert "MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}" in http
+        assert "MCP_TRANSPORT: streamable-http" in http
         assert "MCP_HOST: 0.0.0.0" in http
         assert "HTTP_BIND_ADDRESS:-127.0.0.1" in http
         assert "ports:" in http
@@ -335,24 +336,21 @@ class TestDockerCompose:
         assert "restart: unless-stopped" in http
         assert "depends_on:" not in _service_block(contents, "percival-deep-research-stdio")
 
-    def test_env_file_is_optional(self, contents: str) -> None:
-        # `required: false` means operators without a .env file still work.
-        assert re.search(r"required:\s*false", contents), (
-            "env_file must be marked `required: false` so that operators "
-            "who use env vars directly (or a secrets manager) don't fail "
-            "to bring up the container."
-        )
+    def test_runtime_environment_file_is_read_only_and_not_interpolated(
+        self, contents: str
+    ) -> None:
+        # Credentials are loaded in-process from a private, read-only bind;
+        # Compose must not materialize them in Config.Env.
+        assert "target: /app/.env" in contents
+        assert "read_only: true" in contents
+        assert "create_host_path: false" in contents
+        assert "INFERENCE_API_KEY" not in _service_block(contents, "percival-deep-research-stdio")
+        assert "INFERENCE_API_KEY" not in _service_block(contents, "percival-deep-research-http")
 
-    def test_default_retriever_aligns_with_env_example(self, contents: str) -> None:
-        # The compose env must not default to brave — that contradicts
-        # `.env.example` (default = duckduckgo, v3.0+) and silently
-        # requires BRAVE_API_KEY.
-        m = re.search(r"RETRIEVER[^\n]*\$\{RETRIEVER:-([^}]+)\}", contents)
-        assert m, "compose should set RETRIEVER with a default"
-        default = m.group(1).strip()
-        assert default.lower() != "brave", (
-            f"compose default for RETRIEVER must not be brave. Got: {default!r}"
-        )
+    def test_http_profile_pins_transport_and_uses_runtime_env_file(self, contents: str) -> None:
+        http = _service_block(contents, "percival-deep-research-http")
+        assert "MCP_TRANSPORT: streamable-http" in http
+        assert "INFERENCE_API_KEY" not in http
 
 
 # ─────────────────────────────────────────────────────────────────────

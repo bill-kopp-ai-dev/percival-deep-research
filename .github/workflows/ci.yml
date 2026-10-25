@@ -59,7 +59,7 @@ jobs:
         run: |
           test "$(docker image inspect percival-deep-research:ci --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
           test "$(docker image inspect percival-deep-research:ci --format '{{.Config.User}}')" != ""
-          test "$(docker image inspect percival-deep-research:ci --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}')" = "$GITHUB_SHA"
+          test "$(docker image inspect percival-deep-research:ci --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
           test "$(docker image inspect percival-deep-research:ci --format '{{json .Config.Healthcheck}}')" = null
       - name: MCP stdio conformance (offline, no TTY or ports)
         run: >-
@@ -87,7 +87,13 @@ jobs:
           HTTP_PORT: "18000"
           INFERENCE_API_KEY: ci-inference-key-not-a-secret
           INFERENCE_BASE_URL: https://api.openai.com/v1
+          DEEP_RESEARCH_ENV_HOST_PATH: ${{ runner.temp }}/deep-research-ci.env
         run: |
+          umask 077
+          printf '%s\n' \
+            "INFERENCE_API_KEY=$INFERENCE_API_KEY" \
+            "INFERENCE_BASE_URL=$INFERENCE_BASE_URL" \
+            > "$DEEP_RESEARCH_ENV_HOST_PATH"
           mkdir -p logs reports
           docker compose config --quiet
           docker compose --profile http config --quiet
@@ -97,6 +103,7 @@ jobs:
           HTTP_PORT: "18000"
           INFERENCE_API_KEY: ci-inference-key-not-a-secret
           INFERENCE_BASE_URL: https://api.openai.com/v1
+          DEEP_RESEARCH_ENV_HOST_PATH: ${{ runner.temp }}/deep-research-ci.env
         run: |
           docker compose --profile http up --build -d --wait percival-deep-research-http
           bind=$(docker compose --profile http port percival-deep-research-http 8000)

@@ -116,9 +116,7 @@ def main() -> int:
         tools = result.get("tools") if isinstance(result, dict) else None
         if "error" in tools_response or not isinstance(tools, list):
             raise RuntimeError(f"tools/list failed: {tools_response}")
-        available = {
-            tool.get("name") for tool in tools if isinstance(tool, dict)
-        }
+        available = {tool.get("name") for tool in tools if isinstance(tool, dict)}
         missing = [tool for tool in args.expected_tool if tool not in available]
     except (TimeoutError, RuntimeError) as exc:
         sys.stderr.write(f"MCP handshake failed: {exc}\n")
