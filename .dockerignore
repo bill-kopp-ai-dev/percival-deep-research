@@ -1,3 +1,19 @@
+# COPY . . is intentionally limited to these runtime/build inputs.
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!server.py
+!runtime_env.py
+!config.py
+!llm_bridge.py
+!utils.py
+!percival_research/
+!percival_research/**
+!scripts/
+!scripts/patch_gpt_researcher.py
+
 # ─────────────────────────────────────────────────────────────────────
 # .dockerignore — exclude from the build context.
 # Without this, the host's .venv, .git, .env, coverage cache etc. ship
@@ -91,3 +107,18 @@ Makefile
 # docker/ catalog metadata — only used by humans for catalog submission,
 # never read by the running server. Dockerfile does NOT COPY from docker/.
 docker/
+
+# Apply the state/secret boundary inside copied source trees too.
+**/.venv/
+**/.positronic/
+**/.env
+**/.env.*
+**/secrets/
+**/*.pem
+**/*.key
+**/__pycache__/
+**/.cache/
+**/AGENTS.md
+**/.pytest_cache/
+**/node_modules/
+**/tests/
