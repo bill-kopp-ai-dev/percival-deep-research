@@ -10,11 +10,9 @@
 # local ./nginx.conf with authentication/TLS policy before starting that profile.
 
 x-runtime-environment: &runtime-environment
-  INFERENCE_API_KEY: ${INFERENCE_API_KEY:-}
-  INFERENCE_BASE_URL: ${INFERENCE_BASE_URL:-}
-  INFERENCE_LLM: ${INFERENCE_LLM:-openai:gpt-4o-mini}
-  RETRIEVER: ${RETRIEVER:-duckduckgo}
-  BRAVE_API_KEY: ${BRAVE_API_KEY:-}
+  # Runtime settings, including credentials, are read from the mounted
+  # /app/.env file by runtime_env.py. Do not set empty placeholders here:
+  # load_dotenv(override=False) would preserve them and shadow the file.
   PYTHONUNBUFFERED: "1"
 
 x-common: &common
@@ -24,9 +22,14 @@ x-common: &common
   image: ${PERCIVAL_DEEP_RESEARCH_IMAGE:-percival-deep-research:dev}
   # The launcher owns the init layer; the image embeds none. One init only.
   init: true
-  env_file:
-    - path: ./.env
-      required: false
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777,noexec,nosuid,nodev
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  # UID/GID 1000 matches the image's `percival` user, so the bind mounts below
+  # are writable by the process.
+  user: "1000:1000"
   volumes:
     # These host directories must exist and be writable by image UID/GID 1000.
     - type: bind
@@ -39,6 +42,15 @@ x-common: &common
       target: /app/reports
       bind:
         create_host_path: false
+    # Private environment file with the inference credential. The server
+    # reads it through `runtime_env.load_dotenv("/app/.env")`; the file is
+    # mounted read-only and never rendered into the environment.
+    - type: bind
+      source: ${DEEP_RESEARCH_ENV_HOST_PATH:-./.env}
+      target: /app/.env
+      read_only: true
+      bind:
+        create_host_path: false
 
 services:
   percival-deep-research-stdio:
@@ -46,6 +58,7 @@ services:
     profiles: ["stdio"]
     stdin_open: true
     tty: false
+    restart: "no"
     environment:
       <<: *runtime-environment
       MCP_TRANSPORT: stdio
@@ -55,7 +68,10 @@ services:
     profiles: ["http", "production"]
     environment:
       <<: *runtime-environment
-      MCP_TRANSPORT: ${MCP_TRANSPORT:-sse}
+      # The transport is pinned, not interpolated: an operator-wide
+      # `MCP_TRANSPORT` in the environment or in a mounted `.env` must not be
+      # able to turn the HTTP profile into a stdio one (or the reverse).
+      MCP_TRANSPORT: streamable-http
       MCP_HOST: 0.0.0.0
       PORT: "8000"
     ports:
@@ -78,15 +94,46 @@ services:
   nginx:
     image: nginx:alpine
     profiles: ["production"]
+    init: true
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,mode=1777
+      - /var/run:size=1m,mode=1775
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    # nginx:alpine ships an `nginx` user (uid 101) and an unprivileged port
+    # 8080. The published ports below map to that port, so the proxy never
+    # needs a privileged port nor root.
+    user: "101:101"
     ports:
-      - "80:80"
-      - "443:443"
+      # Loopback by default. Publishing on every interface is an explicit
+      # operator choice and requires the reviewed TLS/auth policy.
+      - "${NGINX_HTTP_BIND_ADDRESS:-127.0.0.1}:${NGINX_HTTP_PORT:-8080}:8080"
+      - "${NGINX_HTTPS_BIND_ADDRESS:-127.0.0.1}:${NGINX_HTTPS_PORT:-8443}:8443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # The operator-provided configuration must exist: a missing file must
+      # fail loudly instead of being created by the daemon as a directory.
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       percival-deep-research-http:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          code=$$(wget -q -O /dev/null http://127.0.0.1:8080/ 2>/dev/null && echo 200 || echo 000);
+          case "$$code" in 200) exit 0 ;; *) exit 1 ;; esac
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   default:
