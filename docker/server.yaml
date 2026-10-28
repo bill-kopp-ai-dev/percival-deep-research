@@ -35,7 +35,9 @@ about:
 
 source:
   project: https://github.com/bill-kopp-ai-dev/percival.OS
-  # `commit` is filled in at PR time with the pinned release SHA.
+  # `commit` pins the audited revision. It is rendered at release time by
+  # `scripts/render_catalog_metadata.py` (the registry rejects a
+  # non-SHA1 or missing value); do not hand-edit it.
   commit: PLACEHOLDER_RELEASE_COMMIT_SHA
 
 config:

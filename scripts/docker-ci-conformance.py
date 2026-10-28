@@ -8,6 +8,10 @@ import selectors
 import subprocess
 import sys
 import time
+import tomllib
+from pathlib import Path
+
+HARNESS_VERSION = "2.0.0"
 
 
 def redact_secrets(text: str, entries: list[str]) -> str:
@@ -20,7 +24,7 @@ def redact_secrets(text: str, entries: list[str]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--image", required=True)
+    parser.add_argument("--image", required=False, help="image:tag to exercise")
     parser.add_argument("--mount", action="append", default=[])
     parser.add_argument("--env", action="append", default=[])
     parser.add_argument("--secret-env", action="append", default=[])
@@ -29,7 +33,13 @@ def main() -> int:
     parser.add_argument("--compose-file", default="docker-compose.yml")
     parser.add_argument("--compose-service")
     parser.add_argument("--compose-profile", action="append", default=[])
+    parser.add_argument("--harness-version", action="store_true", help="print the harness version")
     args = parser.parse_args()
+    if args.harness_version:
+        print(f"deep-research conformance harness {HARNESS_VERSION}")
+        return 0
+    if not args.image:
+        parser.error("--image is required unless --harness-version is given")
     if args.expected_uid is not None:
         probe = subprocess.run(
             [
@@ -192,6 +202,19 @@ def main() -> int:
     by_id = {response.get("id"): response for response in responses if "id" in response}
     if 1 not in by_id or "result" not in by_id[1]:
         print("MCP initialize response missing or invalid", file=sys.stderr)
+        return 1
+    server_info = by_id[1]["result"].get("serverInfo", {})
+    try:
+        expected_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        print("Could not read expected product version from pyproject.toml", file=sys.stderr)
+        return 1
+    if server_info.get("version") != expected_version:
+        print(
+            f"MCP serverInfo.version mismatch: expected {expected_version!r}, "
+            f"got {server_info.get('version')!r}",
+            file=sys.stderr,
+        )
         return 1
     tools = by_id.get(2, {}).get("result", {}).get("tools")
     if not isinstance(tools, list) or not tools:

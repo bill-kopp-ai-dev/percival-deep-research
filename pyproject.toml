@@ -3,7 +3,7 @@ name = "percival-deep-research"
 version = "3.0.1"
 description = "Percival Deep Research MCP Server — multi-source web research and report generation, optimized for the Nanobot agent ecosystem"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
     { name = "percival.OS contributors" }
@@ -11,7 +11,7 @@ authors = [
 keywords = ["mcp", "percival", "gpt-researcher", "ai", "research", "fastmcp", "nanobot"]
 
 dependencies = [
-    "gpt-researcher>=0.14.0",
+    "gpt-researcher==0.16.0",
     "python-dotenv>=1.1.1,<2.0.0",
     "fastmcp>=3.2.0,<4.0.0",
     "mcp[cli]>=1.28.1,<2.0.0",
@@ -20,6 +20,7 @@ dependencies = [
     "langchain",
     "langchain-community",
     "ddgs>=9,<10",
+    "httpx>=0.27.0,<1.0.0",
 ]
 
 [project.urls]
@@ -57,6 +58,7 @@ include = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "--cov=server --cov=utils --cov=config --cov=llm_bridge --cov=percival_research --cov-report=term-missing"
 markers = [
     "integration: tests that require a running MCP server (deselect with -m 'not integration')",
 ]
@@ -80,7 +82,6 @@ select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
 [tool.coverage.run]
-source = ["server.py", "utils.py", "config.py", "llm_bridge.py", "percival_research"]
 omit = ["tests/*"]
 
 [tool.coverage.report]

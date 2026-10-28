@@ -3,6 +3,7 @@
 import uuid as _uuid
 
 from utils import (
+    format_sources_for_response,
     format_sources_lines,
     handle_exception,
     new_correlation_id,
@@ -85,6 +86,26 @@ def test_format_sources_lines_multiple():
         "[2] B | u2 | 2 chars",
         "[3] C | u3 | 3 chars",
     ]
+
+
+def test_format_sources_conta_raw_content_do_upstream():
+    """O upstream guarda o corpo raspado em `raw_content` (F-013)."""
+    formatted = format_sources_for_response(
+        [{"title": "Fixture", "url": "https://a.com", "raw_content": "abcde"}]
+    )
+    assert formatted[0]["content_length"] == 5
+
+
+def test_format_sources_conta_content_legado():
+    formatted = format_sources_for_response(
+        [{"title": "Fixture", "url": "https://a.com", "content": "abc"}]
+    )
+    assert formatted[0]["content_length"] == 3
+
+
+def test_format_sources_sem_corpo_reporta_zero():
+    formatted = format_sources_for_response([{"title": "Fixture", "url": "https://a.com"}])
+    assert formatted[0]["content_length"] == 0
 
 
 def test_validate_research_id_aceita_v1():

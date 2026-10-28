@@ -727,6 +727,21 @@ def handle_exception(e: Exception, operation: str, correlation_id: str | None = 
 # ──────────────────────────────────────────────
 
 
+def _source_content_length(source: Dict[str, Any]) -> int:
+    """Length of the scraped body of a source.
+
+    The upstream `gpt-researcher` stores the scraped page under `raw_content`
+    (see `gpt_researcher.scraper.scraper.Scraper.extract_data_from_url`),
+    while older fixtures and some retrievers use `content`. Reading only
+    `content` reported `0 chars` for every real source.
+    """
+    for key in ("raw_content", "content"):
+        value = source.get(key)
+        if isinstance(value, str):
+            return len(value)
+    return 0
+
+
 def format_sources_for_response(sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Formats research sources for API responses.
@@ -741,7 +756,7 @@ def format_sources_for_response(sources: List[Dict[str, Any]]) -> List[Dict[str,
         {
             "title": source.get("title", "Unknown"),
             "url": source.get("url", ""),
-            "content_length": len(source.get("content", "")),
+            "content_length": _source_content_length(source),
         }
         for source in sources
     ]

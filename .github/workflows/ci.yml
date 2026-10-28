@@ -31,6 +31,15 @@ jobs:
           uv run --with ruff==0.16.10 ruff check .
           uv run --with ruff==0.16.10 ruff format --check .
       - run: uv run --no-sync pytest -q
+      - name: Coverage threshold is enforced by the canonical command
+        # Proves that `pytest -q` fails when the measured coverage drops
+        # below the configured floor (fail_under = 70 in pyproject.toml).
+        run: |
+          set +e
+          uv run --no-sync pytest -q --cov-fail-under=99 > /dev/null 2>&1
+          status=$?
+          set -e
+          test "$status" -ne 0
 
   docker:
     name: Docker build + stdio conformance (linux/amd64)
@@ -42,6 +51,9 @@ jobs:
       - name: Resolve image version
         id: meta
         run: echo "version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')" >> "$GITHUB_OUTPUT"
+      - name: Resolve source date epoch
+        id: epoch
+        run: echo "epoch=$(git log -1 --pretty=%ct)" >> "$GITHUB_OUTPUT"
       - name: Build image locally
         uses: docker/build-push-action@v6
         with:
@@ -53,6 +65,7 @@ jobs:
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
             GIT_SHA=${{ github.sha }}
+            SOURCE_DATE_EPOCH=${{ steps.epoch.outputs.epoch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Inspect identity and privilege posture
@@ -116,6 +129,12 @@ jobs:
           docker compose --profile http down --remove-orphans
       - name: Write build manifest
         run: python3 scripts/write_docker_ci_manifest.py --image percival-deep-research:ci --source-sha "$GITHUB_SHA" --lock uv.lock --output docker-build-manifest.json
+      - name: Reproducible build check
+        # Two clean builds of the same source must produce the same image.
+        # `--provenance=false` is used by the helper because the default
+        # attestation embeds per-build metadata in the OCI index; the
+        # platform manifest (the reproducible identity) is compared.
+        run: bash scripts/check_reproducible_build.sh percival-deep-research:repro
       - name: Generate CycloneDX SBOM
         uses: anchore/sbom-action@v0
         with:
@@ -123,10 +142,32 @@ jobs:
           format: cyclonedx-json
           output-file: sbom.cdx.json
           upload-artifact: false
+      - name: Scan the candidate image
+        # Findings are reported, not silently dropped. The current open
+        # findings are recorded in docs/security/ (VEX + owner decision);
+        # the step fails only on a new HIGH/CRITICAL finding, so a new
+        # advisory cannot pass unnoticed.
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: percival-deep-research:ci
+          format: cyclonedx
+          output: trivy.cdx.json
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Publish scan result
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.76.1 image --scanners vuln \
+            --format json --output trivy.json percival-deep-research:ci
+          python3 scripts/check_trivy_findings.py \
+            --report trivy.json \
+            --known docs/security/vex-2026-10-28.json
       - uses: actions/upload-artifact@v4
         with:
           name: docker-evidence-deep-research-${{ github.sha }}
           path: |
             docker-build-manifest.json
             sbom.cdx.json
+            trivy.json
           if-no-files-found: error

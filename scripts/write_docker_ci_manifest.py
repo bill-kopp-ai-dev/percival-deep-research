@@ -66,6 +66,10 @@ def main() -> None:
         "base_images": base_images,
         "version": labels.get("org.opencontainers.image.version"),
         "revision": labels.get("org.opencontainers.image.revision"),
+        "gpt_researcher": {
+            "version": labels.get("io.percival.gpt-researcher.version"),
+            "source_patch": labels.get("io.percival.gpt-researcher.patch"),
+        },
         "dependency_locks_sha256": lock_digests,
     }
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

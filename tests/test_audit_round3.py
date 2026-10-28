@@ -1,6 +1,6 @@
 """Testes de regressão rodada 3 — bugs encontrados após rodadas 1+2."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -40,10 +40,12 @@ class TestDeepResearchReleasesLimiter:
 
         import asyncio as _asyncio
 
-        async def hang():
-            await _asyncio.sleep(10)
+        import percival_research.tools.deep_research as dr
 
-        mock_gpt_researcher.conduct_research = hang
+        async def time_out_worker(query, timeout_s, worker_command=None):
+            raise _asyncio.TimeoutError
+
+        monkeypatch.setattr(dr, "run_research_worker", time_out_worker)
 
         max_before = _app.research_limiter._max
 
@@ -56,11 +58,17 @@ class TestDeepResearchReleasesLimiter:
         assert _app.research_limiter._sem._value == max_before
 
     @pytest.mark.asyncio
-    async def test_release_em_excecao_generica(self, clean_app_state, mock_gpt_researcher):
+    async def test_release_em_excecao_generica(
+        self, clean_app_state, mock_gpt_researcher, monkeypatch
+    ):
         """Em exceção genérica, slot também é devolvido."""
         import percival_research.app as _app
+        import percival_research.tools.deep_research as dr
 
-        mock_gpt_researcher.conduct_research = AsyncMock(side_effect=RuntimeError("kaboom"))
+        async def fail_worker(query, timeout_s, worker_command=None):
+            raise RuntimeError("kaboom")
+
+        monkeypatch.setattr(dr, "run_research_worker", fail_worker)
 
         max_before = _app.research_limiter._max
 
@@ -283,11 +291,9 @@ class TestServerLoggersFinallyRestoresSinks:
         # Não reimporta — usa o server.py carregado no conftest
         import server
 
-        try:
+        with pytest.raises(SystemExit) as exc_info:
             server.run_server()
-        except Exception:
-            # run_server pode levantar de mcp.run; ignore
-            pass
+        assert exc_info.value.code == 1
 
         capsys.readouterr()
         # Após run, `get_research_id` ou outro módulo que importem

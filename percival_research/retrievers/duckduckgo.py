@@ -8,11 +8,10 @@ class DuckDuckGoRetriever:
 
     async def search(self, query: str, max_results: int = 10) -> list[dict]:
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
         except ImportError as exc:
             raise RuntimeError(
-                "duckduckgo-search não instalado. Use brave ou instale "
-                "duckduckgo-search: `uv pip install duckduckgo-search`"
+                "ddgs não instalado. Use brave ou instale ddgs: `uv pip install ddgs`"
             ) from exc
 
         with DDGS() as ddgs:

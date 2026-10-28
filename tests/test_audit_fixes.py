@@ -330,22 +330,20 @@ class TestResourceTimeout:
         from dataclasses import replace
 
         import percival_research.app as app
+        import percival_research.resources as resources_mod
         from percival_research.resources import _run_research_and_cache
 
         # Reduzir timeout drasticamente
         new_s = replace(app._settings, research_timeout_s=0.2)
         monkeypatch.setattr(app, "_settings", new_s)
 
-        def slow_factory(q):
-            class FakeResearcher:
-                async def conduct_research(self):
-                    await asyncio.sleep(10)
+        async def timed_out_worker(query, timeout_s, worker_command=None):
+            raise asyncio.TimeoutError
 
-            return FakeResearcher()
+        monkeypatch.setattr(resources_mod, "run_research_worker", timed_out_worker)
 
         result = await _run_research_and_cache(
             "test query",
-            slow_factory,
             cid="crl-test01",
         )
         assert "RESOURCE TIMEOUT" in result

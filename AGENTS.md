@@ -7,20 +7,30 @@ the global `AGENTS.md`, `SOUL.md` and `USER.md`.
 ## Working conventions
 
 - Lint/format: `uv run --with ruff ruff check .` + `uv run --with ruff ruff format .`.
-- Tests: `uv run pytest -q` (cobertura `>=70%` enforced).
+- Tests: `uv run pytest -q` (coverage `>=70%` enforced by the canonical
+  command itself, via `addopts` in `pyproject.toml`).
 - Patch gpt-researcher: `uv run python scripts/patch_gpt_researcher.py`
   apos cada `uv sync` (mandatory ate upstream resolver
-  `NameError: name 'Any'`).
+  `NameError: name 'Any'`). The script is a no-op for versions that do not
+  need it and refuses to patch an unsupported version.
+- Research runs in an isolated worker process
+  (`percival_research/research_worker.py`); the timeout is enforced by the
+  parent, which kills the worker. Do not move the pipeline back in-process.
 - Conventional Commits; scope = area afetada.
 - Hardening preservado em toda mutacao: conteudo externo continua wrappado
   por XML envelope ou prefixo `[SECURITY WARNING:...]`.
 
 ## Verification
 
-- `uv run pytest -q` (canonical, com cobertura embutida).
+- `uv run pytest -q` (canonical, com cobertura embutida e limiar de 70%).
 - `uv run --with ruff ruff check .` + `ruff format --check .` (pre-commit).
 - Smoke ao vivo (opt-in) contra credenciais reais, exercitando
   `research_deep` ponta-a-ponta.
+- Docker: `scripts/docker-ci-conformance.py` (stdio),
+  `scripts/timeout_probe.py` (deadline efetivo contra fixture interna) e
+  `scripts/check_reproducible_build.sh` (dois builds limpos, mesmo image ID).
+- Scan: `scripts/check_trivy_findings.py` exige que todo achado do Trivy
+  esteja registrado no VEX com decisão do owner.
 
 ## Open questions
 

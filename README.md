@@ -2,10 +2,10 @@
 
 **Version 3.0.1** · [CHANGELOG](CHANGELOG.md) · [percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
 
-[![Python](https://img.shields.io/badge/python-3.11+-yellow.svg)]()
+[![Python](https://img.shields.io/badge/python-3.12+-yellow.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-414%20passed-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-417%20passed-blue.svg)]()
 
 Multi-source web research and report generation, exposed as an MCP server
 for the [Nanobot](https://github.com/HKUDS/nanobot) agent ecosystem. Also
@@ -26,7 +26,7 @@ and any generic MCP client.
   strict-bool validation at the framework layer.
 - **Docker-ready** — multi-stage image (`~1.37 GB`), non-root, stdio by
   default, OCI/MCP labels for catalog submission.
-- **Battle-tested** — 414 tests passing (zero integration deps needed); 48
+- **Battle-tested** — 434 tests passing (zero integration deps needed); 48
   bugs closed across 4 official bug-hunt rounds + 2 internal reviews.
 
 ## 📑 Table of Contents
@@ -120,7 +120,7 @@ core principles:
 
 ### Prerequisites
 
-- **Python ≥ 3.11** (tested on 3.11 and 3.12)
+- **Python ≥ 3.12** (the supported runtime and CI version)
 - **uv** ([install instructions](https://docs.astral.sh/uv/getting-started/installation/))
 - For Docker: **Docker Engine ≥ 23** (BuildKit enabled by default)
 - An **inference API key** (OpenAI, Venice, MiniMax, OpenRouter, or any
@@ -149,9 +149,16 @@ automatically):
 ```bash
 # Bake the pyproject version + git SHA into image labels (recommended):
 VERSION=$(.venv/bin/python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])") \
-GIT_SHA=$(git rev-parse --short HEAD) \
+GIT_SHA=$(git rev-parse HEAD) \
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) \
   docker build -t percival-deep-research:dev .
 ```
+
+`SOURCE_DATE_EPOCH` normalizes the file timestamps inside the image, so
+two clean builds of the same source produce the same image ID. The
+release pipeline also disables the provenance attestation for the
+comparison, because the attestation embeds per-build metadata in the OCI
+index even when the image itself is byte-identical.
 
 For a quick smoke image without version metadata, drop the `--build-arg`
 lines:
@@ -193,8 +200,19 @@ All configuration is via environment variables. See
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RETRIEVER` | `duckduckgo` | `duckduckgo` (no API key) or `brave` (needs `BRAVE_API_KEY`) |
+| `RETRIEVER` | `duckduckgo` | Retriever names supported by the pinned `gpt-researcher` registry; DuckDuckGo needs no key, Brave needs `BRAVE_API_KEY` |
 | `BRAVE_API_KEY` | — | Required only if `RETRIEVER=brave` |
+
+`/health` checks that the configured retriever exists in the embedded
+`gpt-researcher` registry and validates the Brave key when applicable. It
+reports configuration readiness, not provider reachability or credentials
+for every upstream retriever.
+
+The image preloads the `o200k_base` tiktoken encoding and uses LiteLLM's
+bundled model-cost map, so startup and pipeline initialization do not fetch
+those metadata files from the Internet. Actual research still requires network
+access to the configured inference endpoint and retriever; a fixture-only
+network test does not provide live web research.
 
 ### Transport
 
@@ -211,6 +229,11 @@ All configuration is via environment variables. See
 | `LOG_LEVEL` | `INFO` | Standard log levels |
 | `PERCIVAL_RESEARCH_TIMEOUT_S` | `90` | Max seconds for one research |
 | `PERCIVAL_MAX_CONCURRENT_RESEARCH` | `3` | Concurrent in-flight researches |
+
+Research session IDs and topic-cache entries live only in process memory.
+They expire according to their configured TTL and are lost when the server
+process/container is recreated; callers must start a new research session
+after an explicit expired/not-found response.
 
 ### Migration from v2.x
 
@@ -462,26 +485,27 @@ the SSE boot.
 
 | | |
 |---|---|
-| Base | `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` (builder) → `python:3.11-slim` (runtime) |
+| Base | `ghcr.io/astral-sh/uv:0.9.30-python3.12-trixie-slim` (builder) → `python:3.12-slim` (Python runtime stage; Debian forky final stage) |
 | Size | ~1.37 GB (pulls the full `gpt-researcher` + ML deps stack; venv bloat stripped — `tests/`, `*.pyi`, `*.dist-info/RECORD`, no `.pyc` files) |
 | User | non-root `percival` (UID 1000) |
 | Signal | PID 1 = the launcher (`--init` / compose `init: true`); the image embeds no init |
 | Default transport | `stdio` |
 | Health endpoint | `GET /health` (200 healthy / 503 degraded) — only meaningful in HTTP mode |
+| Package manager | none (`apt`, `pip` and all setuid binaries removed) |
+| Reproducibility | two clean builds of the same source produce the same image ID (`SOURCE_DATE_EPOCH`) |
 
 ---
 
 ## 🏗️ Architecture
 
 The server sits between an MCP client (Nanobot, OpenCode, Claude Desktop,
-the Docker MCP gateway, or any stdio consumer) and `gpt-researcher`, which
-in turn drives the configured inference endpoint and retriever:
+the Docker MCP gateway, or any generic stdio consumer) and `gpt-researcher`,
+which in turn drives the configured inference endpoint and retriever:
 
 ```
-MCP client ──stdio/HTTP──▶ FastMCP app ──▶ gpt-researcher
+MCP client ──stdio/HTTP──▶ FastMCP app ──▶ research worker (subprocess)
                                 │                  │
-                                │                  ├──▶ OpenAI-compatible LLM (chat + summary)
-                                │                  └──▶ DuckDuckGo / Brave / SearXNG (retrieval)
+                                │                  └──▶ gpt-researcher ──▶ LLM + retriever
                                 │
                                 ├──▶ research_limiter (rate-limit / dedup)
                                 ├──▶ registry (active sessions + cached results)
@@ -507,6 +531,13 @@ canonical `INFERENCE_*` env vars to the legacy `OPENAI_*` namespace that
 `gpt-researcher/memory/embeddings.py` reads directly — this is the only
 way to make non-OpenAI gateways (Venice, MiniMax, OpenRouter, local LLMs)
 work end-to-end without forking the upstream.
+
+**Hard research deadline** — the upstream pipeline runs in a child
+process (`percival_research/research_worker.py`). `PERCIVAL_RESEARCH_TIMEOUT_S`
+is enforced by the parent, which kills the worker when the deadline
+expires; an in-process timeout was not enough because the upstream can
+absorb a cancellation and keep running. The parent rehydrates only the
+data the public tools need (context, sources, source URLs).
 
 ---
 
@@ -545,6 +576,33 @@ These are honest design constraints, not bug reports:
    layer before the handler runs. Agents that previously passed
    `'yes'`/`'false'` will see a `ToolError`. Fix: pass real `True`/`False`.
 
+6. **Research sessions do not survive a restart.** `research_id` values
+   and cached topics live in process memory with a TTL. Recreating the
+   container invalidates them: the next call returns an explicit
+   "not found or expired" error instead of stale data. Start a new
+   research session after a restart.
+
+7. **The image ships no package manager.** `apt`/`apt-get`, `pip` and
+   every setuid binary were removed from the runtime stage. An operator
+   that needs to inspect the image at runtime has to use the bind-mounted
+   host tooling or a debug image; there is no `apt-get` inside.
+
+---
+
+## 🔒 Security & operations
+
+| Document | What it covers |
+|---|---|
+| [`docs/runtime-profile.md`](docs/runtime-profile.md) | The posture (user, read-only rootfs, capabilities, mounts, network) the managers must apply to run this image. |
+| [`docs/security/2026-10-28-candidate-scan.md`](docs/security/2026-10-28-candidate-scan.md) | The vulnerability scan of the current candidate and the owner's decision about the open findings. |
+| [`docs/security/vex-2026-10-28.json`](docs/security/vex-2026-10-28.json) | OpenVEX record of those findings. |
+
+The research pipeline runs in a **separate process** (see
+`percival_research/research_worker.py`): `PERCIVAL_RESEARCH_TIMEOUT_S`
+is a hard wall-clock limit, and the parent kills the worker when the
+deadline expires. This is deliberate — the upstream pipeline can absorb
+a cancellation, so an in-process timeout would not stop the work.
+
 ---
 
 ## 🛠️ Development & Testing
@@ -558,7 +616,8 @@ uv run percival-deep-research
 ### Test runs
 
 ```bash
-# Whole suite (414 passed + 3 skipped; no integration deps needed).
+# Whole suite (434 passed + 3 skipped; no integration deps needed).
+# The canonical command also measures coverage and enforces the 70% floor.
 uv run pytest -q
 
 # Just the regression tests for placeholder detection / dedup / bloat.
@@ -574,6 +633,12 @@ INFERENCE_API_KEY=sk-fake INFERENCE_BASE_URL=https://api.openai.com/v1 \
 
 # Docker end-to-end smoke (build + stdio JSON-RPC + HTTP/SSE /health):
 bash scripts/docker_smoke_test.sh
+
+# Reproducibility: two clean builds of the same source, same image ID.
+bash scripts/check_reproducible_build.sh
+
+# Effective research deadline against an internal fixture that never answers.
+python3 scripts/timeout_probe.py --image percival-deep-research:stage2-candidate --timeout 2
 ```
 
 ---

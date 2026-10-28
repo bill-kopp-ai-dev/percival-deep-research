@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 
@@ -104,6 +105,21 @@ def apply_patch(target: Path) -> bool:
 
 
 def main() -> int:
+    try:
+        installed_version = version("gpt-researcher")
+    except PackageNotFoundError:
+        print("ERROR: gpt-researcher is not installed", file=sys.stderr)
+        return 1
+
+    if installed_version != "0.16.0":
+        try:
+            import gpt_researcher.actions.query_processing  # noqa: F401
+        except (NameError, SyntaxError) as exc:
+            print(f"ERROR: unsupported gpt-researcher {installed_version}: {exc}", file=sys.stderr)
+            return 1
+        print(f"No source patch required for gpt-researcher {installed_version}")
+        return 0
+
     target = find_target()
     apply_patch(target)
 

@@ -1,0 +1,208 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/bill-kopp-ai-dev/percival-deep-research/vex/2026-10-28-deep-research",
+  "author": "percival.OS contributors",
+  "timestamp": "2026-10-28T00:00:00Z",
+  "version": 1,
+  "tooling": "percival-deep-research stage-2 remediation (Trivy 0.76.1)",
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-96760",
+        "description": "authlib: signature verification bypass via deserialize_json"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "The pinned gpt-researcher 0.16.0 dependency chain ships authlib 1.7.2. The owner decided on 2026-10-28 to keep the current versions in this remediation round; the upgrade path (authlib >= 1.9.1) is tracked as an open item before publication. The server does not expose Authlib's OAuth/OIDC server surface, but that is a deployment property, not a fixed code path."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114615",
+        "description": "authlib: authentication bypass via improper asymmetric key validation"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114616",
+        "description": "authlib: authentication bypass via zero-length HMAC key"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114617",
+        "description": "authlib: authentication bypass via disabled nonce verification"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114618",
+        "description": "authlib: unauthorized access via improper JWT audience validation"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114619",
+        "description": "authlib: authorization bypass via improper scope check"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114620",
+        "description": "authlib: server-side request forgery via unvalidated request URI"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114614",
+        "description": "authlib: transport security bypass via improper URL validation"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/authlib@1.7.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-96760."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114605",
+        "description": "dnspython: denial of service via excessive DNS compression pointer traversal"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/dnspython@2.8.0",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "The pinned gpt-researcher 0.16.0 dependency chain ships dnspython 2.8.0; the owner decided on 2026-10-28 to keep the current versions in this remediation round. The upgrade path (dnspython >= 2.9.0) is tracked as an open item before publication."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-114612",
+        "description": "litellm: privilege escalation to proxy admin via cross-domain reuse of the salt key"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/litellm@1.93.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "The pinned gpt-researcher 0.16.0 dependency chain ships litellm 1.93.2; the owner decided on 2026-10-28 to keep the current versions in this remediation round. This server uses LiteLLM as a client library for an OpenAI-compatible endpoint and never runs the LiteLLM proxy/admin surface, but the upgrade path (litellm >= 1.104.0-rc.2) is tracked as an open item before publication."
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-g5ff-637f-6q2m",
+        "description": "litellm: internal_user_viewer arbitrary local file read via vertex_ai_credentials"
+      },
+      "products": [
+        {
+          "@id": "pkg:pypi/litellm@1.93.2",
+          "subcomponents": [
+            {
+              "@id": "pkg:oci/percival-deep-research@sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150"
+            }
+          ]
+        }
+      ],
+      "status": "under_investigation",
+      "justification": "Same dependency chain and owner decision as CVE-2026-114612."
+    }
+  ]
+}

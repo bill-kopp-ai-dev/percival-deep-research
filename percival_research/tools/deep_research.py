@@ -1,10 +1,8 @@
 """Tool: deep_research — pesquisa profunda multi-fonte."""
 
 import asyncio
-import sys
 import time
 import uuid
-from contextlib import redirect_stdout
 
 from gpt_researcher import GPTResearcher
 from loguru import logger
@@ -17,6 +15,7 @@ from percival_research.app import (
     metrics,
 )
 from percival_research.metrics import log_query_safe
+from percival_research.research_worker_client import run_research_worker
 from utils import (
     format_context_with_sources,
     handle_exception,
@@ -191,22 +190,11 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
     """
     start = time.monotonic()
     research_id = str(uuid.uuid4())
-    researcher = GPTResearcher(
-        query=query,
-        agent=UNIVERSAL_AGENT_NAME,
-        role=_app._get_universal_agent_role(),  # dinâmico (audit rodada 2)
-        verbose=False,
-    )
-
     timeout_s = _app._settings.research_timeout_s
-
-    async def _do_research():
-        with redirect_stdout(sys.stderr):
-            await researcher.conduct_research()
 
     try:
         try:
-            await asyncio.wait_for(_do_research(), timeout=timeout_s)
+            context, sources, source_urls = await run_research_worker(query, timeout_s)
         except asyncio.TimeoutError:
             metrics.record_timeout("deep_research")
             logger.error(f"[{cid}] deep_research timed out after {timeout_s}s")
@@ -215,6 +203,18 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
                 f"internal limit (correlation_id={cid}). "
                 f"Try a more specific query or increase PERCIVAL_RESEARCH_TIMEOUT_S."
             )
+
+        # The isolated worker cannot return its live network/client objects.
+        # Rehydrate only the data needed by the public read/report tools.
+        researcher = GPTResearcher(
+            query=query,
+            agent=UNIVERSAL_AGENT_NAME,
+            role=_app._get_universal_agent_role(),
+            verbose=False,
+            context=context,
+        )
+        researcher.research_sources = sources
+        researcher.visited_urls = set(source_urls)
 
         try:
             _app.registry.add_researcher(research_id, researcher)

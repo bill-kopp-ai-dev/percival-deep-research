@@ -1,9 +1,13 @@
 """Plugin layer para retrievers (Fase 7).
 
-Esta camada **não é usada diretamente** pelo `gpt-researcher` — ela
-documenta a interface `Retriever` para futuras integrações onde o
-servidor pode usar o retriever independentemente (ex: tool
-`quick_search` customizada).
+Esta camada **não é usada diretamente pelo `gpt-researcher`** — ela
+documenta a interface `Retriever` para integrações futuras onde o servidor
+pode usar um retriever independentemente do upstream.
+
+Como o `gpt-researcher` resolve retrievers pelo próprio registry
+(`gpt_researcher.actions.retriever.get_retriever`), o `/health` valida o
+retriever configurado contra esse registry real, e não contra este módulo.
+Este registry local serve apenas a testes de extensibilidade.
 """
 
 from typing import Protocol

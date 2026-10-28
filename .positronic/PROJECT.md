@@ -36,40 +36,48 @@ corrigido.
 
 ## Methods and resources
 
-- Python `>=3.11`, build via `hatchling` (`pyproject.toml`).
-- Runtime: `gpt-researcher>=0.14.0`, `fastmcp>=3.2.0,<4.0.0`,
+- Python `>=3.12`, build via `hatchling` (`pyproject.toml`); target `gpt-researcher==0.16.0`.
+- Runtime: `gpt-researcher==0.16.0`, `fastmcp>=3.2.0,<4.0.0`,
   `loguru>=0.7.0,<1.0.0`, `langchain`, `langchain-mcp-adapters`,
-  `langchain-community`, `python-dotenv>=1.1.1`. Venv + deps via `uv`.
+  `langchain-community`, `python-dotenv>=1.1.1`, `ddgs>=9,<10`,
+  `httpx>=0.27`. Venv + deps via `uv`.
 - Testes: `pytest>=9`, `pytest-asyncio>=1.3.0`, `pytest-cov>=5`,
   `httpx>=0.27`, `sseclient-py>=1.7`. Marker `integration` para testes
   que exigem servidor SSE rodando em outro terminal.
-- Lint/format: `ruff` (`line-length=100`, `target-version=py311`, regras
+- Lint/format: `ruff` (`line-length=100`, `target-version=py312`, regras
   `E,F,I,W`, ignora `E501`).
 - Layout: `server.py`, `config.py`, `llm_bridge.py`, `utils.py` no root;
   `percival_research/` (subpacote: `app.py`, `health.py`, `metrics.py`,
   `prompts.py`, `resources.py`, `retrievers/`, `tools/`, `cache/`,
-  `patches.py`); tests em `tests/`.
+  `patches.py`, `research_worker.py`, `research_worker_client.py`);
+  tests em `tests/`.
 - **Patch obrigatorio pos-`uv sync`:** rodar
   `uv run python scripts/patch_gpt_researcher.py` para corrigir
-  `NameError: name 'Any'` no `gpt-researcher >= 0.16.0` upstream.
+  `NameError: name 'Any'` no `gpt-researcher 0.16.0` upstream.
+- **Pesquisa isolada em processo:** o pipeline do upstream roda em
+  `percival_research/research_worker.py`; o pai aplica
+  `PERCIVAL_RESEARCH_TIMEOUT_S` como limite rigido e mata o worker.
 - **Single-endpoint inference:** `INFERENCE_API_KEY` + `INFERENCE_BASE_URL`
   + `INFERENCE_LLM=<provider>:<model>` (OpenAI-compatible). Retriever:
-  `duckduckgo` (default) ou `brave` (requer `BRAVE_API_KEY`).
+  `duckduckgo` (default) ou `brave` (requer `BRAVE_API_KEY`); o
+  `/health` valida contra o registry do `gpt-researcher` embarcado.
 - Console script: `percival-deep-research = "server:run_server"`.
 - Sem GPU; sem treino de modelo; CI `.github/`.
 
 ## Risks and governance
 
-1. **Upstream `gpt-researcher >= 0.16.0`.** Bug `NameError: name 'Any'` na
-   importacao. Mitigado por `scripts/patch_gpt_researcher.py`; precisa ser
-   re-aplicado apos qualquer `uv sync`.
+1. **Upstream `gpt-researcher==0.16.0`.** Bug `NameError: name 'Any'` na
+   importacao. Mitigado por `scripts/patch_gpt_researcher.py` (que tambem
+   recusa patch em versao nao suportada); precisa ser re-aplicado apos
+   qualquer `uv sync`.
 2. **Drift upstream.** `fastmcp`, `gpt-researcher`, `langchain` podem
    mudar comportamento. Lockfile + CI + rounds de bug-hunt pass com
    regressao em `tests/`.
 3. **Drift de configuracao.** Placeholders bash-style
    (`${INFERENCE_LLM:-default}`) em `.env`/`config.json` quebram
    silenciosamente a pipeline. Loader emite WARN `[S6]` na v3.0; operador
-   deve usar literais.
+   deve usar literais. O `/health` agora reflete `INFERENCE_LLM` malformado
+   como `degraded`.
 4. **Embedding slot em gateway custom.** Quando
    `INFERENCE_LLM=minimax:...` (ou `venice:`, `openrouter:`, etc.), o slot
    de embedding fica unset por design (v3.0). `populate_inference_slots()`
@@ -88,14 +96,18 @@ corrigido.
    nenhuma chamada envia contexto para o ecossistema percival.OS sem
    consentimento explicito. API keys do operador nao sao logadas.
 9. **Licenca MIT** mantida; copyright `percival.OS contributors`.
+10. **Achados de vulnerabilidade em aberto (2026-10-28).** 11 achados no
+    lock (authlib, dnspython, litellm) permanecem com decisao datada do
+    owner de manter as versoes; ver `docs/security/`. O upgrade e item
+    aberto antes da publicacao.
 
 ## Working conventions
 
 - Lint/format: `uv run --with ruff ruff check .` e
   `uv run --with ruff ruff format .` (regras `E,F,I,W`, `line-length=100`,
-  `target-version=py311`).
-- Tests: `uv run pytest -q` (cobertura embutida `>=70%` enforced em
-  `[tool.coverage.report].fail_under`). Integracao opt-in:
+  `target-version=py312`).
+- Tests: `uv run pytest -q` (cobertura embutida `>=70%` enforced pelo
+  proprio comando canonico via `addopts`). Integracao opt-in:
   `uv run pytest -m integration` (requer `MCP_TRANSPORT=sse uv run
   --no-sync percival-deep-research` em outro terminal).
 - Patch gpt-researcher: `uv run python scripts/patch_gpt_researcher.py`
@@ -115,6 +127,11 @@ corrigido.
 - Canonical: `uv run pytest -q` (cobertura embutida, `fail_under=70`,
   `show_missing=true`).
 - Opcional: `uv run --with ruff ruff check .` e `ruff format --check .`.
+- Docker: `scripts/docker-ci-conformance.py` (stdio),
+  `scripts/timeout_probe.py` (deadline efetivo) e
+  `scripts/check_reproducible_build.sh` (build deterministico).
+- Scan: `scripts/check_trivy_findings.py` -- todo achado precisa estar no
+  VEX com decisao do owner.
 - Live smoke (opt-in, fora do CI padrao): boot do servidor contra
   credenciais reais e exercitar `research_deep` + `research_get_sources` +
   `research_write_report` ponta-a-ponta. Bloco

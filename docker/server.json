@@ -1,0 +1,69 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.bill-kopp-ai-dev/percival-deep-research",
+  "description": "Multi-source web research and report generation MCP server, optimized for the Nanobot agent ecosystem.",
+  "title": "Percival Deep Research",
+  "websiteUrl": "https://github.com/bill-kopp-ai-dev/percival-deep-research",
+  "repository": {
+    "url": "https://github.com/bill-kopp-ai-dev/percival-deep-research",
+    "source": "github"
+  },
+  "version": "3.0.1",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "docker.io/mcp/percival-deep-research:3.0.1",
+      "version": "3.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "INFERENCE_API_KEY",
+          "description": "API key for the OpenAI-compatible inference endpoint.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "INFERENCE_BASE_URL",
+          "description": "OpenAI-compatible inference endpoint URL.",
+          "isRequired": false,
+          "default": "https://api.openai.com/v1"
+        },
+        {
+          "name": "INFERENCE_LLM",
+          "description": "Model in `provider:model` format.",
+          "isRequired": false,
+          "default": "openai:gpt-4o-mini"
+        },
+        {
+          "name": "RETRIEVER",
+          "description": "Web retriever backend supported by the pinned gpt-researcher registry.",
+          "isRequired": false,
+          "default": "duckduckgo"
+        },
+        {
+          "name": "BRAVE_API_KEY",
+          "description": "Required only when RETRIEVER is brave.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "Transport mode.",
+          "isRequired": false,
+          "default": "stdio"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "tool": "docker-buildx",
+      "build_info": {
+        "source_commit": "PLACEHOLDER_RELEASE_COMMIT_SHA",
+        "image_digest": "PLACEHOLDER_RELEASE_IMAGE_DIGEST"
+      }
+    }
+  }
+}

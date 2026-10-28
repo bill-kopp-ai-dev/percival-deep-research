@@ -102,7 +102,7 @@ def run_server() -> None:
                 "not found. Set it in your .env file, or use the legacy "
                 "OPENAI_API_KEY / OPENAI_BASE_URL."
             )
-            return
+            raise SystemExit(1)
 
         transport = settings.mcp_transport
 

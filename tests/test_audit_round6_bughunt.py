@@ -229,10 +229,10 @@ class TestRetrieverHealthCheck:
     """B5: retriever desconhecido deve fazer health check falhar."""
 
     def test_retriever_desconhecido_falha(self, monkeypatch):
-        """RETRIEVER=bing (não registrado) → degraded."""
+        """Um retriever não anunciado pelo upstream → degraded."""
         from percival_research.health import _check_retriever_configured
 
-        monkeypatch.setenv("RETRIEVER", "bing")
+        monkeypatch.setenv("RETRIEVER", "not-a-real-retriever")
         monkeypatch.delenv("BRAVE_API_KEY", raising=False)
         assert _check_retriever_configured() is False, (
             "Retriever não registrado deveria falhar health check"
@@ -335,23 +335,19 @@ class TestResourceTimeoutRecordsLatency:
         monkeypatch,
     ):
         """B7: timeout em research_resource → record_latency chamado."""
-        import percival_research.app as _app
-        import percival_research.resources as resources_mod
-
-        # Mock researcher que demora 10s
-        async def hang(*a, **kw):
-            await asyncio.sleep(10)
-
-        mock_r = MagicMock()
-        mock_r.conduct_research = hang
-
         # Reduce timeout
         from dataclasses import replace
+
+        import percival_research.app as _app
+        import percival_research.resources as resources_mod
 
         new_settings = replace(_app._settings, research_timeout_s=0.05)
         monkeypatch.setattr(_app, "_settings", new_settings)
 
-        monkeypatch.setattr(resources_mod, "GPTResearcher", lambda **kw: mock_r)
+        async def timed_out_worker(query, timeout_s, worker_command=None):
+            raise asyncio.TimeoutError
+
+        monkeypatch.setattr(resources_mod, "run_research_worker", timed_out_worker)
 
         # Usar o metrics JÁ patcheado pelo clean_app_state (não o global)
         patched_metrics = clean_app_state["metrics"]

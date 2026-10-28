@@ -121,7 +121,6 @@ def mock_gpt_researcher(mock_researcher, monkeypatch):
     for path in [
         "percival_research.tools.deep_research.GPTResearcher",
         "percival_research.tools.quick_search.GPTResearcher",
-        "percival_research.resources.GPTResearcher",
     ]:
         try:
             monkeypatch.setattr(path, lambda **kwargs: mock_researcher)
@@ -129,6 +128,21 @@ def mock_gpt_researcher(mock_researcher, monkeypatch):
             # Se o módulo não importar GPTResearcher (ex: write_report),
             # não falha.
             pass
+
+    async def fake_research_worker(query, timeout_s, worker_command=None):
+        return (
+            mock_researcher.get_research_context(),
+            mock_researcher.get_research_sources(),
+            mock_researcher.get_source_urls(),
+        )
+
+    # Both the tool and the resource run the upstream pipeline in an
+    # isolated worker process; tests must not spawn it.
+    for path in (
+        "percival_research.tools.deep_research.run_research_worker",
+        "percival_research.resources.run_research_worker",
+    ):
+        monkeypatch.setattr(path, fake_research_worker)
     return mock_researcher
 
 

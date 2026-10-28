@@ -22,6 +22,29 @@ class TestHealthCheck:
             assert resp.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_healthy_com_retriever_upstream_searx(self):
+        from server import health_check
+
+        with patch.dict(
+            os.environ,
+            {"OPENAI_API_KEY": "x", "RETRIEVER": "searx", "SEARX_URL": "http://fixture"},
+        ):
+            resp = await health_check(None)
+            assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_degraded_com_inference_llm_malformado(self):
+        from server import health_check
+
+        with patch.dict(
+            os.environ,
+            {"OPENAI_API_KEY": "x", "RETRIEVER": "duckduckgo", "INFERENCE_LLM": "invalid"},
+        ):
+            resp = await health_check(None)
+            assert resp.status_code == 503
+            assert json.loads(resp.body)["checks"]["inference_configured"] is False
+
+    @pytest.mark.asyncio
     async def test_degraded_quando_brave_sem_api_key(self):
         """Regressão: RETRIEVER=brave sem BRAVE_API_KEY reportava 'healthy'
         incorretamente — deep_research/quick_search falhariam em toda

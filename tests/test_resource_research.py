@@ -18,7 +18,7 @@ async def test_research_resource_cache_miss(mock_gpt_researcher, registry, monke
 
 @pytest.mark.asyncio
 async def test_research_resource_cache_hit(mock_gpt_researcher, registry, monkeypatch):
-    """Se cache hit, GPTResearcher NÃO deve ser instanciado."""
+    """Se cache hit, a pesquisa não deve ser executada de novo."""
     from server import research_resource
 
     monkeypatch.setattr("percival_research.app.registry", registry)
@@ -26,19 +26,19 @@ async def test_research_resource_cache_hit(mock_gpt_researcher, registry, monkey
     # Popula cache
     await research_resource("Python")
 
-    # Substitui GPTResearcher para detectar se foi chamado novamente
+    # Substitui o worker para detectar se foi chamado novamente
     called = []
 
-    def tracker(**kwargs):
-        called.append(kwargs)
-        return mock_gpt_researcher
+    async def tracker(query, timeout_s, worker_command=None):
+        called.append(query)
+        return ("Contexto sintetizado.", [], [])
 
-    monkeypatch.setattr("percival_research.resources.GPTResearcher", tracker)
+    monkeypatch.setattr("percival_research.resources.run_research_worker", tracker)
 
     result = await research_resource("Python")
 
     assert "## Research: Python" in result
-    assert len(called) == 0  # não chamou GPTResearcher
+    assert len(called) == 0  # não executou nova pesquisa
 
 
 @pytest.mark.asyncio

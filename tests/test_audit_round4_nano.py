@@ -135,20 +135,17 @@ class TestDeepResearchDedup:
 
         call_count = {"n": 0}
 
-        async def counting_conduct(*args, **kwargs):
+        async def counting_worker(query, timeout_s, worker_command=None):
             call_count["n"] += 1
             await asyncio.sleep(0.3)  # janela para a 2a task chegar
-            return None
+            return (
+                mock_gpt_researcher.get_research_context(),
+                mock_gpt_researcher.get_research_sources(),
+                mock_gpt_researcher.get_source_urls(),
+            )
 
         # mock_gpt_researcher é um MagicMock — só sobrescrevemos conduct_research
-        mock_gpt_researcher.conduct_research = (
-            asyncio.coroutine(counting_conduct)
-            if False
-            else MagicMock(side_effect=counting_conduct)
-        )
-
-        # Re-bind no módulo deep_research
-        monkeypatch.setattr(dr_mod, "GPTResearcher", lambda **kwargs: mock_gpt_researcher)
+        monkeypatch.setattr(dr_mod, "run_research_worker", counting_worker)
 
         from percival_research.tools.deep_research import (
             _IN_FLIGHT,

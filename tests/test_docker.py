@@ -462,3 +462,75 @@ class TestDockerCatalogMetadata:
                 f"function does NOT accept (will fail at runtime): "
                 f"{sorted(extra_in_json)}"
             )
+
+
+class TestMcpRegistryServerJson:
+    """`docker/server.json` follows the MCP registry schema."""
+
+    @classmethod
+    @pytest.fixture(scope="class")
+    def server_json(cls) -> Path:
+        p = DOCKER_DIR / "server.json"
+        if not p.exists():
+            pytest.skip("docker/server.json not present")
+        return p
+
+    def test_has_required_registry_fields(self, server_json: Path) -> None:
+        payload = json.loads(server_json.read_text())
+        assert payload["name"].startswith("io.github."), (
+            "the registry `name` must use the reverse-DNS `io.github.<owner>/<name>` form"
+        )
+        for field in ("description", "version", "repository", "packages"):
+            assert field in payload, f"server.json must contain `{field}`"
+
+    def test_declares_the_oci_package_with_stdio_transport(self, server_json: Path) -> None:
+        payload = json.loads(server_json.read_text())
+        packages = payload["packages"]
+        assert packages, "server.json must declare at least one package"
+        oci = [p for p in packages if p.get("registryType") == "oci"]
+        assert oci, "the published artifact is an OCI image"
+        for package in oci:
+            assert package["transport"]["type"] == "stdio", (
+                "this server speaks stdio; the registry entry must say so"
+            )
+            assert package["identifier"].startswith("docker.io/mcp/"), (
+                "the OCI identifier must point at the published image"
+            )
+
+    def test_declares_the_inference_secret(self, server_json: Path) -> None:
+        payload = json.loads(server_json.read_text())
+        variables = {
+            var["name"]: var
+            for package in payload["packages"]
+            for var in package.get("environmentVariables", [])
+        }
+        assert "INFERENCE_API_KEY" in variables, (
+            "the inference key must be declared as an environment variable"
+        )
+        assert variables["INFERENCE_API_KEY"]["isSecret"] is True, (
+            "the inference key must be flagged as a secret"
+        )
+        assert "BRAVE_API_KEY" in variables, (
+            "the optional Brave key must be declared too, flagged as a secret"
+        )
+        assert variables["BRAVE_API_KEY"]["isRequired"] is False
+
+    def test_release_placeholders_are_replaced_by_the_render_script(
+        self, server_json: Path
+    ) -> None:
+        """Placeholders are allowed in the tree but must be rendered at release.
+
+        `scripts/render_catalog_metadata.py` substitutes the commit and the
+        image digest; the guard here is that the render script still knows
+        both placeholder tokens, so a renamed placeholder is not silently
+        left behind.
+        """
+        script = (PROJECT_ROOT / "scripts" / "render_catalog_metadata.py").read_text()
+        assert "PLACEHOLDER_RELEASE_COMMIT_SHA" in script
+        assert "PLACEHOLDER_RELEASE_IMAGE_DIGEST" in script
+        assert (
+            json.loads(server_json.read_text())["_meta"][
+                "io.modelcontextprotocol.registry/publisher-provided"
+            ]["build_info"]["source_commit"]
+            == "PLACEHOLDER_RELEASE_COMMIT_SHA"
+        )
