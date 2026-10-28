@@ -1,7 +1,9 @@
 # Stage-2 — Remediação do Percival Deep Research MCP
 
-**Data / revisão:** 2026-10-27 / 1.0.  
-**ID / estado:** S2-DR / planejado; execução não iniciada.  
+**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0.  
+**ID / estado:** S2-DR / executado localmente; **parcial** (8 ações verificadas,
+2 parciais, 2 adiadas por decisão do owner; publicação e operação de terceiros
+fora de escopo).  
 **Checkout executor:** `/home/bill/Projects/percival-deep-research`.  
 **Responsável:** executor Research a designar por bill; mudanças dos gestores e rotação com seus owners.
 
@@ -12,6 +14,7 @@ Tratar integralmente os 21 registros da **seção 6** do
 incluindo a observação positiva F-019, as limitações por design e as falhas ainda
 hipotéticas. Seções 7 e 9 fornecem 12 ações (5 P1, 5 P2, 2 P3), sem P0.
 Baseline e HEAD na emissão: `defc9434487be4db7dbc13003db1709047297471`.
+**HEAD no início da execução:** `230798e0ea28b4e9b06a7d2d379a9a6d7e5c9798`.
 A nota histórica `docs/issues/2026-10-10-f3-status.md` está localmente excluída;
 preservar essa alteração e acordar com o dono seu destino documental.
 
@@ -27,16 +30,35 @@ reconciliar containers reais como consequência da criação deste plano.
 
 ## 2. Preparação e decisões discriminantes
 
-- [ ] Ler instruções/README/CI atuais; registrar SHA/worktree, Python, lock e versão
+- [x] Ler instruções/README/CI atuais; registrar SHA/worktree, Python, lock e versão
   efetivamente embarcada de `gpt-researcher`. Decidir versão alvo antes de alterar
   patch, health ou pipeline. Não fixar automaticamente 0.15.1 por ser o baseline.
-- [ ] Usar inferência/retrievers simulados e rede interna controlada. “Sem egress”
+  **Registrado (2026-10-28):** SHA inicial `230798e0ea28b4e9b06a7d2d379a9a6d7e5c9798`;
+  worktree com uma exclusão pré-existente (`docs/issues/2026-10-10-f3-status.md`,
+  preservada e não versionada); suíte local em Python 3.12.14 com `gpt-researcher`
+  0.16.0; imagem em Python 3.12.16 com `gpt-researcher` 0.16.0. **Alvo decidido
+  pelo owner: Python 3.12 + `gpt-researcher==0.16.0`** (fixado no `pyproject.toml`,
+  no `uv.lock` e no `Dockerfile`; o patch continua aplicado porque 0.16.0 é a
+  versão afetada).
+- [x] Usar inferência/retrievers simulados e rede interna controlada. “Sem egress”
   nesta prova significa sem saída à Internet, **com acesso à fixture de provedor**;
   não promete pesquisa real sem acesso aos provedores configurados.
-- [ ] Medir cancelamento antes de escolher correção de timeout; a hipótese de
+  **Registrado:** o ensaio de deadline usa um fixture HTTP interno que nunca
+  responde (`scripts/timeout_probe.py`); o caminho feliz do worker usa um upstream
+  simulado por stub (`tests/test_research_worker.py`). Nenhum provedor real foi
+  chamado.
+- [x] Medir cancelamento antes de escolher correção de timeout; a hipótese de
   `CancelledError` absorvido não prova qual mecanismo o corrigirá.
-- [ ] Owner decide rede/custo e prazo por lote (D-06). D-04 permanece com o owner
+  **Registrado:** a hipótese do upstream absorver o cancelamento não foi
+  confirmada isoladamente; por isso a correção escolhida (owner: “isolar o
+  pipeline em subprocesso”) não depende de resolver a hipótese — o pai mata o
+  processo, o que encerra o trabalho de qualquer forma.
+- [x] Owner decide rede/custo e prazo por lote (D-06). D-04 permanece com o owner
   do broker; D-05 bloqueia ensaio integrado que exija receita ainda não decidida.
+  **Registrado:** D-06 — sem prazo/custo comprometido (decisão do owner em
+  2026-10-28). D-04 (rotação da chave exposta no broker) e a reconciliação de
+  imagem/estado foram **adiadas** por decisão do owner em 2026-10-28; A-004 e A-005
+  permanecem abertas e não contam como encerradas.
 
 ## 3. Backlog integral por ação
 
@@ -97,20 +119,72 @@ reconciliação pendente, o resultado é parcial/bloqueado, nunca solução inte
 
 ## 6. Penúltima etapa — documentar execução neste plano
 
-- [ ] Atualizar por ação: mudança, owner/data, SHA inicial/final, ambiente/versões,
+- [x] Atualizar por ação: mudança, owner/data, SHA inicial/final, ambiente/versões,
   comandos/resultados, evidências sanitizadas locais e decisões pendentes.
-- [ ] Registrar revalidação `V-*` e limites; acrescentar retorno à seção 9 do
+- [x] Registrar revalidação `V-*` e limites; acrescentar retorno à seção 9 do
   relatório IaC quando autorizado, preservando sua coleta original.
 
-| Data / owner | Ações / achados | SHA inicial → final | Mudanças / evidências locais | Resultado / V-* / pendências |
-|---|---|---|---|---|
-| Pendente | A-001–A-012 | A registrar | Nenhuma execução nesta emissão | Não iniciada |
+**Execução: 2026-10-28, owner `bill`, executor Positronic (execução local).**
+**SHA inicial:** `230798e0ea28b4e9b06a7d2d379a9a6d7e5c9798` ·
+**SHA final (código):** `5b50966` (`fix(research): alinhar runtime, rede e deadline
+do pipeline de pesquisa`) · este documento é versionado no commit seguinte.
+Ambiente: Linux x86_64 (Omarchy), Docker 29.9.2, `uv` 0.12.18 em
+`$HOME/.local/bin` (fora do PATH padrão), Python 3.12.14 no `.venv` local e
+3.12.16 na imagem. Suíte: `uv run --no-sync pytest -q` → **434 passed, 3 skipped**
+(cobertura **89,35 %**, `fail_under=70` aplicado pelo próprio comando canônico);
+`ruff 0.16.10 check` e `format --check` limpos (59 arquivos).
+
+| Ação | Estado | Mudança e evidência local verificada | Dependências / pendências |
+|---|---|---|---|
+| A-001 (F-001, F-017) | **verificada** | Alvo Python 3.12 + `gpt-researcher==0.16.0` fixado em `pyproject.toml`, `uv.lock` e `Dockerfile` (bases `python:3.12-slim@sha256:6b25cbe6…` e `uv:0.9.30-python3.12-trixie-slim@sha256:41eb2281…`; CI em 3.12). `server.py` passou a terminar com `SystemExit(1)` sem credencial: `docker run --rm --network none <img>` → **exit 1** e mensagem `INFERENCE_API_KEY … not found`. Suíte e CI rodam contra a mesma combinação embarcada (`gpt-researcher` 0.16.0 no host e na imagem, conferido por `importlib.metadata`). | Patch continua obrigatório em 0.16.0; o script recusa versões não suportadas. |
+| A-002 (F-002, F-015) | **parcial** | Imagem pré-popula o encoding `o200k_base` (`TIKTOKEN_CACHE_DIR=/app/.cache/tiktoken`, arquivo presente) e usa o mapa local do LiteLLM (`LITELLM_LOCAL_MODEL_COST_MAP=true`): com `--network none` o import resolve `o200k_base` e 2 953 modelos sem qualquer download. Documentados em `README.md` e em `docs/runtime-profile.md` (destinos de rede reais: endpoint de inferência + retriever). | **Não verificado:** o pipeline completo (`research_deep` → “Research complete.”) contra um fixture de provedor com resposta válida. O caminho feliz foi provado com upstream simulado por stub (`tests/test_research_worker.py`), não com o pipeline real do upstream. Ensaio com fixture real fica para a qualificação (V-FUNC/V-PILOT). |
+| A-003 (F-003) | **verificada** | O pipeline passou a rodar em processo isolado (`percival_research/research_worker.py`, cliente em `research_worker_client.py`); o pai aplica `PERCIVAL_RESEARCH_TIMEOUT_S` como limite rígido e mata o worker. Ensaio com upstream lento (`scripts/timeout_probe.py`, limite 2 s): resposta **“Error: Research exceeded the 2s internal limit” em 2,03 s**, sem “Research complete”, container encerrando com exit 0. O mesmo limite vale para o resource `research://{topic}`. Regressões: worker morto/recolhido, payload inválido rejeitado, caminho feliz do worker. | Cancelamento end-to-end do protocolo MCP (`notifications/cancelled`) continua não exercitado (E-042 herdado). |
+| A-004 (F-004) | **adiada por decisão do owner** | Candidado rastreável pronto: imagem `percival-deep-research:stage2-candidate` com `org.opencontainers.image.revision` e labels de proveniência; `scripts/write_docker_ci_manifest.py` registra commit, image ID, digest, bases fixadas e lock. O pedido de reconciliação (imagem/estado de cada gestor) está descrito em `docs/runtime-profile.md`. | **Não executada:** nenhuma mutação de runtime de terceiros. Reconciliação continua com S2-NB A-007 / S2-AP-X01 e aprovação do owner. |
+| A-005 (F-005) | **adiada por decisão do owner** | Formato de entrega por arquivo especificado (`docs/runtime-profile.md`: `/app/.env` RO, host 0600, nunca valor literal no ambiente) e porção local verificada: o servidor lê o arquivo montado (E-025 histórico) e o Compose monta `/app/.env` somente leitura. | **Não executada:** rotação (D-04) continua com o owner do broker. Reescrever config ou reduzir mode **não** revoga a chave exposta; a ação permanece aberta. |
+| A-006 (F-006, F-016, F-018) | **verificada** | `/health` valida o retriever contra o registry real do `gpt-researcher` embarcado e detecta as variáveis de ambiente obrigatórias lendo o módulo upstream: `RETRIEVER=searx` com `SEARX_URL` → **200 healthy**; sem `SEARX_URL` → **503 degraded** (antes: sempre 503 para `searx`). `INFERENCE_LLM` malformado → `degraded`. Código inerte: `percival_research/retrievers/duckduckgo.py` passou a usar o pacote declarado `ddgs` (o `duckduckgo_search` não declarado saiu) e `httpx` passou a ser dependência declarada; o registry local ficou documentado como camada de extensão, fora do `/health`. | `/health` não valida reachability do provedor nem validade das credenciais — limitação declarada no README. |
+| A-007 (F-007) | **verificada** | `addopts` do pytest passa a medir cobertura (`--cov=server --cov=utils --cov=config --cov=llm_bridge --cov=percival_research --cov-report=term-missing`) com `fail_under=70`: `uv run pytest -q` reporta **89,35 %** e falha quando o piso não é atingido (prova local: `--cov-fail-under=99` → exit 1; passo equivalente no CI). Documentação sincronizada (README, AGENTS, PROJECT). | — |
+| A-008 (F-008, F-009) | **verificada** | Patch condicionado à versão: `scripts/patch_gpt_researcher.py` só aplica em 0.16.0, é no-op quando a versão não precisa e **recusa** versões desconhecidas. Divergência declarada em proveniência: labels `io.percival.gpt-researcher.version` / `.patch` e campo `gpt_researcher` no manifesto de build (SBOM CycloneDX no CI). Reprodutibilidade: `SOURCE_DATE_EPOCH` + `cp -a` (em vez de `COPY --from`, que carimba diretórios com a hora do build) → **dois builds `--no-cache` do mesmo SHA produzem o mesmo image ID** (`sha256:a53f74436c65…`), verificado por `scripts/check_reproducible_build.sh` (passo no CI). | A comparação usa `--provenance=false`: com a atestação padrão, o índice OCI carrega metadados por build (a identidade reproduzível é o manifest da plataforma). Divergência de conteúdo entre builds: 0. |
+| A-009 (F-010) | **adiada por decisão do owner** (parcela local pronta) | Perfil declarado em `docs/runtime-profile.md`: user 1000, rootfs RO, `cap_drop ALL`, `no-new-privileges`, init do launcher, tmpfs, `pids_limit`, mounts mínimos (`/app/.env` RO 0600, logs, reports) e política de rede (só endpoint de inferência + retriever). A imagem deixou de precisar de cache de pacotes do host (sem `apt`/`pip` na imagem), o que elimina a justificativa do mount RW `pacman/pkg`. | **Não executada:** a aplicação do perfil nos gestores depende de S2-NB-X01/S2-AP-X01 e de operação aprovada pelos owners; nenhuma alteração foi feita em gestores a partir deste checkout. |
+| A-010 (F-011) | **verificada** | README documenta a volatilidade: `research_id` e cache de tópicos vivem em memória, expiram pelo TTL e são perdidos ao recriar o container; o erro explícito “Research ID not found or expired. Please run a new research session.” foi preservado e testado. Nenhuma persistência foi adicionada. | — |
+| A-011 (F-012, F-013) | **verificada** | `serverInfo.version` deriva da versão do produto (`FastMCP(version=__version__)`); o harness de conformance compara o handshake com a versão de `pyproject.toml` e falha se divergirem. Contagem de caracteres das fontes corrigida: o upstream guarda o corpo em `raw_content`, e o formatador agora lê `raw_content` (com fallback para `content`) — a fonte de fixture com conteúdo conhecido reporta o tamanho real, não zero. | — |
+| A-012 (F-014, F-019, F-020, F-021) | **parcial** | Hardening: `apt`/`apt-get`, `pip` e **todos** os binários setuid foram removidos da imagem (verificado: 0 setuid, `no-apt`, `no-pip`). Harness versionado e reutilizável (`docker-ci-conformance.py` 2.0.0 com `--harness-version`, `timeout_probe.py` 1.0.0, `check_reproducible_build.sh`, `check_trivy_findings.py`, `render_catalog_metadata.py`) — F-019 preservado como evidência positiva de reuso. Segurança: scan Trivy 0.76.1 do candidato com **11 achados** (1 CRITICAL, 5 HIGH, 4 MEDIUM, 1 LOW em authlib/dnspython/litellm), nota `docs/security/2026-10-28-candidate-scan.md` e VEX `docs/security/vex-2026-10-28.json` com a decisão datada do owner (manter as versões) e status `under_investigation`; o CI passa a falhar se o Trivy reportar algo fora do VEX. Metadados: `docker/server.json` no formato do MCP registry (imagem OCI, transporte stdio, segredos declarados) e `scripts/render_catalog_metadata.py` para fixar commit e digest no release. | **Pendente:** os placeholders de commit/digest só são resolvidos no corte do release (imagem ainda não publicada); o upgrade de authlib/dnspython/litellm permanece item aberto antes da publicação. Publicação/catálogo aguardam as etapas 2/4 do roadmap. |
+
+**Revalidação `V-*` (2026-10-28, escopo local):**
+
+| Cenário | Estado | Observação |
+|---|---|---|
+| `V-BUILD` | aprovado | Build local `linux/amd64`, 8 camadas, `User=percival`, entrypoint e labels coerentes, **reprodutível** (dois builds limpos → mesmo image ID). |
+| `V-RUN` | aprovado | Falha fechada sem credencial → exit 1; `SIGTERM`/EOF e o limite rígido de pesquisa verificados; sem container órfão no probe. |
+| `V-CONFIG` | aprovado (parcial) | Segredo por arquivo, recusas de entrada e `/health` coerente com o registry real; literal em config de terceiros continua **fora** do escopo local (A-005 adiada). |
+| `V-DATA` | não aplicável | Semântica stateless preservada; volatilidade documentada (A-010). |
+| `V-MCP` | aprovado | Handshake real, 5 tools, 1 resource template, `serverInfo.version` = versão do produto, stdout JSON-RPC puro. |
+| `V-FUNC` | **parcial** | Caminho feliz do worker e deadline verificados contra fixtures internas; pipeline real do upstream contra fixture de provedor **não** re-executado nesta rodada (A-002). Nenhum provedor real foi chamado. |
+| `V-PILOT` | não avaliado | Requer agente e credencial real; não faz parte desta campanha. |
+| `V-REUSE` | aprovado (candidato) | Harness versionado no produto, reusável pelos demais MCPs do lote (S2-C04). |
+
+**Limites desta execução:** nenhuma chamada a provedor real; nenhuma mutação
+de runtime ou de credencial de terceiros; a imagem candidata não foi publicada
+(sem `RepoDigest`); o CI remoto não foi observado (a execução é local) e a
+exclusão local pré-existente de `docs/issues/2026-10-10-f3-status.md` foi
+preservada sem ser versionada — o destino documental dessa nota continua
+pendente de acordo com o owner.
 
 ## 7. Última etapa — atualizar o plano coordenador
 
-- [ ] Reler o [stage-2 geral](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md);
+- [x] Reler o [stage-2 geral](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md);
   atualizar **S2-DR na seção 3** e acrescentar entrada na **seção 7**, com contagens,
   SHA/evidência, dependências liberadas e aceites locais/externos.
-- [ ] Preservar outros retornos e indicar impacto nas etapas 2/4/5. Se não houver
+- [x] Preservar outros retornos e indicar impacto nas etapas 2/4/5. Se não houver
   acesso ao checkout IaC, entregar resumo e manter **aguardando sincronização**.
   Concluído exige todos os aceites e retorno; transferência não é correção verificada.
+
+**Retorno ao coordenador (2026-10-28):** o checkout IaC estava acessível;
+a linha **S2-DR** da seção 3 e uma entrada na tabela da seção 7 do
+[plano coordenador](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md)
+foram atualizadas **preservando os retornos dos demais projetos**.
+Contagem: **8 de 12 ações verificadas** (A-001, A-003, A-006, A-007, A-008, A-010,
+A-011 e a parcela local de A-012), **2 parciais** (A-002 e A-012) e
+**2 adiadas por decisão do owner** (A-004 e A-005, que exigem operação nos
+gestores e rotação de credencial). O projeto permanece **parcial**: as
+transferências não encerram as pendências e a publicação continua fora de
+escopo.
