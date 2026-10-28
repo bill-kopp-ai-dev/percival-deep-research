@@ -169,6 +169,17 @@ exclusão local pré-existente de `docs/issues/2026-10-10-f3-status.md` foi
 preservada sem ser versionada — o destino documental dessa nota continua
 pendente de acordo com o owner.
 
+**Aditivo após o commit (2026-10-28):** o candidato final foi reconstruído a
+partir do SHA versionado `3a9b3b3c810e0e34ac1cb89fe51b9b4beb7a685e`
+(`SOURCE_DATE_EPOCH` do próprio commit, sem cache):
+`percival-deep-research:stage2-candidate` → image ID
+`sha256:e91f6a3dd8b8b39053f60b2bc84f63454ee383644cef454459c56dc5eaf29b36`,
+com label `org.opencontainers.image.revision` = esse SHA. Dois builds limpos
+desse commit produziram **o mesmo image ID**. Reexecução sobre esse candidato:
+conformance stdio verde (5 tools), falha fechada sem credencial → **exit 1**,
+deadline de 2 s → erro em **2,03 s** sem “Research complete”. A imagem é local
+(sem `push`/`RepoDigest`) e não substitui a publicação da Etapa 2.
+
 ## 7. Última etapa — atualizar o plano coordenador
 
 - [x] Reler o [stage-2 geral](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md);
