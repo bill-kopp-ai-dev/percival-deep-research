@@ -4,6 +4,14 @@ Project-scoped agent instructions for `<positronic>` inside
 the global `AGENTS.md`, `SOUL.md` and `USER.md`.
 -->
 
+## Company approval
+
+This project belongs to Positronic Bean Labs (PBLabs), owned by Bill Kopp.
+Bill is the sole final decision-maker for decisions requiring owner or company
+approval. Technical review, implementation, and routine operations may be
+delegated without transferring final approval authority. This does not alter
+runtime access or authorize publication, deployment, or production changes.
+
 ## Working conventions
 
 - Lint/format: `uv run --with ruff ruff check .` + `uv run --with ruff ruff format .`.
