@@ -69,6 +69,12 @@ reconciliar containers reais como consequência da criação deste plano.
   operação em janela única datada. `R-09` define a matriz por transporte,
   método e deadline, permitindo declarar limitações sem obrigar implementação
   geral de cancelamento.
+- [x] `R-11` (2026-10-29): Trivy é o scanner padrão e está instalado; o agente
+  pode executar scans locais autonomamente quando necessários, cobrindo todas
+  as severidades, atualizando a DB quando necessário e registrando versão, DB,
+  SHA e image ID. Preferir TAR do
+  candidato sem Docker socket. A decisão não autoriza VEX, release ou promoção:
+  VEX continua ligado ao image ID e assinado pelo owner conforme `R-07`.
 - [x] `R-01` encerra A-005 como rotação; A-004 (reconciliação de runtime) e a
   aplicação do perfil de A-009 continuam dependências operacionais distintas.
 
@@ -90,7 +96,7 @@ ações de origem preservadas; F-017 P1 está agrupado em A-001.
 | A-009 | F-010 / P2 | Declarar perfil RO/cap-drop/NNP/init e mounts mínimos explícitos; solicitar aplicação pelos gestores | S2-NB-X01 e S2-AP-X01; exceções com owner; etapa 5 IaC; `R-10` e `R-08` | Runtime do owner inspecionado com postura compatível; perfil Research declara mounts mínimos explicitamente (incluindo secrets/logs necessários), sem herdar o default amplo do broker; cache host não montado RW sem justificativa; operação em janela única datada e autorizada; sem alterar gestores pelo checkout MCP |
 | A-010 | F-011 / P2 | Documentar volatilidade de research_id/cache de tópicos e efeito de recriação | Limitação stateless por design | README/contrato explicam expiração; sessão válida antes e erro explícito após recriação; não adicionar persistência por suposição |
 | A-011 | F-012, F-013 / P3 | Derivar versão do produto em serverInfo e corrigir contagem de caracteres das fontes | Contrato preservado e versão do candidato | Handshake igual à versão do pacote (3.0.1 apenas se continuar vigente); fonte fixture com conteúdo conhecido não reporta zero incorretamente |
-| A-012 | F-014, F-019, F-020, F-021 / P3 | Remover apt/setuid desnecessários; versionar harness; atualizar segurança/scan; metadata `server.json` e extensão PBLabs conforme `R-06`; gate VEX conforme `R-07` | S2-C03; recomendação S2-C04 pendente de aceite; CI e etapas 2/4 IaC | Inventário sem residuais incompatíveis, smoke verde; manifest conforme schema externo e destino `pblabs-mcp-index`; scan do candidato/DB atual e VEX por CVE associado ao image ID e assinado pelo owner; CVEs da imagem base tratados por herança |
+| A-012 | F-014, F-019, F-020, F-021 / P3 | Remover apt/setuid desnecessários; versionar harness; atualizar segurança/scan com Trivy (`R-11`); metadata `server.json` e extensão PBLabs conforme `R-06`; gate VEX conforme `R-07` | S2-C03; recomendação S2-C04 pendente de aceite; CI e etapas 2/4 IaC | Inventário sem residuais incompatíveis, smoke verde; manifest conforme schema externo e destino `pblabs-mcp-index`; Trivy pode ser executado autonomamente no candidato local com DB identificada; VEX por CVE ligado ao image ID e assinado pelo owner; CVEs da imagem base tratados por herança |
 
 Não copiar credencial de configuração para relatório/log. `R-01` encerra a
 rotação como decisão explícita de risco; reescrever config ou reduzir mode não
