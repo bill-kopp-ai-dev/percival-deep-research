@@ -1,12 +1,12 @@
 # Stage-2 — Remediação do Percival Deep Research MCP
 
-**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2.
+**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3.
 **ID / estado:** S2-DR / execução local concluída parcialmente; **parcial** (7 ações
 verificadas, 2 parciais, 2 operações de teste autorizadas mas ainda não executadas
 nos managers, e 1 ação encerrada por decisão explícita de risco; publicação continua
 fora de escopo).
 **Checkout executor:** `/home/bill/Projects/percival-deep-research`.  
-**Owner e autoridade final:** Bill Kopp (`bill.kopp.dev@gmail.com`), proprietário único do servidor MCP e da infraestrutura IaC da Positronic Bean Labs (PBLabs); somente Bill decide e aprova mudanças. Site da empresa: `labs.positronicbean.com` (em desenvolvimento). Execução técnica pode ser delegada, sem transferir autoridade de decisão. A rotação da chave de teste foi dispensada por `R-01`.
+**Owner, operador e signatário:** Bill Kopp (`bill.kopp.dev@gmail.com`), único proprietário e responsável por esta aplicação e pela infraestrutura IaC da Positronic Bean Labs (PBLabs); é também a única pessoa trabalhando nesses projetos e a única autoridade para decidir e assinar. Site: `labs.positronicbean.com`. As instruções e decisões de Bill autorizam o trabalho dentro do escopo explicitado, sem reaprovação ou aceite duplicado. A rotação da chave de teste foi dispensada por `R-01`.
 
 ## 1. Objetivo, fontes e limites
 
@@ -25,13 +25,20 @@ preservar essa alteração e acordar com o dono seu destino documental.
 [D-01..D-06](../../../positronic-bean-IaC/docs/decisions/2026-10-27-iac-stage-1-scope-and-pilot-decisions.md).
 
 Esta revisão registra decisões e autorizações do owner; não afirma que rollout,
-piloto, atualização de dependências ou publicação já foram executados. Preservar
-5 tools, 4 prompts, resource template, envelopes de fontes não confiáveis e
-single-endpoint inference. O piloto complementar de Deep Research foi autorizado
-por Bill para fechar S2-DR, sem substituir o par original D-01 (Percival + Notes).
-O rollout autorizado limita-se ao ambiente de teste e ao manager responsável; não
-autoriza produção nem publicação no catálogo. Não rotacionar a credencial conforme
-`R-01`.
+piloto, atualização de dependências ou publicação já foram executados. As
+decisões registradas não precisam ser solicitadas ou aprovadas novamente.
+Preservar 5 tools, 4 prompts, resource template, envelopes de fontes não
+confiáveis e single-endpoint inference. Bill autorizou o piloto complementar de
+Deep Research para fechar S2-DR, sem substituir o par original D-01 (Percival +
+Notes). O rollout autorizado limita-se ao ambiente de teste e ao manager
+responsável; não autoriza produção nem publicação no catálogo. Não rotacionar a
+credencial conforme `R-01`.
+
+Uma evidência técnica vale para a revisão/imagem exata que identifica. Executar e
+registrar cada verificação uma vez, reutilizando sua referência neste plano e em
+relatórios coordenadores; não criar novos aceites para repetir o mesmo resultado.
+Verificações diferentes continuam necessárias quando cobrem riscos distintos,
+como teste local versus piloto integrado no manager.
 
 ## 2. Preparação e decisões discriminantes
 
@@ -127,27 +134,36 @@ autoriza produção nem publicação no catálogo. Não rotacionar a credencial 
     `notifications/cancelled` do cliente não foi testada nem é garantida. Não
     alegar cancelamento imediato do protocolo; o worker é encerrado pelo limite
     interno. Só ampliar suporte se o piloto exigir.
+  - `DR-DEC-07` (2026-10-30) — Bill é o único owner, operador e signatário da
+    aplicação e da IaC. Sua instrução direta autoriza o escopo que ela nomeia;
+    não há segunda aprovação, aceite repetido, revisão obrigatória por outra
+    pessoa ou handoff entre owners. Registrar evidência uma vez por revisão ou
+    image ID e referenciá-la onde necessário. Manter os limites de escopo já
+    aprovados: autorização de teste não autoriza produção nem publicação.
 
 ## 3. Matriz integral de ações e critérios de aceite
 
 A tabela preserva as 12 ações de origem e seus critérios de aceite; os estados
 evidenciados após a execução local estão registrados na seção 6. Prioridades
 originais preservadas; F-017 P1 está agrupado em A-001.
+Os critérios abaixo são verificações técnicas, não aprovações adicionais. Para
+A-004/A-009, a autorização de rollout de teste já foi dada em `DR-DEC-04`; não
+solicitar novo aceite para a mesma operação.
 
 | Ação | Achados / P | Trabalho e áreas previstas | Dependências / dono externo | Aceite verificável |
 |---|---|---|---|---|
 | A-001 | F-001, F-017 / P1 | Falhar com exit não zero sem credencial e alinhar Python/dependências entre Dockerfile, CI e suíte | Decisão da versão alvo pelo produto | Startup sem credencial falha; suíte roda contra combinação realmente embarcada e CI a verifica; se alvo mudar, registrar em vez de exigir 0.15.1 histórica |
 | A-002 | F-002, F-015 / P1 | Pré-popular cache tiktoken identificado na imagem; declarar/fixar mapa LiteLLM e destinos de rede | Política de rede com owner; S2-C01 | `research_deep` completo contra fixture interna sem Internet e sem cache externo; import não precisa de download oculto ou exceção explicitamente decidida |
 | A-003 | F-003 / P1 | Investigar timeout/cancelamento em `tools/deep_research.py` e camada upstream; aplicar limite efetivo e limpar tarefas | Contrato de duração e hipótese discriminada | Limite 2 s contra pipeline 6 s devolve timeout em menos de 3 s, tarefas liberadas e sem “Research complete”; teste também o fluxo normal. Registrar suporte/limitação MCP por transporte/método/deadline conforme `R-09`; não é obrigatório implementar cancelamento geral |
-| A-004 | F-004 / P1 | Preparar candidato rastreável e reconciliar imagem/estado pelo manager responsável | S2-NB A-007; S2-AP-X01; `R-08`, com exceção de teste `DR-DEC-04` | Runtime de teste mostra a revisão/imagem aprovada; saved/observed/connectivity coerentes; registrar estado anterior e rollback. Rollout direto autorizado pelo owner, sem janela formal; sem alteração de produção |
+| A-004 | F-004 / P1 | Preparar candidato rastreável e reconciliar imagem/estado pelo manager de teste | Candidato final revalidado; `DR-DEC-04` | Aplicar uma vez no ambiente de teste autorizado; registrar imagem/revisão, configuração anterior, estado observado e rollback. Sem janela ou aprovação adicional; sem alteração de produção |
 | A-005 | F-005 / P1 | Preservar a entrega por arquivo e registrar o risco residual da credencial de teste, sem executar rotação nesta campanha | Decisão explícita `R-01`; S2-NB-X01 somente para o contrato de entrega | **Rotação encerrada por decisão de risco:** não revogar a chave nem emitir substituta agora; manter o risco aceito explícito e não expor seu valor. A configuração por arquivo continua documentada, mas não é requisito para fechar a rotação |
 | A-006 | F-006, F-016, F-018 / P2 | Alinhar `/health` ao registry real/suporte declarado, validar `INFERENCE_LLM` e remover código inerte ou declarar dependências | Versão decidida A-001 | Retriever suportado saudável; LLM malformado reflete configuração inválida/degraded; sem imports de pacote só transitivo; docs sincronizados |
 | A-007 | F-007 / P2 | Ativar cobertura no comando canônico/CI e corrigir documentação | Política de teste existente >=70% | `uv run pytest -q` mede e aplica limiar 70%; prova de que queda abaixo falha; suíte normal verde |
 | A-008 | F-008, F-009 / P2 | Condicionar/eliminar patch gpt-researcher por versão; registrar divergência em manifesto/SBOM; normalizar metadados/timestamps de build | A-001 | Dois builds limpos sem cache, entradas/builder identificados, image IDs iguais conforme aceite de origem; conteúdo/SBOM/patch coerentes; divergência medida permanece aberta se não resolvida |
-| A-009 | F-010 / P2 | Declarar perfil RO/cap-drop/NNP/init e mounts mínimos explícitos; aplicar diretamente no manager de teste | S2-NB-X01 e S2-AP-X01; exceções com owner; etapa 5 IaC; `R-10` e `DR-DEC-04` | Runtime de teste inspecionado com postura compatível; perfil Research declara mounts mínimos explicitamente (incluindo secrets/logs necessários), sem herdar o default amplo do broker; cache host não montado RW sem justificativa; registrar estado anterior e rollback; sem alterar produção |
+| A-009 | F-010 / P2 | Declarar perfil RO/cap-drop/NNP/init e mounts mínimos explícitos; aplicar diretamente no manager de teste | Perfil declarado; `R-10` e autorização `DR-DEC-04` | Aplicar e inspecionar junto com A-004, sem operação ou aceite duplicado; declarar mounts Research necessários sem herdar o default amplo do broker; não montar cache host RW sem justificativa; registrar configuração anterior e rollback; sem alterar produção |
 | A-010 | F-011 / P2 | Documentar volatilidade de research_id/cache de tópicos e efeito de recriação | Limitação stateless por design | README/contrato explicam expiração; sessão válida antes e erro explícito após recriação; não adicionar persistência por suposição |
 | A-011 | F-012, F-013 / P3 | Derivar versão do produto em serverInfo e corrigir contagem de caracteres das fontes | Contrato preservado e versão do candidato | Handshake igual à versão do pacote (3.0.1 apenas se continuar vigente); fonte fixture com conteúdo conhecido não reporta zero incorretamente |
-| A-012 | F-014, F-019, F-020, F-021 / P3 | Remover apt/setuid desnecessários; adotar harness comum (`DR-DEC-03`); atualizar dependências vulneráveis; scan Trivy (`R-11`); metadados no índice conforme `R-06`/`DR-DEC-02`; gate VEX conforme `R-07` | Conteúdo S2-C01/C03 aprovado; S2-C04 aprovado; implementação do harness, CI e etapas 2/4 IaC | Inventário sem residuais incompatíveis, smoke verde; `server.json` validado contra schema e `.app.yaml` coerente no índice; scan Trivy do candidato atualizado com versão/data da DB, SHA e image ID; VEX por CVE ligado ao image ID avaliado e assinado pelo owner; CVEs da imagem base tratados por herança |
+| A-012 | F-014, F-019, F-020, F-021 / P3 | Remover apt/setuid desnecessários; adotar harness comum (`DR-DEC-03`); atualizar dependências vulneráveis; scan Trivy (`R-11`); metadados no índice conforme `R-06`/`DR-DEC-02`; VEX conforme `R-07` | Dependências atualizadas; contratos de metadados ratificados; harness comum implementado | Uma qualificação do candidato final; `server.json` validado contra schema e `.app.yaml` coerente no índice; um scan Trivy registrando versão/data da DB, SHA e image ID; VEX por CVE ligado a esse image ID e assinado por Bill; CVEs da imagem base tratados por herança. O verificador CI atual só compara IDs de vulnerabilidade e não substitui a vinculação/assinatura do VEX |
 
 Não copiar credencial de configuração para relatório/log. `R-01` encerra a
 rotação como decisão explícita de risco; reescrever config ou reduzir mode não
@@ -155,44 +171,50 @@ revogaria a chave e não é solicitado. O risco residual permanece registrado.
 F-019 é evidência positiva de reuso: preservar e vincular sua versão, não “corrigir
 um bug”. Scan sem findings não justifica inventar CVEs/declarações VEX.
 
-## 4. Lotes e handoffs
+## 4. Sequência de execução
 
-1. **DR-1:** A-001 define a combinação entregue/testada; A-002/A-003 corrigem
-   rede e duração. A-004/A-009 têm rollout de teste direto autorizado por Bill,
-   depois de atualizar e revalidar o candidato. A-005 está encerrada por `R-01`
-   e não deve gerar solicitação de rotação. Não tocar em produção ou em recursos
-   alheios ao teste.
-2. **DR-2:** A-006/A-007/A-008/A-010/A-011; mudança de versão upstream requer
-   revalidar timeout, retrievers, patch e formato público, não apenas imports.
-3. **DR-3:** A-009/A-012 e parcela externa A-004, com os contratos aprovados,
-   candidato atualizado/escaneado, piloto autorizado e rollout direto no manager
-   de teste (`DR-DEC-04`/`DR-DEC-05`). A-005 não exige rotação por `R-01`.
-   Publicação e catálogo aguardam etapas 2/4;
-   lifecycle completo é etapa 5 IaC.
+1. **Código e candidato:** atualizar dependências e executar uma rodada de
+   regressão no SHA final; revalidar timeout, retrievers, patch e formato público.
+   Produzir o candidato rastreável e executar nele os checks locais pertinentes.
+2. **Segurança e metadados:** escanear o candidato final uma vez; associar o VEX
+   assinado por Bill ao mesmo image ID. Preparar/validar os metadados no índice
+   conforme os contratos já ratificados. Esses passos não exigem aprovações
+   adicionais nem repetição de resultados em cada documento.
+3. **Teste integrado:** A-004/A-009 já estão autorizadas para o ambiente de teste.
+   Aplicar o perfil e verificar a instância uma vez, guardando evidência e
+   rollback. Executar o V-PILOT autorizado após revalidar o candidato.
+   A-005 permanece encerrada por `R-01`.
+
+Produção e publicação não estão autorizadas por este plano. O ciclo de vida
+completo continua relacionado à etapa 5 IaC, mas não é pré-aprovação para o
+rollout de teste já autorizado.
 
 Riscos: timeout externo pode deixar trabalho órfão; alteração de dependência muda
-retrievers/patch; hardening pode exigir paths temporários explícitos. Registrar
-alternativas com o owner; `R-03` remove a exigência de estimar esforço, custo ou prazo.
+retrievers/patch; hardening pode exigir paths temporários explícitos. Só escalar
+trade-offs que alterem materialmente escopo ou segurança; nos demais casos, seguir
+os critérios registrados. `R-03` remove a exigência de estimar esforço, custo ou prazo.
 
 ## 5. Qualificação futura no projeto
 
-- [ ] Regressões dos achados e `uv run pytest -q` (cobertura ativada em A-007);
-  lint/format **check** conforme CI. Nenhuma medição histórica vira resultado atual.
-- [ ] Build canônico identificado e suíte com Python/gpt-researcher da imagem.
-  Handshake/tools/call e pipeline completo usando mocks de inferência/retriever.
-- [ ] Repetir `V-BUILD`/`V-RUN`/`V-CONFIG`/`V-MCP`/`V-FUNC`, signals/EOF e
-  timeout real medido; `V-DATA` stateless e volatilidade explícita. A limitação
-  MCP atual está registrada na seção 2; implementar cancelamento apenas se o
-  piloto ou um consumidor demonstrar essa necessidade (`R-09`/`DR-DEC-06`).
+- [ ] No SHA final, executar uma vez `uv run pytest -q` e os checks de lint/format
+  do CI relevantes. Não repetir medições históricas como se fossem resultados
+  atuais.
+- [ ] Qualificar o candidato final com os probes Docker aplicáveis: build,
+  conformance/handshake, signals/EOF, timeout e pipeline com fixtures. Registrar
+  os resultados juntos para V-BUILD/V-RUN/V-CONFIG/V-MCP/V-FUNC; confirmar a
+  semântica stateless uma vez para V-DATA. A limitação MCP está registrada na
+  seção 2; só implementar cancelamento se o piloto demonstrar necessidade.
 - [ ] Implementar S2-C04 conforme `DR-DEC-03`: harness versionado em repositório
   dedicado, schema de evidência e mesma revisão/tag executada por pelo menos dois
   MCPs; manter adaptadores/fixtures de produto nos checkouts donos.
-- [ ] Executar `V-PILOT` complementar aprovado em `DR-DEC-05` (Percival agent →
-  Deep Research MCP), no ambiente de teste e pela receita D-05/R-02, usando o
-  candidato atualizado/revalidado. Nenhum piloto ou provedor real foi executado
-  nesta revisão; timeout interno não prova cancelamento end-to-end do protocolo.
-- [ ] A-004/A-009: aplicar e verificar o perfil diretamente no manager de teste,
-  com estado anterior e rollback registrados; não exigir janela/aprovação adicional.
+- [ ] Executar o teste integrado `V-PILOT` já autorizado em `DR-DEC-05`
+  (Percival agent → Deep Research MCP), no ambiente de teste e pela receita
+  D-05/R-02, usando o candidato atualizado/revalidado. Nenhum piloto ou provedor
+  real foi executado nesta revisão; timeout interno não prova cancelamento
+  end-to-end do protocolo.
+- [ ] A-004/A-009: aplicar e verificar o perfil no manager de teste uma vez,
+  com estado anterior e rollback registrados; não exigir nova aprovação ou
+  repetir a inspeção para cada ação.
   A-005 está encerrada por `R-01`. Publicação, CI remoto e smoke real não são
   inferidos da fixture local.
 
@@ -265,33 +287,35 @@ conformance stdio verde (5 tools), falha fechada sem credencial → **exit 1**,
 deadline de 2 s → erro em **2,03 s** sem “Research complete”. A imagem é local
 (sem `push`/`RepoDigest`) e não substitui a publicação da Etapa 2.
 
-## 7. Última etapa — atualizar o plano coordenador
+## 7. Sincronização documental com o coordenador
 
-- [x] Reler o [stage-2 geral](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md);
-  atualizar **S2-DR na seção 3** e acrescentar entrada na **seção 7**, com contagens,
-  SHA/evidência, dependências liberadas e aceites locais/externos.
-- [x] Preservar outros retornos e indicar impacto nas etapas 2/4/5. Se não houver
-  acesso ao checkout IaC, entregar resumo e manter **aguardando sincronização**.
-  Concluído exige todos os aceites e retorno; transferência não é correção verificada.
-- [ ] Sincronizar a linha S2-DR com a revisão 2.2: decisões `DR-DEC-01..06`,
-  contratos/harness aprovados, A-004/A-009 autorizadas para rollout direto de
-  teste mas não executadas, A-012 aguardando upgrade/scan/VEX do candidato final,
-  e V-PILOT autorizado mas não executado. Não inferir aceite de publicação.
+- [x] O retorno técnico histórico de S2-DR foi registrado no plano coordenador;
+  usar links para esta evidência como fonte de verdade, sem duplicar resultados
+  nem exigir aceite separado para a sincronização documental.
+- [x] Preservar os retornos dos demais projetos e resumir impactos nas etapas 2/4/5.
+  A sincronização do coordenador acompanha o estado, mas não é aprovação nem bloqueia
+  execução já autorizada neste plano.
+- [ ] Sincronizar a linha S2-DR com a revisão 2.3: decisões `DR-DEC-01..07`,
+  A-004/A-009 autorizadas para rollout direto de teste mas ainda não executadas,
+  A-012 aguardando upgrade/scan/VEX do candidato final, e V-PILOT autorizado mas
+  ainda não executado. É atualização de estado, não aprovação nem gate de execução.
 
-**Retorno ao coordenador (2026-10-28):** o checkout IaC estava acessível;
+**Retorno histórico ao coordenador (2026-10-28):** o checkout IaC estava acessível;
 a linha **S2-DR** da seção 3 e uma entrada na tabela da seção 7 do
 [plano coordenador](../../../positronic-bean-IaC/docs/plans/2026-10-27-iac-v1-stage-2-remediation-plan.md)
 foram atualizadas **preservando os retornos dos demais projetos**.
-Contagem naquele retorno: **8 de 12 ações verificadas** (A-001, A-003, A-006,
-A-007, A-008, A-010, A-011 e a parcela local de A-012), **2 parciais** (A-002
-e A-012), **2 adiadas por dependências de gestores** (A-004 e A-009) e **1
-encerrada por decisão explícita de risco** (A-005, `R-01`). O projeto permanecia
+Contagem naquele retorno: **7 ações integralmente verificadas** (A-001, A-003,
+A-006, A-007, A-008, A-010 e A-011); a parcela local de A-012 também estava
+verificada, mas a ação permaneceu parcial junto com A-002. A-004 e A-009 estavam
+aguardando operação no manager; A-005 estava encerrada por decisão explícita de
+risco (`R-01`). O projeto permanecia
 parcial; transferências não encerravam as dependências técnicas e a publicação
 continuava fora de escopo. As autorizações para o ambiente de teste foram
 atualizadas em 2026-10-29; nenhuma execução de manager ou publicação é afirmada
 nesta revisão.
 
-**Atualização documental (2026-10-29 / revisão 2.2):** o retorno acima descreve a
+**Atualização documental (2026-10-30 / revisão 2.3):** o retorno acima descreve a
 sincronização histórica de 2026-10-28. A linha S2-DR do plano coordenador ainda
-precisa refletir as decisões do owner e os novos estados registrados nesta revisão;
-esse checkout não foi alterado nesta atualização.
+precisa refletir as decisões DR-DEC-01..07 e os estados atuais; esse checkout não
+foi alterado nesta revisão. Atualizá-la é sincronização documental, não novo aceite
+nem pré-condição para trabalho já autorizado.

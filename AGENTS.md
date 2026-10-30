@@ -4,57 +4,71 @@ Project-scoped agent instructions for `<positronic>` inside
 the global `AGENTS.md`, `SOUL.md` and `USER.md`.
 -->
 
-## Company approval
+## Owner and operating model
 
-This project belongs to Positronic Bean Labs (PBLabs), owned by Bill Kopp.
-Bill is the sole final decision-maker for decisions requiring owner or company
-approval. Technical review, implementation, and routine operations may be
-delegated without transferring final approval authority. This does not alter
-runtime access or authorize publication, deployment, or production changes.
+Bill Kopp (`bill.kopp.dev@gmail.com`) is the sole owner, operator, decision-maker,
+and signatory for this application and its IaC. The company is Positronic Bean
+Labs (PBLabs), website `labs.positronicbean.com`. Bill is the only person
+currently working on these projects.
+
+- A direct instruction or decision from Bill authorizes the work within its
+  stated scope. Do not request a second approval, repeat an already recorded
+  decision, or invent another owner/reviewer or handoff.
+- Keep process proportional: use one canonical source of truth and record
+  evidence once per relevant source revision or image ID. Link to that evidence
+  instead of duplicating it across plans and reports. Run only checks relevant
+  to the changed risk; do not repeat equivalent checks as separate acceptance
+  gates.
+- An instruction authorizes only its stated scope. Do not infer production
+  changes or publication from approval of local work or a test rollout.
+- Before a runtime mutation, verify the target and its current image/configuration
+  and preserve a practical rollback path. Use the owning manager and its
+  supported interface; never edit manager state by hand. This is an operational
+  safety check, not an additional approval gate.
 
 ## Working conventions
 
 - Lint/format: `uv run --with ruff ruff check .` + `uv run --with ruff ruff format .`.
 - Tests: `uv run pytest -q` (coverage `>=70%` enforced by the canonical
   command itself, via `addopts` in `pyproject.toml`).
-- Patch gpt-researcher: `uv run python scripts/patch_gpt_researcher.py`
-  apos cada `uv sync` (mandatory ate upstream resolver
-  `NameError: name 'Any'`). The script is a no-op for versions that do not
-  need it and refuses to patch an unsupported version.
+- Patch `gpt-researcher`: run `uv run python scripts/patch_gpt_researcher.py`
+  after each `uv sync` until upstream fixes `NameError: name 'Any'`. The script
+  is a no-op for unaffected versions and refuses unsupported versions.
 - Research runs in an isolated worker process
-  (`percival_research/research_worker.py`); the timeout is enforced by the
-  parent, which kills the worker. Do not move the pipeline back in-process.
+  (`percival_research/research_worker.py`); the parent enforces the timeout and
+  kills the worker. Do not move the pipeline back in-process.
 - Conventional Commits; scope = area afetada.
-- Hardening preservado em toda mutacao: conteudo externo continua wrappado
-  por XML envelope ou prefixo `[SECURITY WARNING:...]`.
+- Preserve hardening in every change: external content remains wrapped in an
+  XML envelope or prefixed with `[SECURITY WARNING:...]`.
 
 ## Verification
 
-- `uv run pytest -q` (canonical, com cobertura embutida e limiar de 70%).
-- `uv run --with ruff ruff check .` + `ruff format --check .` (pre-commit).
-- Smoke ao vivo (opt-in) contra credenciais reais, exercitando
-  `research_deep` ponta-a-ponta.
-- Docker: `scripts/docker-ci-conformance.py` (stdio),
-  `scripts/timeout_probe.py` (deadline efetivo contra fixture interna) e
-  `scripts/check_reproducible_build.sh` (dois builds limpos, mesmo image ID).
-- Scan: `scripts/check_trivy_findings.py` exige que todo achado do Trivy
-  esteja registrado no VEX com decisão do owner.
+- For code changes, run the canonical `uv run pytest -q` and the CI lint/format
+  checks relevant to the change. Use the existing Docker probes when changing
+  the corresponding image, transport, timeout, or build behavior.
+- Provider-backed smoke tests are opt-in; never use real credentials unless
+  Bill's request explicitly includes that test.
+- For a candidate image scan, record Trivy version/database, source SHA, and
+  image ID. The current `scripts/check_trivy_findings.py` checks that reported
+  vulnerability IDs occur in the supplied VEX; it does not verify image-ID
+  binding or an owner signature. Do not treat that script alone as satisfying
+  those requirements. Create and sign the VEX once for the exact candidate
+  image, as required by the applicable plan.
+- Reuse test output for the exact revision/image across the plan and reports by
+  reference; do not rerun or restate equivalent checks solely to satisfy
+  duplicate paperwork.
 
-## Open questions
+## Deferred questions
 
-- Automatizar `scripts/patch_gpt_researcher.py` em CI / pre-commit?
-- Estrategia de branchamento para LTS (HEAD em `main` direto ate v3.0.0)?
-
+- Automate `scripts/patch_gpt_researcher.py` in CI/pre-commit?
+- Branching strategy for LTS (HEAD directly on `main` until v3.0.0)?
 
 ## Docker MCP operations
 
-- Keep the image's documented stdio/HTTP transport contract; stdio stdout is
-  JSON-RPC-only and must not use an HTTP healthcheck. Verify the exact mode
+- Preserve the documented stdio/HTTP transport contract. Stdio stdout is
+  JSON-RPC-only and must not use an HTTP healthcheck; check the configured mode
   before interpreting Docker health.
-- The owning manager controls production containers; Compose is a local fixture.
-  Percival and Positronic have separate state and supported interfaces.
-- Before mutation, identify owner, image ID, revision, mounts/data and rollback;
-  use only the owning manager with freshly read CAS values. Never edit state by
-  hand or expose provider credentials in reports.
-- Keep provider-backed research smoke opt-in and isolated from real accounts.
-  Verify MCP handshake and a safe fixture response before/after rollback.
+- Compose is a local fixture, not the source of truth for a managed runtime.
+  Percival and Positronic retain separate state and supported interfaces.
+- Keep provider-backed smoke tests opt-in and isolated from real accounts.
+- Do not expose provider credentials in reports or logs.
