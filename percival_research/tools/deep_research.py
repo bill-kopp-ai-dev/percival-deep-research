@@ -12,10 +12,9 @@ import percival_research.app as _app
 from percival_research.app import (
     UNIVERSAL_AGENT_NAME,
     mcp,
-    metrics,
 )
 from percival_research.metrics import log_query_safe
-from percival_research.research_worker_client import run_research_worker
+from percival_research.research_worker_client import run_research_worker, validate_research_data
 from utils import (
     format_context_with_sources,
     handle_exception,
@@ -38,22 +37,6 @@ from utils import (
 # ─────────────────────────────────────────────────────────────────────────────
 _IN_FLIGHT: dict[str, "asyncio.Future[str]"] = {}
 _IN_FLIGHT_LOCK = asyncio.Lock()
-
-
-async def _acquire_in_flight_slot(query: str) -> tuple["asyncio.Future[str] | None", str]:
-    """Tenta reservar uma in-flight slot para `query`.
-
-    Returns:
-        (future, slot_status):
-        - (None, "caller_creates"): caller deve criar a Future e popular
-          o dict antes de qualquer outra task entrar.
-        - (existing_future, "shared"): já existe um task rodando o
-          mesmo `query`; caller deve `await` a Future retornada.
-    """
-    async with _IN_FLIGHT_LOCK:
-        if query in _IN_FLIGHT:
-            return _IN_FLIGHT[query], "shared"
-    return None, "caller_creates"
 
 
 @mcp.tool("research_deep")
@@ -92,101 +75,52 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
 
     log_query_safe("deep_research", query, cid)
 
-    # N7 fix (rodada 4): in-flight dedup ANTES do rate-limiter. Se outro
-    # task já está rodando o mesmo topic, recuperamos a Future compartilhada
-    # e esperamos — economiza um slot do rate-limiter E o pipeline completo.
-    #
-    # Round 6 fix (bug-hunt): se a Future compartilhada termina em exceção
-    # (e.g. creator foi rejeitado pelo rate limiter e setou RuntimeError
-    # nela), o `await existing` re-levanta cru. Capturamos e devolvemos
-    # via handle_exception para preservar o contrato público (resposta
-    # começa com "Error: ...") e não vazar stack trace para o agente.
-    existing, status = await _acquire_in_flight_slot(query)
-    if existing is not None:
-        logger.info(
-            f"[{cid}] deep_research dedup hit — waiting for in-flight task (status={status})"
-        )
-        try:
-            return await existing
-        except Exception as e:
-            logger.warning(
-                f"[{cid}] dedup waiter caught exception from creator: {type(e).__name__}: {e}"
-            )
-            return handle_exception(e, "Deep research (dedup waiter)", cid)
-
-    # Caller_creates path: registramos a Future neste slot.
-    loop = asyncio.get_running_loop()
-    future = loop.create_future()
-
-    async def _register():
-        async with _IN_FLIGHT_LOCK:
-            # Double-check: outra task pode ter inserido entre o check
-            # acima e o lock (race window). Se sim, retornamos a dela.
-            if query in _IN_FLIGHT:
-                return _IN_FLIGHT[query], False
+    # Register atomically before admission. A waiter owns only its wait, not
+    # the shared Future: cancelling a waiter must not cancel the creator.
+    async with _IN_FLIGHT_LOCK:
+        future = _IN_FLIGHT.get(query)
+        is_creator = future is None
+        if future is None:
+            future = asyncio.get_running_loop().create_future()
             _IN_FLIGHT[query] = future
-            return future, True
-
-    shared_or_ours, is_creator = await _register()
     if not is_creator:
-        return await shared_or_ours
+        try:
+            return await asyncio.shield(future)
+        except Exception as exc:
+            return handle_exception(exc, "Deep research (dedup waiter)", cid)
 
-    # Audit rodada 2 BUG-7: RateLimiter.acquire tem timeout (30s default).
-    # Audit rodada 3 BUG-3R-3/5: try/finally para release() em TODOS os
-    # caminhos (incluindo sucesso, timeout de pesquisa, exception genérica).
-    # Antes, release() nunca era chamado → slots vazavam.
+    acquired = False
     try:
-        await _app.research_limiter.acquire()
-    except asyncio.TimeoutError:
-        # Liberar a slot de in-flight — caller não vai rodar.
-        async with _IN_FLIGHT_LOCK:
-            _IN_FLIGHT.pop(query, None)
-        if not future.done():
-            future.set_exception(
-                RuntimeError("deep_research cancelled before pipeline started (server busy)")
+        try:
+            await _app.research_limiter.acquire()
+            acquired = True
+        except asyncio.TimeoutError:
+            _app.metrics.record_timeout("deep_research")
+            result = (
+                "Error: Server is busy (concurrent research limit reached). "
+                f"Try again in a few seconds. (correlation_id={cid})"
             )
-        # S3 fix (roda 5): sem este consume explícito, o Python log
-        # "Future exception was never retrieved" toda vez que o rate
-        # limiter rejeita. Agora consumimos para limpeza de warning.
-        #
-        # Invariante: no caminho desta branch, o caller é o criador
-        # (já passou pelo check `if not is_creator: return …`). A
-        # future estava pendente apenas para FUTUROS waiters que
-        # venham a buscar a mesma query no `_IN_FLIGHT`. Como
-        # acabamos de pop a slot, qualquer novo caller vai criar
-        # uma future nova e não verá esta — então ninguém vai
-        # `await` nela. Consumir a exception é seguro.
-        future.exception()
-        metrics.record_timeout("deep_research")
-        logger.warning(f"[{cid}] rate limit acquire timeout")
-        return (
-            f"Error: Server is busy (concurrent research limit reached). "
-            f"Try again in a few seconds. (correlation_id={cid})"
-        )
-
-    try:
+            future.set_result(result)
+            return result
         result = await _do_deep_research(query, include_context, cid)
         if not future.done():
             future.set_result(result)
         return result
-    except Exception as exc:
-        # Round 6 fix (bug-hunt): seta exception na Future para waiters
-        # do dedup (que capturam via handle_exception), MAS retorna uma
-        # mensagem segura para o criador em vez de re-levantar. Antes
-        # disso, `raise` deixava o FastMCP serializar a exceção crua —
-        # quebrando o contrato público de "Error: ..." seguro.
+    except asyncio.CancelledError:
         if not future.done():
-            future.set_exception(exc)
-        return handle_exception(exc, "Deep research", cid)
+            future.set_result(f"Error: Research was cancelled (correlation_id={cid}).")
+        raise
+    except Exception as exc:
+        result = handle_exception(exc, "Deep research", cid)
+        if not future.done():
+            future.set_result(result)
+        return result
     finally:
-        _app.research_limiter.release()
-        # Remove a in-flight slot DEPOIS de set_result/set_exception.
-        # Waiters que chegam durante o cleanup vão pegar a Future
-        # existente e ainda assim receber o resultado (a Future não é
-        # cancelada).
-        async with _IN_FLIGHT_LOCK:
-            if _IN_FLIGHT.get(query) is future:
-                _IN_FLIGHT.pop(query, None)
+        if acquired:
+            _app.research_limiter.release()
+        # No await in cleanup: cancellation cannot interrupt ownership release.
+        if _IN_FLIGHT.get(query) is future:
+            _IN_FLIGHT.pop(query, None)
 
 
 async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
@@ -201,7 +135,7 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
         try:
             context, sources, source_urls = await run_research_worker(query, timeout_s)
         except asyncio.TimeoutError:
-            metrics.record_timeout("deep_research")
+            _app.metrics.record_timeout("deep_research")
             logger.error(f"[{cid}] deep_research timed out after {timeout_s}s")
             return (
                 f"Error: Research exceeded the {timeout_s}s "
@@ -209,6 +143,7 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
                 f"Try a more specific query or increase PERCIVAL_RESEARCH_TIMEOUT_S."
             )
 
+        validate_research_data(context, sources, source_urls)
         # The isolated worker cannot return its live network/client objects.
         # Rehydrate only the data needed by the public read/report tools.
         researcher = GPTResearcher(
@@ -226,7 +161,7 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
         except Exception as add_err:
             # Audit rodada 2 BUG-5 — registry rejeita quando saturado.
             logger.error(f"[{cid}] add_researcher failed: {add_err}")
-            metrics.record_error("deep_research")
+            _app.metrics.record_error("deep_research")
             return handle_exception(
                 add_err,
                 "Deep research (registry full)",
@@ -246,7 +181,7 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
             # não segurar recursos (HTTP clients, contexto) até o TTL.
             _app.registry.evict_researcher(research_id)
             logger.error(f"[{cid}] Failed to extract research data: {e}")
-            metrics.record_error("deep_research")
+            _app.metrics.record_error("deep_research")
             return handle_exception(e, "Deep research", cid)
 
         safe_formatted = wrap_untrusted_content(
@@ -280,7 +215,7 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
         )
 
         elapsed_ms = (time.monotonic() - start) * 1000
-        metrics.record_latency("deep_research", elapsed_ms)
+        _app.metrics.record_latency("deep_research", elapsed_ms)
         return "\n".join(lines)
 
     except Exception as e:
@@ -291,5 +226,5 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
             _app.registry.evict_researcher(research_id)
         except Exception:
             pass  # id não estava registrado (ex.: erro antes de add_researcher)
-        metrics.record_error("deep_research")
+        _app.metrics.record_error("deep_research")
         return handle_exception(e, "Deep research", cid)

@@ -5,6 +5,7 @@ from fastmcp import FastMCP
 from config import load_settings
 from llm_bridge import normalize_llm_env
 from percival_research import __version__
+from percival_research.protocol_errors import ProtocolErrors
 from utils import Metrics, RateLimiter, ResearchRegistry
 
 # Single source of truth (audit rodada 2): load settings once and use it.
@@ -12,6 +13,7 @@ _settings = load_settings()
 normalize_llm_env(_settings)
 
 mcp = FastMCP(name="percival_deep_research", version=__version__)
+mcp.add_middleware(ProtocolErrors())
 registry = ResearchRegistry(settings=_settings)
 
 # Audit rodada 2 BUG-12: limiter lazy (cria semáforo no event-loop atual,

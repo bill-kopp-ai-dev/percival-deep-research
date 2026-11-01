@@ -97,9 +97,35 @@ core principles:
 | `research_quick_search` | Raw snippets, no LLM synthesis | `(query) → str` | 3–10 s | Rate-limited; no synthesis |
 | `research_get_context` | Wrapped research context | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
 | `research_get_sources` | Wrapped source metadata | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
-| `research_write_report` | Final markdown report | `(research_id, custom_prompt=None) → str` | 5–30 s | LLM-free when `custom_prompt=None` |
+| `research_write_report` | Final markdown report | `(research_id, custom_prompt=None) → str` | Provider-dependent, bounded | Always uses inference; isolated worker, same internal deadline as research |
 
 ### Resource (1)
+
+Research and report generation run in separately killable worker processes.
+Both workers initialize the same required compressor patch as the server.
+`PERCIVAL_RESEARCH_TIMEOUT_S` defaults to 90 s per worker; queue admission can
+add up to 30 s. Budget admission, worker startup/execution, cleanup and response
+serialization below the broker's 150 s total, the Percival wrapper's 180 s and
+HTTP's 190 s. Do not increase the server limit without coordinating these
+budgets. A successful handshake does not validate this pipeline.
+
+Application failures are returned as MCP `isError:true`, with safe diagnostic
+text and a correlation ID. Do not repeat research or read a cache-missing
+resource after an ambiguous transport failure: the original operation may
+already have started. A report failure preserves the existing research session.
+
+The deterministic cross-repository probe uses only fake credentials and a
+local inference/search/page fixture, through the real image, broker and wrappers:
+
+```bash
+uv run --directory ../nanobot --no-sync python ../percival-deep-research/scripts/pipeline_probe.py \
+  --image sha256:<tested-local-image-id> \
+  --percival-checkout . --mode success
+# Repeat with --mode timeout and --mode cancel to verify cleanup and recovery.
+```
+
+It also verifies that a >30 s call completes, the isolated child makes no
+embedding requests, getters/report/cache agree, and no worker remains.
 
 - `research://{topic}` — direct context lookup (no session). Percent-decoded
   server-side (so callers may use either `research://São Paulo` or
@@ -182,6 +208,13 @@ percival-deep-research --help        # verify install
 
 All configuration is via environment variables. See
 [`.env.example`](.env.example) for the full template.
+
+When `RETRIEVER=duckduckgo`, Percival pins the DDGS request to one DuckDuckGo
+backend with a 5-second per-request timeout. It intentionally avoids the
+upstream library's multi-provider `auto` fan-out, whose sequential executor
+shutdown could consume the whole research deadline. There is no automatic
+backend retry; no results surface as an explicit research failure rather than
+success without sources.
 
 ### Required
 

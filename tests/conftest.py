@@ -143,6 +143,13 @@ def mock_gpt_researcher(mock_researcher, monkeypatch):
         "percival_research.resources.run_research_worker",
     ):
         monkeypatch.setattr(path, fake_research_worker)
+
+    async def fake_report_worker(query, context, sources, source_urls, custom_prompt, timeout_s):
+        return await mock_researcher.write_report(custom_prompt=custom_prompt)
+
+    monkeypatch.setattr(
+        "percival_research.tools.write_report.run_report_worker", fake_report_worker
+    )
     return mock_researcher
 
 

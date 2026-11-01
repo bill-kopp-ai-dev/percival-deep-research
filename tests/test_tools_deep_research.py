@@ -159,7 +159,7 @@ async def test_deep_research_armazena_cache_com_warning_header(
 @pytest.mark.asyncio
 async def test_deep_research_registra_metricas(clean_app_state, mock_gpt_researcher):
     """Sucesso incrementa `deep_research_total`."""
-    from server import metrics
+    metrics = clean_app_state["metrics"]
 
     antes = metrics.snapshot()
     import percival_research.tools.deep_research as dr

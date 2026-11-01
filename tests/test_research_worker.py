@@ -11,8 +11,13 @@ class GPTResearcher:
     def __init__(self, query, agent=None, role=None, verbose=False, context=None, **kwargs):
         self.query = query
         self.context = context or []
+        print("constructor chatter on stdout")
 
     async def conduct_research(self):
+        from gpt_researcher.context.compression import ContextCompressor
+        compressor = ContextCompressor()
+        compressor.documents = [{"url": "https://fixture.example/a", "raw_content": "abcde"}]
+        await compressor.async_get_context(self.query)
         self.context = [{"title": "Stub", "content": "contexto sintetizado"}]
         print("upstream chatter on stdout")
 
@@ -30,7 +35,15 @@ class GPTResearcher:
 def _run_worker(tmp_path: Path, stdin_payload: str) -> subprocess.CompletedProcess:
     stub_dir = tmp_path / "stubs"
     stub_dir.mkdir(parents=True, exist_ok=True)
-    (stub_dir / "gpt_researcher.py").write_text(textwrap.dedent(STUB_GPT_RESEARCHER))
+    package = stub_dir / "gpt_researcher"
+    (package / "context").mkdir(parents=True)
+    (package / "__init__.py").write_text(textwrap.dedent(STUB_GPT_RESEARCHER))
+    (package / "context" / "__init__.py").write_text("")
+    (package / "context" / "compression.py").write_text(
+        "class ContextCompressor:\n"
+        "    async def async_get_context(self, query, max_results=5, cost_callback=None):\n"
+        "        raise RuntimeError('unpatched compressor attempted embeddings')\n"
+    )
     return subprocess.run(
         [sys.executable, "-m", "percival_research.research_worker"],
         input=stdin_payload,

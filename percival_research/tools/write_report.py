@@ -1,13 +1,13 @@
 """Tool: write_report — gera relatório estruturado de uma sessão de pesquisa."""
 
-import sys
+import asyncio
 import time
-from contextlib import redirect_stdout
 
 from loguru import logger
 
 import percival_research.app as _app
 from percival_research.app import mcp
+from percival_research.research_worker_client import run_report_worker
 from utils import (
     handle_exception,
     new_correlation_id,
@@ -38,18 +38,27 @@ async def write_report(research_id: str, custom_prompt: str | None = None) -> st
 
     start = time.monotonic()
     try:
-        with redirect_stdout(sys.stderr):
-            report = await researcher.write_report(custom_prompt=custom_prompt)
+        report = await run_report_worker(
+            researcher.query,
+            researcher.get_research_context(),
+            researcher.get_research_sources() or [],
+            researcher.get_source_urls() or [],
+            custom_prompt,
+            _app._settings.research_timeout_s,
+        )
 
         lines = ["", report]
         return "\n".join(lines)
 
+    except asyncio.TimeoutError:
+        _app.metrics.record_timeout("write_report")
+        return (
+            f"Error: Report exceeded the {_app._settings.research_timeout_s}s "
+            f"internal limit (correlation_id={cid}). Research session remains available."
+        )
     except Exception as e:
-        # Em caso de erro, evicta o researcher para liberar recursos.
-        try:
-            _app.registry.evict_researcher(research_id)
-        except Exception:
-            pass
+        # The isolated report owns its resources. Keep the successful research
+        # session so a report failure never forces a paid repeat of research.
         _app.metrics.record_error("write_report")
         return handle_exception(e, "Report generation", cid)
     finally:

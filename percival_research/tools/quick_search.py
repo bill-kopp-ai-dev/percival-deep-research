@@ -13,6 +13,7 @@ from percival_research.app import (
     UNIVERSAL_AGENT_NAME,
     mcp,
 )
+from percival_research.retrievers.bounded_duckduckgo import install_bounded_retrievers
 from utils import handle_exception, new_correlation_id, sanitize_query
 
 
@@ -64,6 +65,7 @@ async def _do_quick_search(query: str, cid: str) -> str:
         role=_app._get_universal_agent_role(),  # dinâmico (audit rodada 2)
         verbose=False,
     )
+    install_bounded_retrievers(researcher)
     try:
         with redirect_stdout(sys.stderr):
             search_results = await researcher.quick_search(query=query)

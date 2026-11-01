@@ -7,7 +7,7 @@ import percival_research.app as _app
 from percival_research.app import (
     mcp,
 )
-from percival_research.research_worker_client import run_research_worker
+from percival_research.research_worker_client import run_research_worker, validate_research_data
 from utils import (
     format_context_with_sources,
     handle_exception,
@@ -41,6 +41,7 @@ async def _run_research_and_cache(query: str, cid: str) -> str:
     try:
         try:
             context, sources, source_urls = await run_research_worker(query, timeout_s)
+            validate_research_data(context, sources, source_urls)
         except asyncio.TimeoutError:
             _app.metrics.record_timeout("research_resource")
             # Round 6 fix (bug-hunt): timeouts não estavam alimentando o
