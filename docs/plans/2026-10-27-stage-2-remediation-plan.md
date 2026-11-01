@@ -1,10 +1,11 @@
 # Stage-2 — Remediação do Percival Deep Research MCP
 
-**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3.
+**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3; execução local e reconciliação de evidências em 2026-11-01 / 2.4; diretriz do owner para ensaio via Percival em 2026-11-01 / 2.5; pinagem inicial no Percival em 2026-11-01 / 2.6; ensaio integrado parcial em 2026-11-01 / 2.7; correção multicamada preparada em 2026-11-01 / 2.9; gateway/broker atualizados e nova pinagem Deep Research em 2026-11-01 / 2.10.
 **ID / estado:** S2-DR / execução local concluída parcialmente; **parcial** (7 ações
-verificadas, 2 parciais, 2 operações de teste autorizadas mas ainda não executadas
-nos managers, e 1 ação encerrada por decisão explícita de risco; publicação continua
-fora de escopo).
+verificadas, 2 parciais; Deep Research `feecce…` pinado e gateway/broker Compose
+atualizados; perfil de runtime A-009 pendente; V-PILOT funcional ainda não repetido
+após essas atualizações; 1 ação encerrada por decisão explícita de risco; publicação
+continua fora de escopo).
 **Checkout executor:** `/home/bill/Projects/percival-deep-research`.  
 **Owner, operador e signatário:** Bill Kopp (`bill.kopp.dev@gmail.com`), único proprietário e responsável por esta aplicação e pela infraestrutura IaC da Positronic Bean Labs (PBLabs); é também a única pessoa trabalhando nesses projetos e a única autoridade para decidir e assinar. Site: `labs.positronicbean.com`. As instruções e decisões de Bill autorizam o trabalho dentro do escopo explicitado, sem reaprovação ou aceite duplicado. A rotação da chave de teste foi dispensada por `R-01`.
 
@@ -24,8 +25,9 @@ preservar essa alteração e acordar com o dono seu destino documental.
 [consolidação](../../../positronic-bean-IaC/docs/reports/2026-10-26-stage-1-consolidated-readiness-report.md),
 [D-01..D-06](../../../positronic-bean-IaC/docs/decisions/2026-10-27-iac-stage-1-scope-and-pilot-decisions.md).
 
-Esta revisão registra decisões e autorizações do owner; não afirma que rollout,
-piloto, atualização de dependências ou publicação já foram executados. As
+Esta revisão registra decisões, autorizações e a pinagem da imagem candidata no
+Percival reportada pelo owner; não afirma que o perfil estreito de runtime ou os
+testes integrados foram executados. Publicação permanece fora de escopo. As
 decisões registradas não precisam ser solicitadas ou aprovadas novamente.
 Preservar 5 tools, 4 prompts, resource template, envelopes de fontes não
 confiáveis e single-endpoint inference. Bill autorizou o piloto complementar de
@@ -204,9 +206,11 @@ os critérios registrados. `R-03` remove a exigência de estimar esforço, custo
   os resultados juntos para V-BUILD/V-RUN/V-CONFIG/V-MCP/V-FUNC; confirmar a
   semântica stateless uma vez para V-DATA. A limitação MCP está registrada na
   seção 2; só implementar cancelamento se o piloto demonstrar necessidade.
-- [ ] Implementar S2-C04 conforme `DR-DEC-03`: harness versionado em repositório
-  dedicado, schema de evidência e mesma revisão/tag executada por pelo menos dois
-  MCPs; manter adaptadores/fixtures de produto nos checkouts donos.
+- [x] S2-C04 comum entregue: o harness versionado `pblabs-mcp-stdio/v1` foi
+  executado em Notes e Weather na mesma revisão, cobrindo o subconjunto stdio
+  comum. Isso não qualifica o pipeline funcional Deep Research nem substitui
+  seus testes específicos; não há prova de que este MCP tenha sido consumidor
+  do harness.
 - [ ] Executar o teste integrado `V-PILOT` já autorizado em `DR-DEC-05`
   (Percival agent → Deep Research MCP), no ambiente de teste e pela receita
   D-05/R-02, usando o candidato atualizado/revalidado. Nenhum piloto ou provedor
@@ -242,17 +246,17 @@ Ambiente: Linux x86_64 (Omarchy), Docker 29.9.2, `uv` 0.12.18 em
 | Ação | Estado | Mudança e evidência local verificada | Dependências / pendências |
 |---|---|---|---|
 | A-001 (F-001, F-017) | **verificada** | Alvo Python 3.12 + `gpt-researcher==0.16.0` fixado em `pyproject.toml`, `uv.lock` e `Dockerfile` (bases `python:3.12-slim@sha256:6b25cbe6…` e `uv:0.9.30-python3.12-trixie-slim@sha256:41eb2281…`; CI em 3.12). `server.py` passou a terminar com `SystemExit(1)` sem credencial: `docker run --rm --network none <img>` → **exit 1** e mensagem `INFERENCE_API_KEY … not found`. Suíte e CI rodam contra a mesma combinação embarcada (`gpt-researcher` 0.16.0 no host e na imagem, conferido por `importlib.metadata`). | Patch continua obrigatório em 0.16.0; o script recusa versões não suportadas. |
-| A-002 (F-002, F-015) | **parcial** | Imagem pré-popula o encoding `o200k_base` (`TIKTOKEN_CACHE_DIR=/app/.cache/tiktoken`, arquivo presente) e usa o mapa local do LiteLLM (`LITELLM_LOCAL_MODEL_COST_MAP=true`): com `--network none` o import resolve `o200k_base` e 2 953 modelos sem qualquer download. Documentados em `README.md` e em `docs/runtime-profile.md` (destinos de rede reais: endpoint de inferência + retriever). | **Não verificado:** o pipeline completo (`research_deep` → “Research complete.”) contra um fixture de provedor com resposta válida. O caminho feliz foi provado com upstream simulado por stub (`tests/test_research_worker.py`), não com o pipeline real do upstream. Ensaio com fixture real fica para a qualificação (V-FUNC/V-PILOT). |
+| A-002 (F-002, F-015) | **parcial** | Imagem pré-popula o encoding `o200k_base` (`TIKTOKEN_CACHE_DIR=/app/.cache/tiktoken`, arquivo presente) e usa o mapa local do LiteLLM (`LITELLM_LOCAL_MODEL_COST_MAP=true`): com `--network none` o import resolve `o200k_base` e 2 953 modelos sem qualquer download. Documentados em `README.md` e em `docs/runtime-profile.md` (destinos de rede reais: endpoint de inferência + retriever). No ensaio reportado em 2026-11-01, `research_quick_search` retornou resultados, mas `research_deep` expirou aos 30 s do cliente sem corpo nem `research_id`; pipeline de síntese continua não demonstrado. | Alinhar o timeout do cliente Percival ao limite efetivo do servidor e repetir uma chamada controlada, sem retry automático. O código do produto usa `PERCIVAL_RESEARCH_TIMEOUT_S=90` por padrão; o valor efetivo no container não foi verificado. A busca rápida teve qualidade inconsistente (duas chamadas com resultados, uma vazia; primeira dominada por fontes comerciais). |
 | A-003 (F-003) | **verificada; limitação MCP documentada** | O pipeline passou a rodar em processo isolado (`percival_research/research_worker.py`, cliente em `research_worker_client.py`); o pai aplica `PERCIVAL_RESEARCH_TIMEOUT_S` como limite rígido e mata o worker. Ensaio com upstream lento (`scripts/timeout_probe.py`, limite 2 s): resposta **“Error: Research exceeded the 2s internal limit” em 2,03 s**, sem “Research complete”, container encerrando com exit 0. O mesmo limite vale para `research://{topic}`. Para stdio, `notifications/cancelled` não é testado nem prometido; o limite interno encerra o worker. | Implementar propagação de cancelamento somente se o piloto ou um consumidor exigir; E-042 permanece como limitação, não como bloqueio atual. |
-| A-004 (F-004) | **rollout de teste autorizado; execução pendente** | Existe candidato rastreável anterior em `percival-deep-research:stage2-candidate`, mas ele não deve ser promovido ao manager após `DR-DEC-01`: reconstruir após o upgrade, mantendo labels de proveniência e manifesto de build (`scripts/write_docker_ci_manifest.py`). Perfil e evidência esperada em `docs/runtime-profile.md`. | Nenhuma mutação foi feita nesta revisão. Após rebuild e scan, executar diretamente pelo manager responsável no ambiente de teste; registrar a imagem/revisão e configuração atuais e manter rollback; sem janela formal adicional (`DR-DEC-04`). |
+| A-004 (F-004) | **pinagem do candidato concluída; teste integrado pendente** | O owner reportou pinagem pela UI Percival em 2026-11-01. Capturas mostram `update-image` iniciado às 13:25:15 e commits às 13:25:28/13:25:37 (hora exibida na UI), com imagem corrente `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d` (`3.0.1`, label OCI revision `09c3903944ae52584c350647f4900b78fc0ea262`). A tela posterior mostra Docker `running`, gateway intent `running`, MCP `connected` e 5 tools observadas. | As capturas mostram a configuração preservada durante a troca: bridge network, Full host access e 3 variáveis de ambiente. Portanto A-009 não foi aplicado; remover/reconciliar os seis mounts host RW amplos antes de aceitar o perfil de teste. A imagem anterior era `sha256:265891c14514c809e9c05587549631426ef080219c03fde21e5d703623d3793d`; a UI avisa que rollback só tenta usá-la se ainda estiver disponível localmente e que camadas antigas não são arquivadas. Teste funcional/piloto ainda pendente. |
 | A-005 (F-005) | **encerrada por decisão explícita de risco (`R-01`)** | Formato de entrega por arquivo permanece especificado (`docs/runtime-profile.md`: `/app/.env` RO, host 0600, nunca valor literal no ambiente) e a leitura do arquivo foi verificada localmente. | A rotação não será executada nesta campanha: o operador aceitou manter a chave descartável de teste porque outros serviços dependem dela. O risco residual continua registrado; esta decisão não equivale a revogação ou correção técnica. |
 | A-006 (F-006, F-016, F-018) | **verificada** | `/health` valida o retriever contra o registry real do `gpt-researcher` embarcado e detecta as variáveis de ambiente obrigatórias lendo o módulo upstream: `RETRIEVER=searx` com `SEARX_URL` → **200 healthy**; sem `SEARX_URL` → **503 degraded** (antes: sempre 503 para `searx`). `INFERENCE_LLM` malformado → `degraded`. Código inerte: `percival_research/retrievers/duckduckgo.py` passou a usar o pacote declarado `ddgs` (o `duckduckgo_search` não declarado saiu) e `httpx` passou a ser dependência declarada; o registry local ficou documentado como camada de extensão, fora do `/health`. | `/health` não valida reachability do provedor nem validade das credenciais — limitação declarada no README. |
 | A-007 (F-007) | **verificada** | `addopts` do pytest passa a medir cobertura (`--cov=server --cov=utils --cov=config --cov=llm_bridge --cov=percival_research --cov-report=term-missing`) com `fail_under=70`: `uv run pytest -q` reporta **89,35 %** e falha quando o piso não é atingido (prova local: `--cov-fail-under=99` → exit 1; passo equivalente no CI). Documentação sincronizada (README, AGENTS, PROJECT). | — |
 | A-008 (F-008, F-009) | **verificada** | Patch condicionado à versão: `scripts/patch_gpt_researcher.py` só aplica em 0.16.0, é no-op quando a versão não precisa e **recusa** versões desconhecidas. Divergência declarada em proveniência: labels `io.percival.gpt-researcher.version` / `.patch` e campo `gpt_researcher` no manifesto de build (SBOM CycloneDX no CI). Reprodutibilidade: `SOURCE_DATE_EPOCH` + `cp -a` (em vez de `COPY --from`, que carimba diretórios com a hora do build) → **dois builds `--no-cache` do mesmo SHA produzem o mesmo image ID** (`sha256:a53f74436c65…`), verificado por `scripts/check_reproducible_build.sh` (passo no CI). | A comparação usa `--provenance=false`: com a atestação padrão, o índice OCI carrega metadados por build (a identidade reproduzível é o manifest da plataforma). Divergência de conteúdo entre builds: 0. |
-| A-009 (F-010) | **rollout de teste autorizado; execução pendente** (perfil local pronto) | Perfil declarado em `docs/runtime-profile.md`: user 1000, rootfs RO, `cap_drop ALL`, `no-new-privileges`, init do launcher, tmpfs, `pids_limit`, mounts mínimos (`/app/.env` RO 0600, logs, reports) e política de rede (só endpoint de inferência + retriever). A imagem deixou de precisar de cache de pacotes do host (sem `apt`/`pip` na imagem), o que elimina a justificativa do mount RW `pacman/pkg`. Aplicar ao candidato reconstruído após `DR-DEC-01`. | **Não executada:** aplicar e inspecionar o perfil diretamente no manager responsável pelo ambiente de teste. R-10 mantém amplo o default do broker, então o perfil Research declara seus mounts necessários sem herdar esse default. Registrar imagem/revisão, configuração anterior e rollback; sem janela formal adicional (`DR-DEC-04`). |
+| A-009 (F-010) | **pendente** (perfil local pronto) | Perfil declarado em `docs/runtime-profile.md`: user 1000, rootfs RO, `cap_drop ALL`, `no-new-privileges`, init do launcher, tmpfs, `pids_limit`, mounts mínimos (`/app/.env` RO 0600, logs, reports) e política de rede (só endpoint de inferência + retriever). | **Não executada:** a tela pós-pin ainda reporta bridge network e Full host access; aplicar/reconciliar o perfil estreito pela UI, remover os mounts host RW amplos observados (`/`, `/boot`, `/home`, `/tmp`, `/var/log`, cache pacman) e registrar configuração anterior, imagem e rollback. Não foi apresentada evidência de perfil hardened. |
 | A-010 (F-011) | **verificada** | README documenta a volatilidade: `research_id` e cache de tópicos vivem em memória, expiram pelo TTL e são perdidos ao recriar o container; o erro explícito “Research ID not found or expired. Please run a new research session.” foi preservado e testado. Nenhuma persistência foi adicionada. | — |
 | A-011 (F-012, F-013) | **verificada** | `serverInfo.version` deriva da versão do produto (`FastMCP(version=__version__)`); o harness de conformance compara o handshake com a versão de `pyproject.toml` e falha se divergirem. Contagem de caracteres das fontes corrigida: o upstream guarda o corpo em `raw_content`, e o formatador agora lê `raw_content` (com fallback para `content`) — a fonte de fixture com conteúdo conhecido reporta o tamanho real, não zero. | — |
-| A-012 (F-014, F-019, F-020, F-021) | **parcial** | Hardening: `apt`/`apt-get`, `pip` e **todos** os binários setuid foram removidos da imagem (verificado: 0 setuid, `no-apt`, `no-pip`). O [scan Trivy](../security/2026-10-28-candidate-scan.md) 0.76.1 com **11 achados** e o [VEX](../security/vex-2026-10-28.json) referem-se à imagem antiga `sha256:afb0df3cc6b67e5bf01ac4bf018f0e6aba680b5a8c0271a8540c8c9e248aa150`; faltam data da DB e SHA de origem. O candidato final anterior `sha256:e91f6a3dd8b8b39053f60b2bc84f63454ee383644cef454459c56dc5eaf29b36` também não está coberto. S2-C03 define o destino do índice; há apenas um draft `servers/deep-research/pblabs.app.yaml`, sem `server.json` nem entrada de catálogo. | **Pendente:** atualizar authlib/dnspython/litellm para versões compatíveis corrigidas; rodar regressões e rebuild reproduzível; escanear o candidato final registrando versão/data da DB, SHA e image ID; gerar VEX para esse ID e assinar como owner (`R-07`). Criar/validar `servers/deep-research/server.json` e revisar o draft `.app.yaml` no índice. Não publicar até o owner decidir corte/release; CVEs herdados seguem a postura por herança. |
+| A-012 (F-014, F-019, F-020, F-021) | **parcial** | Hardening e S2-C04 comum estão verificados. As dependências vulneráveis foram atualizadas; ver seção 6.2. Trivy 0.76.1 com DB atualizada em 2026-11-01 encontrou **0 vulnerabilidades** no image ID `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`; não há findings que justifiquem VEX para este candidato. No índice PBLabs, `pblabs.app.yaml` está `manifest-approved` (aprovação de metadados, não de release), `server.json` continua ausente e o catálogo permanece vazio; `docker/server.json` do produto contém placeholders de publicação e não é manifest do índice. | **Próximo ciclo, conforme decisão do owner (2026-11-01):** criar/validar `server.json` no índice quando houver identidade/namespace e digest efetivos. Até lá, manter o catálogo vazio; esta tarefa não bloqueia o ciclo atual de testes em Percival. |
 
 **Revalidação `V-*` (2026-10-28, escopo local):**
 
@@ -263,9 +267,9 @@ Ambiente: Linux x86_64 (Omarchy), Docker 29.9.2, `uv` 0.12.18 em
 | `V-CONFIG` | aprovado (parcial) | Segredo por arquivo, recusas de entrada e `/health` coerente com o registry real; a rotação foi explicitamente dispensada por `R-01`, com risco residual aceito. |
 | `V-DATA` | não aplicável | Semântica stateless preservada; volatilidade documentada (A-010). |
 | `V-MCP` | aprovado | Handshake real, 5 tools, 1 resource template, `serverInfo.version` = versão do produto, stdout JSON-RPC puro. |
-| `V-FUNC` | **parcial** | Caminho feliz do worker e deadline verificados contra fixtures internas; pipeline real do upstream contra fixture de provedor **não** re-executado nesta rodada (A-002). Nenhum provedor real foi chamado. |
-| `V-PILOT` | autorizado, não executado | Bill aprovou o piloto complementar Percival agent → Deep Research MCP para fechar S2-DR (`DR-DEC-05`); usar ambiente de teste e a receita dedicada D-05/R-02. |
-| `V-REUSE` | princípio aprovado; implementação pendente | Bill aprovou S2-C04 (`DR-DEC-03`); falta criar/adotar a revisão comum e demonstrar a mesma tag/commit em pelo menos dois MCPs. |
+| `V-FUNC` | **parcial; pesquisa profunda não passou** | No ensaio do owner, `research_quick_search` retornou fontes em 2 chamadas (5 resultados e depois 4/5 oficiais) e uma terceira chamada foi vazia. `research_deep` não retornou em 30 s; sem resposta, ID ou fontes não é possível validar síntese, getters ou relatório. O limite padrão do cliente Nanobot é 30 s (`nanobot/config/schema.py`); o código Deep Research usa 90 s internos por padrão (`config.py`), mas o override runtime não foi lido. |
+| `V-PILOT` | parcial; pinagem concluída, fluxo principal bloqueado | Diagnóstico reportado pelo owner: broker `ready`, servidor `running/connected`, 5 tools e 4 prompts; initialize/list e prompt de health responderam. A pesquisa profunda expirou no cliente; getters foram chamados apenas com ID sintético e retornaram erro esperado, relatório não foi chamado. `resources/list` vazio/read 409; `resources/templates/list` não é suportado pelo broker atual. O pipeline funcional e o resource template permanecem não verificados. |
+| `V-REUSE` | **entrega comum demonstrada; escopo estreito** | `pblabs-mcp-stdio/v1` passou em Notes e Weather; prova identidade/versão, initialize/tools/list, stdout de protocolo, UID opcional e encerramento. Não demonstra funcionalidade Deep Research, HTTP, CI universal ou V-PILOT. |
 
 **Limites desta execução:** nenhuma chamada a provedor real e nenhum piloto
 executado; a autorização de `DR-DEC-05` ainda não foi exercida. Nenhuma mutação
@@ -287,6 +291,226 @@ conformance stdio verde (5 tools), falha fechada sem credencial → **exit 1**,
 deadline de 2 s → erro em **2,03 s** sem “Research complete”. A imagem é local
 (sem `push`/`RepoDigest`) e não substitui a publicação da Etapa 2.
 
+### 6.1. Harmonização com IaC — 2026-10-31
+
+- A convenção de ownership `R-12` do coordenador IaC consolida Bill como owner
+  e decisor final, sem handoffs ou aprovações duplicadas. Isso preserva os testes
+  técnicos e não amplia a autorização de rollout, publicação ou uso de provider
+  real.
+- O default amplo de mounts em `R-10` e a arquitetura de executor C02 pertencem
+  ao broker Percival. O perfil Deep Research continua declarando seus próprios
+  mounts estreitos e requisitos de rede; não herda configuração ou topologia do
+  Percival. O smoke DinD Percival+Notes não é o `V-PILOT` Deep Research, que
+  continua autorizado no plano, mas não executado.
+- S2-C04 está entregue no escopo comum: `pblabs-mcp-stdio/v1` foi demonstrado
+  em Notes e Weather. O resultado cobre somente probes stdio comuns e não fecha
+  `V-FUNC`, HTTP ou integração do Deep Research.
+- A ação A-011 do plano IaC, sobre provenance do bundle, é do bootstrap
+  Percival, testada localmente com fixtures/doubles e sem release pública
+  verificada. Não a tratar como requisito já implementado para Deep Research.
+
+### 6.2. Atualização local de dependências e candidato — 2026-11-01
+
+- Worktree baseado em HEAD `09c3903944ae52584c350647f4900b78fc0ea262`; `uv.lock`
+  foi atualizado (SHA-256 `8b938d140b869ecd07e4bfb27661e91bde213fe306a013c952eb1628258fd00d`).
+  Versões resultantes: `authlib 1.9.1`, `dnspython 2.9.1`, `litellm 1.106.6`,
+  `joserfc 1.7.7`, `langgraph 1.2.19`, `langgraph-cli 0.4.40` e `pypdf 6.21.4`.
+  O patch suportado de `gpt-researcher 0.16.0` foi reaplicado após cada `uv sync`.
+- Verificações: `uv run pytest -q` → **434 passed, 3 skipped**, cobertura
+  **89,35%**; Ruff check e format check passaram. Dois builds `--no-cache` da
+  mesma árvore produziram o mesmo ID
+  `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`
+  (`linux/amd64`; label de revisão `09c3903944ae52584c350647f4900b78fc0ea262`).
+  Conformance stdio passou com 5 tools e UID 1000; timeout fixture passou em
+  **2,165 s** para deadline de 2 s, sem alegar sucesso.
+- Scan final: Trivy **0.76.1**, vulnerability DB `UpdatedAt=2026-11-01T13:02:34Z`
+  (DownloadedAt `2026-11-01T14:54:21Z`), **0 findings** em
+  `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`.
+  O primeiro scan, com DB anterior, revelou achados transitivos; eles foram
+  atualizados antes do rebuild e o scan final foi repetido com DB renovada.
+- **Limites:** a imagem foi construída de worktree com `uv.lock` modificado
+  (não de commit limpo); o label SHA identifica o HEAD-base e o manifest local
+  registra o hash do lock, mas não substitui uma revisão commitada. Nenhum
+  rollout, V-PILOT ou pipeline completo contra fixture de provedor foi executado.
+  O inventário Percival mostra o pin ativo antigo e seis mounts host RW amplos;
+  uma sessão autenticada da interface do manager não está disponível aqui para
+  reconciliar esses mounts e aplicar o perfil autorizado. No índice local,
+  `pblabs.app.yaml` já está aprovado como metadado, mas `server.json` de release
+  e a entrada do catálogo dependem de digest/identidade efetivos; não inventá-los.
+
+### 6.3. Pinagem do candidato e estado do ensaio via Percival — 2026-11-01
+
+- Bill definiu que os testes de A-002/V-FUNC, A-004/A-009 e V-PILOT serão
+  realizados pelo agente Percival, com pinagem manual pela UI. Capturas fornecidas
+  pelo owner registram `update-image` iniciado às 13:25:15 e commits às 13:25:28
+  e 13:25:37 de 2026-11-01 (hora da UI); a tela pós-operação mostra o image ID
+  `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`,
+  Docker/gateway `running`, MCP `connected` e 5 tools observadas. O diálogo confirma
+  que a configuração é preservada durante `update-image`.
+- A mesma tela pós-pin ainda informa bridge network, Full host access e 3 variáveis
+  de ambiente. Assim, a pinagem está concluída, mas A-009/perfil estreito não está
+  aplicado. Remover/reconciliar os seis mounts host RW amplos e registrar a
+  configuração anterior/rollback antes de considerar o perfil de teste concluído.
+  `V-FUNC` e as chamadas funcionais do piloto continuam pendentes; a UI conectada
+  e a lista de tools não provam o pipeline real contra fixture de provedor.
+- A-012 — criar/validar `server.json` no índice — foi explicitamente adiada para
+  o próximo ciclo, quando houver identidade/namespace e digest efetivos. Manter
+  o catálogo vazio; essa tarefa não bloqueia os testes atuais em Percival.
+
+### 6.4. Ensaio funcional via Percival — resultado reportado em 2026-11-01
+
+- Bill compartilhou o relatório do agente Percival. É evidência reportada pelo
+  owner, não uma inspeção independente nesta sessão. O diagnóstico registra
+  broker `ready`/servidor `registered`, `running` e `connected`, initialize,
+  tools/list (5 tools) e prompts/list (4 prompts); o prompt de health retornou
+  seu template. Nenhuma configuração, imagem ou servidor foi alterado no ensaio,
+  segundo o relatório.
+- `research_quick_search` funcionou em duas das três chamadas: a primeira retornou
+  5 resultados, a segunda 5 (4 oficiais) e a terceira nenhum. A primeira busca
+  priorizada por fontes oficiais trouxe sobretudo páginas comerciais, indicando
+  qualidade/seleção de fontes inconsistente; isso não prova ausência de conteúdo
+  oficial, pois a consulta seguinte recuperou resultados oficiais.
+- `research_deep` expirou no cliente MCP aos 30 s, sem corpo de resposta e sem
+  `research_id`. O código Nanobot consultado define `tool_timeout=30` s;
+  `config.py` do servidor define `PERCIVAL_RESEARCH_TIMEOUT_S=90` s como padrão.
+  O valor efetivo do container não foi verificado, e o timeout do cliente não
+  permite concluir se o worker do servidor terminou ou foi cancelado. O probe
+  local anterior com 2 s usou override explícito e não valida este limite real.
+- `research_get_context`/`research_get_sources` foram chamados com ID sintético,
+  retornando o erro de ID ausente; isso confirma apenas resposta de validação, não
+  os caminhos com ID válido. `research_write_report` foi corretamente omitida
+  sem ID válido. Nenhum resultado de pesquisa profunda, source_count ou relatório
+  foi obtido.
+- O resource template `research://{topic}` não foi descoberto (`resources/list`
+  vazio; leitura concreta reportada como 409). A inspeção do código local do
+  broker mostra allowlist para `resources/list` e `resources/read`, mas não para
+  `resources/templates/list`; o manager não expõe atualmente a descoberta do
+  template por esse método. A causa exata do 409 não foi distinguida no ensaio.
+- **Follow-up do owner (2026-11-01):** a imagem MCP `b44a…` foi pinada, mas o
+  runtime manteve o gateway e broker antigos. O ensaio repetiu o timeout de 30 s;
+  o relatório confirmou também HTTPX 30 s e broker `select(...,18)` por resposta.
+  `resources/read` da URI template retornou 409 e `resources/templates/list`
+  400. A evidência confirma que só atualizar o servidor Deep Research não corrige
+  a cadeia cliente→HTTPX→broker; os novos candidatos de §6.6 tratam os três
+  limites e a rota de template.
+
+### 6.5. Primeiro candidato de timeout — supersedido pelo ensaio reportado — 2026-11-01
+
+- Em `nanobot/agent/tools/mcp.py`, MCPs gerenciados são convertidos em
+  `MCPServerConfig` sem timeout explícito, herdando 30 s. O novo candidato de
+  gateway define `DEEP_RESEARCH_TOOL_TIMEOUT_SECONDS=120` exclusivamente para
+  `server_id == "deep-research"`; o default dos demais serviços é preservado.
+  O README e a descrição MCP documentam que esse timeout só passa a valer após
+  instalar esse gateway.
+- Testes Percival: `tests/mcp_docker/test_contract.py` → **24 passed** (quatro
+  avisos Pydantic preexistentes do fixture); Ruff check passou; BasedPyright do
+  módulo `nanobot/agent/tools/mcp.py` → **0 errors, 0 warnings** com o ambiente
+  Python 3.12 de QA explicitamente selecionado. O teste confirma 120 s para
+  Deep Research e o default normal para Weather.
+- Novo candidato Deep Research: `percival-deep-research:3.0.1-09c3903-f2-7337813c2124`,
+  image ID `sha256:b44a6a6e4fe9a80e44111c77732be1f2154a0744085ded92ed80de58045413aa`,
+  source revision base `09c3903944ae52584c350647f4900b78fc0ea262`, diff SHA-256
+  `7337813c2124ca6f9e3b7c43b50cb190c11238ec1ba48b5f7e4b1ef2d6a09a57`.
+  A imagem passou conformance stdio (UID 1000, 5 tools) e timeout probe de 2 s
+  em fixture sintética (`2.171 s`, resposta de timeout explícita, exit 0).
+- Novo candidato gateway Percival: `percival-gateway:0.1.0-26cad20-f2-fe3f97d1c563`,
+  image ID `sha256:58bee2a6c9af2725887827e4d676b636c08afeb589cc0ff059f1b81d6ab7556b`,
+  source revision base `26cad20fab23931f537028148f54e27cfbc4c60a`, diff SHA-256
+  `fe3f97d1c563d9ffc97dd455a3ce26cc9082516cd77c2fbc209566b7459f1d17`.
+  Execução isolada confirmou timeout configurado de 120 s para Deep Research e
+  30 s default para demais MCPs.
+- Regressão ampla Nanobot no ambiente externo de QA: **8.662 passed, 66 skipped,
+  6 failed**. As falhas observadas foram por dependências ausentes do ambiente
+  (`nh3`/Matrix, `bun`/`npm` para WebUI e `npx` para preset Playwright); não
+  correspondem ao código de timeout. `ruff check .` passou. BasedPyright amplo
+  reportou erros por extras/canais opcionais ausentes; verificação do módulo
+  alterado `nanobot/agent/tools/mcp.py` com Python 3.12 selecionado passou com
+  **0 errors, 0 warnings**. Portanto a regressão completa do gateway não está
+  verde nesta configuração de QA.
+- Trivy **0.76.1**, DB `2026-11-01T13:02:34Z`: Deep Research candidate teve
+  **0 vulnerabilidades**. Gateway candidate reportou 397 entradas (4 Critical,
+  80 High, 127 Medium, 172 Low, 14 Unknown). A comparação com o gateway ativo
+  `sha256:2ef398971ec5effc90a11dd298530a23ffc82a8726ae379ab99531bca980a3d0`
+  encontrou os mesmos 397 identificadores/pacotes/versões/severidades — nenhum
+  adicionado ou removido. Os quatro Critical são associados a
+  `openssh-client 1:10.6p1-1+local1`; findings não adjudicados continuam no
+  risco do gateway e qualquer VEX exige decisão/assinatura do owner conforme
+  `R-07`. Esta comparação não é uma classificação de explorabilidade.
+- **Limite:** os dois builds são candidatos locais de worktrees dirty, sem push e
+  sem atualização de runtime. A configuração atual continua apontando para as
+  imagens antigas; o teste Percival integrado não foi repetido. Não houve
+  promoção/publicação do gateway candidate. A issue
+  [`2026-11-01-percival-tool-timeout.md`](../issues/2026-11-01-percival-tool-timeout.md)
+  permanece aberta até o V-PILOT gerar um ID real e concluir getters/relatório.
+
+### 6.6. Follow-up: limites do broker e resource templates — 2026-11-01
+
+- O owner pinou `sha256:b44a6a6e4fe9a80e44111c77732be1f2154a0744085ded92ed80de58045413aa`
+  às 14:18:56 -03:00 (`percival-mcp-deep-research`). O relatório subsequente ainda
+  observa timeout aos 30 s e nenhum `research_id`. Inventário read-only confirma
+  gateway ativo `percival-gateway:0.1.0-e4630dc-f3-4ddbd3bacec0` (image ID
+  `sha256:2ef398971ec5effc90a11dd298530a23ffc82a8726ae379ab99531bca980a3d0`)
+  e broker ativo `percival-mcp-broker:0.1.0-1fa2813` (image ID
+  `sha256:1d90f1357345e85acc55ddca3bc6b7ba35d41a1c59a7664b80958f90c579295e`).
+- Análise de código do stack ativo: timeout MCP wrapper 30 s, HTTPX read 30 s e
+  broker `select()` 18 s por resposta. Assim, o candidato de gateway de 120 s da
+  §6.5 não foi aplicado e, mesmo aplicado sozinho, não resolveria a leitura 18 s
+  do broker nem o read timeout HTTPX. O relatório informa que `resources/read`
+  do template retorna 409 e `resources/templates/list` retorna unsupported/400.
+- Correção local: gateway Deep Research 180 s apenas para `deep-research`; HTTPX
+  read/write/pool até 190 s; broker total 150 s em `tools/call`/`resources/read`
+  (handshake incluso), 18 s em métodos curtos; descoberta e allowlist de
+  `resources/templates/list`, resolução de URI somente contra templates simples
+  previamente anunciados; gateway expõe cada template como tool read-only derivada.
+  Resource template do Deep Research pode iniciar novo trabalho em cache miss:
+  após timeout não repetir por essa via; primeiro obter ID real, e ler somente
+  tópico já cacheado.
+- Testes locais após o refinamento de leitura bounded: broker/gateway MCP,
+  timeout, recursos e templates: **272 passed**, Ruff passou, BasedPyright dos
+  módulos alterados **0 errors**. Regressão completa Nanobot antes desse último
+  refinamento: **8.795 passed, 61 skipped, 7 failed**; seis
+  falhas por dependências opcionais (`nh3`, `bun`/`npm`, `npx`), uma falha
+  HTTPX read timeout em teste remoto passou isolada. O executor local não chamou
+  provider; `research_quick_search` do relatório do owner está em §6.4.
+- Candidatos gateway/broker aplicados a pedido do owner via Compose; imagem Deep
+  Research candidata segue sem pin manual:
+  - gateway: `percival-gateway:0.1.0-26cad20-f2-7de42eb44f4e`, image ID
+    `sha256:ba98f612aabbfe0c2a7d9454a55ace2e2f01827a6f713eac1bc2eb285d115b79`;
+  - broker: `percival-mcp-broker:0.1.0-26cad20-f2-7de42eb44f4e`, image ID
+    `sha256:5f449a092238634323ea735937e6ea0cec85b81f8a38318cbf9eb7599b7ddf0f`;
+  - Deep Research doc/help refresh: `percival-deep-research:3.0.1-09c3903-f2-8e267db4bd7f`,
+    image ID `sha256:feecce7c7575da94a6673cbb30440ee17a74164999c35086641f7096ce305629`.
+- Deep Research candidate: conformance stdio (5 tools, UID 1000) passou; timeout
+  probe sintético de 2 s respondeu em 2.257 s com erro explícito, exit 0; Trivy
+  0.76.1 vulnerability scan/DB `2026-11-01T13:02:34Z`: zero vulnerabilities.
+  Gateway e broker
+  candidates têm os mesmos findings Trivy que as imagens ativas e nenhum
+  identificador/pacote/severidade adicionado ou removido. Gateway ainda tem 4
+  Critical/80 High; broker 46 High, sem VEX/classificação de explorabilidade
+  assinados. Não promover/publicar esses core images.
+- Pós-atualização, `docker inspect` confirmou gateway ativo em
+  `sha256:ba98f612aabbfe0c2a7d9454a55ace2e2f01827a6f713eac1bc2eb285d115b79`
+  (revision `26cad20`, diff `7de42eb44f4e…`) e broker ativo em
+  `sha256:5f449a092238634323ea735937e6ea0cec85b81f8a38318cbf9eb7599b7ddf0f`
+  (mesma revision/diff). Ambos estão `healthy`; o `docker compose config`
+  sanitizado resolve exatamente para as imagens candidatas.
+- Smoke read-only via MCPProvider do gateway atualizado, antes da pinagem
+  final e contra a imagem `b44a…`: handshake, tools/list, prompts/list e
+  resources/templates/list passaram; registro do agente mostrou os cinco tools
+  nativos, quatro prompts e um wrapper read-only para `research://{topic}`. Nenhuma
+  `research_deep`, `resources/read` ou chamada a provider foi feita.
+- O owner pinou depois a candidata Deep Research
+  `sha256:feecce7c7575da94a6673cbb30440ee17a74164999c35086641f7096ce305629`;
+  `docker ps` e inspect confirmam o contêiner atualizado em execução (revision
+  `09c3903`). A chamada funcional ainda está pendente.
+- O owner também reportou chave de inferência legível em plaintext na config,
+  `allowRemoteAdmin:true` e binds RW amplos. Nenhum segredo foi acessado ou copiado;
+  config, variáveis, mounts e perfil de runtime não foram alterados; A-009/R-01
+  permanecem. A-009 deve ser conciliada antes do aceite final do piloto.
+- **Pendência:** confirmar `PERCIVAL_RESEARCH_TIMEOUT_S` efetivo sem segredos.
+  No V-PILOT, uma única chamada sem retry deve retornar `research_id`; validar corpo,
+  getters e relatório com o mesmo ID. A issue permanece aberta até esse teste.
+
 ## 7. Sincronização documental com o coordenador
 
 - [x] O retorno técnico histórico de S2-DR foi registrado no plano coordenador;
@@ -295,10 +519,10 @@ deadline de 2 s → erro em **2,03 s** sem “Research complete”. A imagem é 
 - [x] Preservar os retornos dos demais projetos e resumir impactos nas etapas 2/4/5.
   A sincronização do coordenador acompanha o estado, mas não é aprovação nem bloqueia
   execução já autorizada neste plano.
-- [ ] Sincronizar a linha S2-DR com a revisão 2.3: decisões `DR-DEC-01..07`,
-  A-004/A-009 autorizadas para rollout direto de teste mas ainda não executadas,
-  A-012 aguardando upgrade/scan/VEX do candidato final, e V-PILOT autorizado mas
-  ainda não executado. É atualização de estado, não aprovação nem gate de execução.
+- [x] Sincronizar a linha S2-DR com as decisões `DR-DEC-01..07`, atualização das
+  dependências, candidato/scan local da seção 6.2, mounts observados no manager,
+  rota via Percival/UI para A-002/A-004/A-009/V-PILOT e postergação de A-012 para
+  o próximo ciclo. É atualização de estado, não aprovação adicional.
 
 **Retorno histórico ao coordenador (2026-10-28):** o checkout IaC estava acessível;
 a linha **S2-DR** da seção 3 e uma entrada na tabela da seção 7 do

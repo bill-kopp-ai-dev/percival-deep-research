@@ -67,6 +67,11 @@ async def deep_research(query: str, include_context: StrictBool = False) -> str:
             FastMCP framework coerces strings to bool in lax mode,
             inflating the response with untrusted context. Use a real
             boolean in the agent prompt.
+
+    The server enforces `PERCIVAL_RESEARCH_TIMEOUT_S` (90 seconds by default).
+    The matching Percival gateway candidate allows 180 seconds, the HTTP client
+    allows 190 seconds, and the broker bounds long MCP calls at 150 seconds.
+    Keep these transport budgets above the effective server deadline.
     """
     cid = new_correlation_id()
 

@@ -304,6 +304,19 @@ Add to `~/.nanobot/config.json` (or via the WebUI **Apps** tab):
 }
 ```
 
+For the Percival-managed Docker server, `research_deep` has a 90-second
+internal deadline by default. The matching Percival candidates set a 150-second
+broker deadline for long calls, a 180-second managed client timeout and a
+190-second HTTPX read timeout. These are local candidate settings and take
+effect only after the gateway and broker candidates are installed. If the
+server's `PERCIVAL_RESEARCH_TIMEOUT_S` is raised, raise all transport budgets
+with enough response headroom.
+
+The `research://{topic}` resource may start a new research if that topic is not
+already cached. After a successful `research_deep`, use its real `research_id`
+for the context/source/report tools; only read the resource when reusing a known
+cached topic, to avoid accidentally starting a second research after a timeout.
+
 ### With OpenCode
 
 Add to `.opencode/mcp.json` (project) or `~/.config/opencode/mcp.json`
