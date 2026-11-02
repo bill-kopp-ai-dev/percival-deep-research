@@ -7,7 +7,7 @@ from loguru import logger
 
 import percival_research.app as _app
 from percival_research.app import mcp
-from percival_research.research_worker_client import run_report_worker
+from percival_research.research_worker_client import ProviderRejectedError, run_report_worker
 from utils import (
     handle_exception,
     new_correlation_id,
@@ -50,6 +50,9 @@ async def write_report(research_id: str, custom_prompt: str | None = None) -> st
         lines = ["", report]
         return "\n".join(lines)
 
+    except ProviderRejectedError as exc:
+        _app.metrics.record_error("write_report")
+        return f"Error: {exc} (correlation_id={cid}). Research session remains available."
     except asyncio.TimeoutError:
         _app.metrics.record_timeout("write_report")
         return (

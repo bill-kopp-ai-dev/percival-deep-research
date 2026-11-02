@@ -73,7 +73,7 @@ class Upstream(BaseHTTPRequestHandler):
         content = (
             '["fixture research"]'
             if number == 1
-            else "# Fixture report\n\nEvidence supports bounded research. "
+            else "<think>fixture auxiliary provider text</think>\n# Fixture report\n\nEvidence supports bounded research. "
             f"[Fixture](http://127.0.0.1:{self.server.server_port}/source). "
             "Limitation: synthetic fixture only."
         )
@@ -166,6 +166,11 @@ async def exercise(port, mode, container):
                     )
                     assert "SECURITY WARNING" in context and "source_count: 1" in sources
                     assert "# Fixture report" in report and "/source" in report, report
+                    assert (
+                        "<think>" not in report and "fixture auxiliary provider text" not in report
+                    )
+                    quick = await wrappers["research_quick_search"].execute(query="fixture search")
+                    assert "result_count: 1" in quick and "/source" in quick, quick
                     cache = await session.read_resource("research://fixture%20research")
                     assert "SECURITY WARNING" in cache.contents[0].text
                     assert Upstream.calls == 2, "cache/getters started extra inference"
@@ -191,6 +196,7 @@ async def exercise(port, mode, container):
                             "embedding_calls": Upstream.embeddings,
                             "workers_remaining": 0,
                             "passed": True,
+                            "tools_exercised": 5 if mode == "success" else 2,
                         }
                     ),
                     flush=True,

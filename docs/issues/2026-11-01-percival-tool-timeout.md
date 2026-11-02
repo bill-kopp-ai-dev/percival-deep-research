@@ -1,13 +1,608 @@
 # Deep Research expira no timeout do cliente Percival
 
-- **Status:** candidata Deep Research `1863c62b…` pinada e confirmada em runtime em 2026-11-02; erro da WebUI/status continua reportado; pesquisa real ainda pendente
+- **Status:** resolvida no fluxo funcional de pesquisa → contexto/fontes → relatório nos dois agentes em 2026-11-01: Positronic verificado diretamente, Percival reportado pelo owner; ressalvas de proveniência/qualidade do relatório permanecem abertas, sem timeout no reteste
 - **Reportado em:** 2026-11-01
 - **Severidade proposta:** alta; `research_deep` é o fluxo principal do produto
 - **Imagem testada inicialmente:** `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`
 - **Imagem pinada no follow-up reportado:** `sha256:b44a6a6e4fe9a80e44111c77732be1f2154a0744085ded92ed80de58045413aa`
-- **Imagem atual pinada:** `sha256:feecce7c7575da94a6673cbb30440ee17a74164999c35086641f7096ce305629` (container confirmado running)
-- **Source revision (OCI label):** `09c3903944ae52584c350647f4900b78fc0ea262`
-- **Evidência:** relatório do owner; imagem MCP atual conferida read-only em `docker ps`; limites do gateway/broker confirmados no código das imagens ativas
+- **Imagem atual Positronic:** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652` (instalação revisão 22, container running, configuração revisão 1)
+- **Imagem Percival pinada pelo owner:** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`; captura mostra `update-image · committed`, running/connected e 5 tools; a pinagem não foi executada por este agente
+- **Source revision (OCI label):** `5093cab8bcb349177a0789be59875ec0908f999a`
+- **Evidência atual:** captura e E2E Percival fornecidos por Bill nesta sessão; suíte canônica, lint/format, conformance Docker, fixture de cinco tools/cancelamento/deadline e chamadas diretas Positronic previamente verificadas; detalhes abaixo; seções anteriores preservam o histórico
+
+## Confirmação do owner: pin e E2E Percival bem-sucedidos — 2026-11-01
+
+Bill compartilhou a captura de pinagem e o relatório do agente Percival e
+confirmou que ambos os testes (Positronic e Percival) foram bem-sucedidos,
+solicitando registrar no plano. Esta seção é a evidência canônica desse retorno;
+o plano S2-DR a referencia. O relato Percival não foi reexecutado nem inspecionado
+independentemente pelo Positronic nesta atualização documental.
+
+### Identidade e estado reportados
+
+- A captura mostra `deep-research` em
+  `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`,
+  o mesmo image ID validado no Positronic.
+- Docker state e gateway intent `running`, MCP connectivity `connected`,
+  enabled in gateway `yes`, **5 tools observadas**.
+- Atividade recente mostra `update-image` iniciado em 2026-11-01 às
+  **21:13:36** e `committed` às **21:13:42**, conforme horário exibido na UI;
+  o timezone não aparece na captura.
+- A UI informa bridge network, Full host access e 3 variáveis de ambiente.
+  Ela não fornece os valores dessas variáveis, mounts detalhados nem uma nova
+  prova de perfil hardened; A-009 permanece separado do aceite funcional.
+
+### Sequência real reportada pelo Percival
+
+ID real copiado sem alterações e reutilizado nas quatro chamadas:
+
+```text
+b4a68b7b-e9b3-434e-bc0c-c854481085ee
+```
+
+| Tool | Resultado reportado | Duração aproximada |
+| --- | --- | --- |
+| `research_deep` | OK; 9 fontes e 12 URLs em `source_urls`; preview de URLs truncado com `… (+2 more)` | 18,9 s |
+| `research_get_context` | OK; 166 429 caracteres, persistidos e lidos localmente para conferir citações; preview truncado | 7,8 s |
+| `research_get_sources` | OK; 9 fontes com título, URL e tamanho | 4,0 s |
+| `research_write_report` | OK; relatório Markdown retornado antes do timeout | 54,3 s |
+
+Total reportado: **aproximadamente 85,0 s**, quatro chamadas MCP. Não houve
+retry, nova pesquisa, cache/resource ou ID de outra chamada. Além das tools,
+o relato informa somente cronometragem com `date -u` e leitura/busca local no
+arquivo já persistido; o path desse arquivo não foi fornecido. As durações do
+Percival são cronometragens reportadas de chamadas, distintas das durações de
+worker medidas nos logs Positronic abaixo.
+
+O owner reporta conferência do contraste principal contra a documentação oficial
+Python **3.15.2**, com os trechos nas linhas 1028–1065 e 1246–1251 do contexto:
+falha não-CancelledError no TaskGroup cancela/aguarda as demais tasks e agrupa
+falhas; gather padrão propaga a primeira exceção sem cancelar as outras.
+Os casos especiais KeyboardInterrupt/SystemExit também foram identificados.
+Esses números de linha pertencem ao contexto persistido do ensaio, não são
+âncoras estáveis da página web.
+
+O ensaio Percival não incluiu `research_quick_search`, nem nova leitura do
+resource template ou dos prompts; não inferir esses resultados a partir das
+quatro chamadas. A busca rápida foi validada diretamente no Positronic, conforme
+a seção seguinte.
+
+### Ressalvas preservadas — DR-OBS-01 (aberta)
+
+O sucesso funcional não encerra as limitações de proveniência/qualidade
+identificadas pelo owner:
+
+1. Duas URLs Stack Overflow (`/questions/79836234/…` e
+   `/questions/42231161/…`) aparecem em `source_urls`, mas não na lista de
+   9 fontes recuperadas. Há uma divergência observada entre os conjuntos;
+   ainda não foi discriminado se resulta da diferença entre URLs visitadas e
+   fontes efetivamente extraídas, de falha de coleta ou de defeito no contrato.
+2. O relatório afirma que nenhum resultado/URL Stack Overflow foi retornado,
+   contradizendo a lista `source_urls` reportada. A precisão do relatório nesse
+   ponto não foi aceita.
+3. A URL inglesa `https://docs.python.org/3/library/asyncio-task.html` foi
+   citada pelo relatório, mas não consta no getter de fontes desse ensaio.
+   Pode ser reconstrução pelo modelo; a proveniência dessa citação permanece
+   não confirmada, sem inferir coleta a partir da URL plausível.
+4. A afirmação sobre não garantir coleta de falhas hipotéticas após cancelamento
+   não foi verificada diretamente. A versão observada foi 3.15.2; introdução de
+   TaskGroup em 3.11 não significa que a página consultada fosse da versão 3.11.
+
+**Próximo trabalho de qualidade:** reconciliar a semântica de `source_urls`,
+fontes extraídas e contexto e verificar as citações/alegações negativas do
+relatório contra os dados daquela sessão. Responsável pelo acompanhamento:
+Bill/Positronic, no próximo ciclo de qualidade. Nenhuma causa ou correção foi
+declarada comprovada nesta atualização; não é necessário repetir o E2E somente
+para registrar seu resultado.
+
+**Aceite registrado:** fluxo principal concluído com sucesso nos dois agentes,
+com a mesma candidata local, e ressalvas DR-OBS-01 abertas. Isso encerra a falha
+de timeout no cenário testado, não qualifica automaticamente hardening,
+publicação, resource/prompts ou precisão integral do conteúdo gerado.
+
+## Aceite funcional real após liberação da cota — 2026-11-01, 21:02–21:08 -03:00
+
+O owner informou que a indisponibilidade de cota provavelmente havia sido
+resolvida e autorizou retomar os ciclos. A mesma credencial do mount existente
+foi mantida; não foram comprados créditos nem alterada autenticação. O reteste
+confirmou que o bloqueio 402 deixou de ocorrer no fluxo exercitado.
+
+### Primeiro E2E real da retomada
+
+Na imagem `7128f9ac…`, foi repetida a mesma pergunta pública em português sobre
+`asyncio.TaskGroup` e `asyncio.gather`, com `include_context=false`:
+
+- `research_deep` concluiu com ID
+  `a3e45ba2-277f-491e-970f-c8ed77009afe` e **8 fontes**, incluindo a documentação
+  oficial Python 3.11.18.
+- `research_get_context` e `research_get_sources` retornaram dados desse ID,
+  mantendo o prefixo de conteúdo externo não confiável.
+- `research_write_report`, com custom prompt em português, concluiu e citou
+  a documentação oficial, mas incluiu um bloco auxiliar `<think>` do provider
+  antes do relatório.
+- `research_quick_search` retornou **5 resultados**, incluindo docs.python.org.
+
+Isso confirmou o restabelecimento de inferência e busca, mas motivou corrigir
+a saída pública do relatório antes de aceitar a candidata final.
+
+### Correção adicional e imagem
+
+`run_report_worker` agora remove somente envelopes auxiliares `<think>...</think>`
+no início da resposta do provider. Blocos literais no corpo/Markdown são
+preservados; envelope incompleto ou resposta sem relatório final é erro, não
+sucesso. Seis casos de regressão cobrem Markdown simples, prefixo, prefixos
+repetidos/case-insensitive, tags literais e respostas incompletas/sem conteúdo.
+O harness também simula um prefixo auxiliar e confere que ele não chega à tool.
+
+- Tag: `percival-deep-research:3.0.1-5093cab-f2-6735820b62ca`.
+- Image ID: `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`.
+- Base de fonte: `5093cab8bcb349177a0789be59875ec0908f999a`, worktree **dirty**.
+- SHA-256 do diff no build:
+  `6735820b62ca733805076633b60eee616ee26c545407d97c78237993606427bf`.
+- Build pelo script canônico com `--worktree-candidate`; linux/amd64, versão
+  3.0.1, bases e `uv.lock` preservados. É uma candidata local, não release limpa.
+- Pin aplicado pelo CLI Positronic com CAS **21 → 22**; configuração reaplicada,
+  revisão **1**, configuration ID `38ecdaa7-d72e-4c30-bea7-63ed450c6e55`.
+- Mesmo mount RO e overrides MiniMax documentados na campanha anterior; cinco
+  tools descobertas. A imagem anterior permaneceu disponível para rollback.
+
+### E2E real da imagem final — passou
+
+A pergunta foi novamente a mesma, em uma pesquisa nova necessária para testar
+a nova encarnação do servidor. ID retornado e reutilizado exatamente em todas
+as chamadas de sessão:
+
+```text
+a675e787-8bc5-4a3c-9e7e-c34d36a65780
+```
+
+| Tool | Evidência observada |
+| --- | --- |
+| `research_deep` | `Research complete.`, ID válido acima, `source_count: 7`; docs.python.org nas fontes |
+| `research_get_context` | Conteúdo não vazio, prefixo `[SECURITY WARNING: ...]`, páginas oficiais Python em português e inglês |
+| `research_get_sources` | `source_count: 7`; títulos, URLs e contagens de caracteres; documentação oficial entre as fontes |
+| `research_write_report` | Chamada **padrão, sem custom prompt**, retornou relatório Markdown completo com referências, sem prefixo `<think>` |
+| `research_quick_search` | Consulta `Python asyncio TaskGroup gather cancellation`, `result_count: 5`, incluindo documentação oficial |
+
+O conteúdo central do relatório correspondeu ao trecho oficial recuperado:
+TaskGroup cancela/aguarda tarefas irmãs em falha não-CancelledError; gather
+padrão propaga a primeira exceção sem cancelar as outras. O relatório padrão
+veio em inglês. Não foi feita auditoria exaustiva de toda a prosa, exemplos ou
+metadados bibliográficos gerados; o aceite aqui é funcional do fluxo MCP e
+inclui uma conferência do contraste técnico principal, não garantia de toda
+afirmação gerada.
+
+Logs content-free da imagem final (UTC; a data local ainda é 2026-11-01):
+
+```text
+2026-11-02T00:07:38.574644507Z worker=84b5be41d190 pid=21 operation=research timeout_s=90 started
+2026-11-02T00:07:53.360548172Z worker=84b5be41d190 pid=21 operation=research outcome=completed last_stage=complete reaped=True
+2026-11-02T00:07:54.632482126Z [crl-cd80a63e] Research complete. ID: a675e787-8bc5-4a3c-9e7e-c34d36a65780
+2026-11-02T00:08:04.504925938Z worker=35fa0cbb6ace pid=57 operation=report timeout_s=90 started
+2026-11-02T00:08:31.916698020Z worker=35fa0cbb6ace pid=57 operation=report outcome=completed last_stage=complete reaped=True
+```
+
+Durações dos workers: pesquisa **14,79 s**, relatório **27,41 s**, ambos abaixo
+de 90 s. Não são medidas exatas da latência de transporte inteira. O fallback
+Yahoo retornou resultados para subconsultas mesmo com buscas DuckDuckGo vazias;
+isso demonstra uso efetivo do fallback, não restauração do backend DuckDuckGo.
+`docker inspect` confirmou imagem/labels em
+`positronic-mcp-deep-research-6670fb6ccfa3`; `docker top` ao final mostrou somente
+init + servidor, sem worker órfão.
+
+### Verificação automatizada da revisão candidata
+
+- Patch pós-sync obrigatório executado; `uv run pytest -q`: **454 passed,
+  3 skipped**, cobertura **88,96%** (mínimo 70%). Os três skips continuam sendo
+  integrações HTTP com servidor separado; o E2E real acima foi executado pelas
+  tools do agente.
+- Ruff check/format e `git diff --check`: passaram.
+- Conformance da imagem final: initialize + tools/list, cinco tools, UID 1000,
+  chave fictícia, passou.
+- Pipeline fixture da imagem final, `--mode success --delay 31`: passou,
+  **40,105 s** na pesquisa, cinco tools exercitadas, **2** chamadas de
+  inferência fictícia, **0** embeddings, **0** workers restantes. Inclui
+  regressão de remoção do envelope auxiliar no relatório.
+- Sem commit, push ou publicação nesta retomada. O gestor Percival não foi
+  alterado. Esta seção da issue foi escrita após o build e não integra seu
+  hash de diff; o README já estava atualizado no contexto da imagem.
+
+**Conclusão/continuidade:** problema resolvido no aceite local das cinco tools
+no Positronic, com a conta MiniMax e os motores públicos disponíveis neste
+ensaio. Não há bloqueio atual nesse aceite. Manter a imagem pinada e executar
+novo diagnóstico somente se houver regressão, mudança de credencial/provider
+ou nova candidata. Os bloqueios 402 e buscas vazias abaixo são históricos e
+foram superados pelos resultados desta seção, não apagados do registro.
+
+## Ciclos de correção autorizados pelo owner — 2026-11-01
+
+O owner autorizou repetir avaliação → correção → build → pinagem no Positronic →
+avaliação até o servidor funcionar. Aceite definido: pesquisa real retorna ID
+válido, contexto e fontes recuperáveis, relatório gerado do mesmo ID e busca
+rápida funcional. **Esse aceite real não foi alcançado**: há dependência externa
+de cota MiniMax e os últimos testes de busca pública retornaram vazios.
+
+### Achados e correções
+
+1. O worker isolado não chamava `install_bounded_retrievers`; somente a tool
+   rápida aplicava o retriever limitado. A instalação agora ocorre dentro do
+   worker antes da pesquisa, com regressão que falha se ele perder a substituição.
+2. O cliente Positronic interrompia aos ~60 s sem progresso. O worker agora
+   emite notificações MCP a cada 10 s, com segundos decorridos, sem percentual
+   fictício ou conteúdo da pesquisa. O deadline interno de 90 s continua rígido.
+   Uma regressão usa transporte MCP em memória e confere ausência de tarefa de
+   progresso após conclusão; chamadas Positronic reais passaram dos 60 s e
+   receberam a resposta interna aos 90 s.
+3. DDGS não oferecia resultado utilizável no backend DuckDuckGo nos ensaios.
+   O primeiro fallback tentou `bing`, mas a versão instalada marca esse engine
+   como desativado e silenciosamente volta a `auto`. Foi substituído por
+   `yahoo`, ativo no registry, com validação pré-dispatch contra engines ausentes
+   e no máximo dois backends explícitos, cada um com socket timeout de 5 s.
+   Os ensaios diretos demonstraram disponibilidade variável: Yahoo produziu
+   resultados em um diagnóstico e depois nenhum resultado nas chamadas finais.
+   Não há garantia de disponibilidade desses motores públicos.
+4. Diagnóstico da configuração carregada com `runtime_env` mostrou endpoint
+   MiniMax com modelo default `gpt-4o-mini`, e base URL terminando em
+   `/v1/text/chatcompletion_v2`. O SDK acrescentava `/chat/completions`; uma
+   chamada sem retries recebeu 404 em 1,47 s. Foi configurado explicitamente
+   `MiniMax-M2.7` e a base compatível `https://api.minimax.io/v1` via gestor.
+   Referência verificada em 2026-11-01:
+   [documentação oficial MiniMax OpenAI SDK](https://platform.minimax.io/docs/api-reference/text-openai-api).
+5. O upstream repetia falhas permanentes até dez vezes na completion e ainda
+   fazia retries/fallback no planner, mascarando 404/402 como timeout. O patch
+   obrigatório de `gpt-researcher==0.16.0` agora faz essas camadas propagarem
+   400/401/402/403/404/405/413/422 sem retry. Erros transitórios não receberam
+   essa regra. O worker transmite somente status allowlisted; as tools retornam
+   erro MCP sanitizado com correlation ID e preservam sessão em falha de relatório.
+6. Logs do worker mantêm marcadores/contagens/durações e tipo de exceção
+   allowlisted; stderr upstream, prompts, respostas e credenciais continuam
+   privados. `outcome=failed` distingue saída não-zero de processo concluído.
+
+### Imagens e avaliações por ciclo
+
+Todas as imagens são candidatas locais `linux/amd64`, versão 3.0.1, base
+`5093cab8bcb349177a0789be59875ec0908f999a` com alterações não commitadas,
+construídas pelo builder canônico Nanobot com `--worktree-candidate`. Não são
+releases limpas nem imagens publicadas. Lock `uv.lock` preservado:
+`940ec7e4cc2429598b8e4ed4a7ba377124a998bde7f837baa919018dce5f04d0`.
+
+| Ciclo | Image ID | SHA-256 do diff no build | Resultado real Positronic |
+| --- | --- | --- | --- |
+| 1 | `sha256:7700cece3deca774e21eb31328575e6d015ca14d1940502326cb900c362cbb21` | `6c0d4980d3b9c39ea9e0d1837265abc5e557cd942cb53950dd510d8adf81a356` | Quick search retornou 5 resultados; deep falhou em ~10,41 s, `crl-4d905eee`, worker `718fa52df98e`, stage `search_engine`. A descoberta de `bing` desativado invalida a interpretação de que aquele sucesso provava fallback limitado. |
+| 2 | `sha256:27388cb208c0bb06c504c18d6beb0b8db7c8643ba03b10eee6ad00c9d2f434f4` | `d1ceaf6416622fea58452e066cd7d0f0a2fbbd8c9353d3270d0762e259481c20` | Deep recebeu timeout interno 90 s, `crl-c558ae8e`; após corrigir somente modelo, ainda 90 s, `crl-bb4e4f4c`. Diagnóstico posterior confirmou base URL errada e depois cota esgotada na URL correta. |
+| 3, pin final | `sha256:7128f9ac45ff876290e424e6f4986bf561b04a0f4e14866f9fc30e9acbcf492c` | `6e4753d66bf88f402de9adaad4c8096182d91967bea159065b90fea8a37f6d89` | Deep retornou erro HTTP 402 explícito, `crl-dbc25113`, sem pesquisa válida, worker 9,26 s, recolhido. Dois testes rápidos (`asyncio TaskGroup cancellation`, `asyncio TaskGroup`) retornaram `result_count: 0`. |
+
+As durações acima são dos timestamps do worker, não medições exatas de toda a
+latência MCP. A pergunta de deep foi a mesma pergunta pública em português
+sobre TaskGroup/gather em todos os ciclos. Nenhuma chamada real produziu ID;
+getters/relatório reais não foram executados sem ID. A autorização iterativa
+substituiu a restrição de chamada única da campanha anterior; cada tentativa
+acima foi uma avaliação intencional, não retry oculto do agente.
+
+### Bloqueio externo confirmado
+
+Com o endpoint compatível e a credencial já montada, chamada direta sem retry
+retornou HTTP 402, mensagem do provider (sem segredo):
+
+```text
+The Token Plan usage limit has been reached. To avoid interruption, please upgrade your plan or buy credits and turn on auto consumption. (2067)
+```
+
+A tool Positronic, na imagem final, agora retorna:
+
+```text
+Error: Inference provider rejected request (HTTP 402: provider quota or billing limit reached). (correlation_id=crl-dbc25113)
+```
+
+Não foram comprados créditos, habilitada cobrança automática, trocada credencial
+ou consumido outro provider. Isso exige disponibilidade externa da conta; não
+é corrigível por timeout. A busca pública vazia também impede afirmar que o
+backend live está validado. Se persistir após a liberação da cota, avaliar um
+retriever suportado com disponibilidade estável, sem aceitar pesquisa vazia como
+sucesso.
+
+### Verificação da candidata final
+
+- `uv run pytest -q`: **448 passed, 3 skipped**, cobertura **88,60%** (mínimo
+  70%). Os skips são integrações que exigem servidor HTTP separado, não testes
+  real-provider aprovados. O patch pós-sync foi executado antes da suíte.
+- Ruff check/format e `git diff --check`: passaram.
+- `docker-ci-conformance.py`: initialize/tools-list passou nas três imagens,
+  com as cinco tools, UID 1000 e credencial fictícia, sem rede externa.
+- `pipeline_probe.py --mode success --delay 31`, imagem final: **passou**,
+  pesquisa em **39,778 s**, ID real da fixture usado em contexto/fontes/relatório,
+  quick search também exercitada, cache recuperado, **2 chamadas de inferência
+  fictícia**, **0 embeddings**, **0 workers restantes**, cinco tools exercitadas.
+  Usa o código do broker/wrappers em fixture descartável, não modifica instalação
+  Percival. É evidência sintética, não aceite da conta/provider real.
+- `pipeline_probe.py --mode cancel`, imagem final: **passou**, 5,974 s até
+  cancelamento observado, 1 chamada fictícia, 0 embeddings e 0 workers restantes.
+- `timeout_probe.py --timeout 2 --max-elapsed 3 --upstream-delay 30`: **passou**,
+  erro interno em **2,034 s**, exit 0. Um ensaio anterior usou timeout 3 com
+  orçamento total também 3 s e falhou a asserção em 3,038 s; isso não foi
+  reportado como pass. O segundo usa o orçamento padrão documentado (2+1 s).
+- A primeira invocação da pipeline pela venv Deep Research falhou antes do
+  ensaio por faltar `tzlocal` do Nanobot. Foi repetida na venv de testes Percival
+  já existente (`runtime/tmp/opencode/.venv-percival`), que passou. Nenhuma
+  dependência de produção foi alterada para acomodar o harness.
+- Runtime final: `positronic-mcp-deep-research-05eafd6b1b93`, imagem/labels
+  conferidos por inspect, apenas init + servidor em `docker top` após os testes.
+
+### Estado gerenciado e continuidade
+
+Pin final Positronic: revisão de instalação **21**, configuration ID
+`421529fa-2172-4372-b39e-e15040dbfcd3`, config revisão **1**, global/ativado,
+rede bridge, mesmo mount read-only em `/app/.env`, cinco tools permitidas.
+Overrides públicos via `mcp server configure`:
+
+```text
+INFERENCE_LLM=minimax:MiniMax-M2.7
+INFERENCE_BASE_URL=https://api.minimax.io/v1
+OPENAI_BASE_URL=https://api.minimax.io/v1
+```
+
+Os pins/configurações anteriores foram lidos antes de cada mutação; os image
+IDs anteriores foram preservados para rollback. A documentação README e esta
+issue foram atualizadas depois do build final; o label de diff identifica o
+estado exato no momento do build, não o diff documental subsequente. Não houve
+commit, push, publicação ou mutação do gestor Percival nesta campanha.
+
+**Próxima ação do owner:** liberar a cota do Token Plan ou fornecer uma
+configuração de inferência autorizada e disponível. Depois, retomar na imagem
+final, repetir pesquisa pública → contexto/fontes → relatório com o mesmo ID e
+confirmar resultados da busca rápida. Manter o aceite real aberto até esse
+fluxo passar; a fixture não o substitui.
+
+## Deploy e teste direto no Positronic — 2026-11-01
+
+### Reteste Percival reportado pelo owner
+
+Após o pin de `a6efc34d…`, o owner reportou uma única chamada real, sem retry,
+que retornou:
+
+```text
+Error: Research exceeded the 90s internal limit (correlation_id=crl-a61d351c). Try a more specific query or increase PERCIVAL_RESEARCH_TIMEOUT_S.
+```
+
+Houve mensagem de erro entregue ao cliente, mas não resultado de pesquisa nem
+`research_id`; o relato de "sem corpo de resposta" não significa ausência de
+qualquer resposta de transporte neste caso. A duração de cerca de 90 s foi
+inferida da mensagem, sem medição instrumental do cliente. Getters/relatório não
+foram executados. Esse episódio é distinto do bloqueio anterior de 175 s sem
+resposta; os logs do correlation ID acima não foram coletados nesta atualização.
+
+### Deploy Positronic solicitado pelo owner
+
+Foi atualizada a instalação **global do Positronic**, sem usar o manager
+Percival nem editar estado gerenciado à mão. CLI utilizado:
+`/home/bill/.local/bin/positronic-server-cli mcp server`.
+
+- Antes: servidor `deep-research`, revisão 17, imagem `b9ef1cb0…`, configuração
+  com allowlist somente `research_quick_search`.
+- `update-image` com revisão esperada 17 aplicou
+  `sha256:a6efc34dc869af732e1d5af7df537037b67170821837473c95465e444e505ec5`,
+  avançando para revisão 18, configuration ID
+  `658d29b7-2ef0-4be2-ac84-1419e8121998`.
+- Configuração reaplicada pelo gestor (nova config revisão 1): rede `bridge`,
+  mesmo arquivo de credenciais já existente montado em `/app/.env` read-only e
+  allowlist das cinco tools públicas. Credenciais não foram lidas nem expostas.
+- `discover` retornou as cinco tools. O container
+  `positronic-mcp-deep-research-904546b35ba4` foi confirmado `running`, com o
+  image ID novo e OCI revision `5093cab8bcb349177a0789be59875ec0908f999a`.
+  O container Percival também continuava no mesmo image ID; nenhuma mutação foi
+  feita no manager Percival nesta campanha.
+- Rollback: imagem anterior `sha256:b9ef1cb0c577b2e38ee4a42d73a55df3aaa5642cf9446116f933a672d086d835`
+  confirmada disponível antes da alteração; configuração anterior descrita acima.
+
+### Chamada direta única e evidência de execução
+
+A tool `research_deep` do agente Positronic foi chamada uma única vez com a
+mesma pergunta pública sobre `asyncio.TaskGroup`/`asyncio.gather` e
+`include_context=false`. Resultado completo do cliente:
+
+```text
+MCP error -32001: Request timed out
+```
+
+Não houve `research_id`; nenhum retry, busca alternativa, getter ou relatório
+foi executado. Timestamps externos anteriores/posteriores à chamada delimitam
+uma janela de 68,83 s (inclui overhead das ferramentas). Os timestamps do worker
+mostram **59,90 s entre início e cancelamento**; não confundir essa medida com
+tempo exato de transporte da chamada:
+
+```text
+2026-11-01T22:32:24.704843552Z worker=de4c2db68ce9 pid=21 operation=research timeout_s=90 started
+2026-11-01T22:33:24.599173768Z worker=de4c2db68ce9 pid=21 operation=research outcome=cancelled last_stage=search reaped=True
+```
+
+O timeout do cliente Positronic interrompeu esta execução antes do deadline
+interno de 90 s. O processo filho foi recolhido (`reaped=True`); a última etapa
+instrumentada foi `search`, não conclusão/sucesso. Isso localiza a execução no
+caminho de busca, mas não identifica motor, subconsulta, espera de rede ou
+chamada ao modelo específica como causa raiz. A instrumentação traduz eventos
+upstream em marcadores e não mede isoladamente cada operação.
+
+**Próximo passo:** inspecionar e alinhar o timeout efetivo de chamada do cliente
+Positronic com o deadline interno antes de autorizar outro ensaio; investigar
+busca usando o estado/diagnóstico já obtido. Aumentar o timeout não é evidência
+de correção do gargalo observado no Percival aos 90 s. O deploy Positronic está
+concluído; o aceite funcional E2E permanece aberto.
+
+## Falha E2E e sintomas amplos do broker — relato do owner, 2026-11-01
+
+### Resultado do teste solicitado
+
+O owner realizou uma única chamada de `research_deep` com a consulta pública
+especificada, sem retry e sem busca alternativa. O cliente expirou após **175,12
+s**, sem receber corpo HTTP/MCP:
+
+```text
+[175.12s] EXCEPTION TimeoutError: timed out
+```
+
+Não houve resposta HTTP, corpo nem `research_id`. Conforme o procedimento do
+ensaio, `research_get_context`, `research_get_sources` e `research_write_report`
+não foram chamados; não houve recuperação por cache/recurso. Portanto, nenhuma
+conclusão sobre o conteúdo pesquisado ou a imagem Deep Research pode ser tirada
+deste ensaio. O owner relata uma única chamada de pesquisa, cujo eventual estado
+interno não pôde ser observado.
+
+### Sintomas de transporte relatados
+
+O diagnóstico read-only do owner reporta, no mesmo ambiente:
+
+| Rota/ação | Resultado reportado |
+|---|---|
+| `POST /v1/health` | HTTP 200 em 0,10 s |
+| `POST /v1/status` | timeout após 10–12 s |
+| `POST /v1/observe` com source válido | timeout após 20 s |
+| `POST /mcp/notes` — `initialize` | timeout após 25 s |
+| `POST /mcp/deep-research` — `initialize` | timeout após 25 s |
+| tool `notes_get_status` | cliente MCP expirou em 30 s |
+| `POST /mcp/deep-research` — `research_deep` | cliente expirou em 175,12 s, sem corpo |
+
+Esses resultados sugerem que o incidente não está limitado ao pipeline de
+pesquisa Deep Research: o problema também afeta operações do broker e um segundo
+servidor MCP. A comparação só localiza a falha na camada comum se os endpoints
+`notes` e `deep-research` forem servidos pela mesma instância do broker e as
+medições pertencerem ao mesmo intervalo operacional; isso ainda precisa ser
+correlacionado por timestamp, processo e request ID.
+
+O owner reporta ainda: `deep-research` ativo/`running`, cinco tools configuradas,
+imagem `1863c62b…`, configuração global na revisão `34`, servidor na revisão `6`,
+sem `pendingTransitions`; hashes de `config.json`/`audit.jsonl`, contagem de
+linhas e backups permaneceram iguais durante a coleta. Se corretos, esses dados
+indicam que o diagnóstico não fez mutações de manager além da chamada MCP
+solicitada. O ambiente de diagnóstico não tinha Docker CLI nem socket disponível,
+limitando a inspeção de processos e logs.
+
+### Análise do lock: hipótese plausível, mas não demonstrada
+
+Inspeção estática do `nanobot/nanobot/mcp_docker/broker.py` (commit `52304783`)
+confirma que `/v1/status` (`action("status")`) só verifica `_STORE` sob o lock
+global `_LOCK`; essa rota não chama Docker. Porém, não é correto concluir que uma
+chamada MCP longa, por si só, retém esse lock:
+
+- `tools/call` passa por `_admit_mcp_request`, que adquire o lock **por servidor**
+  e o mantém durante `_exchange`; a operação pode esperar por `docker attach`/
+  resposta stdio e bloquear chamadas ao mesmo servidor, mas não mantém `_LOCK`
+  global durante essa espera normal.
+- O broker marca `transport_uncertain` sob `_LOCK` se o cancelamento/limpeza do
+  transporte falha. Isso é uma seção curta; a flag não prova que `_LOCK` ficou
+  preso.
+- Há, contudo, caminho de contenção global verificável no código: `action()` entra
+  em `_LOCK` para localizar/registrar estado; `recover` executa `_remove`,
+  `_spawn` e `_discover` antes de sair dessa seção. Esses caminhos fazem I/O de
+  Docker e descoberta MCP, podendo atrasar `/v1/status` e outras leituras globais
+  se a operação ficar lenta. `install` também pode chamar `_inspect` dentro da
+  seção inicial. Ainda não há evidência de que `recover`/`install` estava em
+  execução durante os timeouts reportados.
+- `/v1/observe` pode esperar pelo lock **por servidor** enquanto executa inspeção
+  e descoberta; esse timeout, isoladamente, é compatível com contenção por
+  `tools/call` ou outra operação do mesmo servidor. Não identifica a causa do
+  timeout de `/v1/status`.
+- `/v1/health` responder rapidamente não exonera as rotas acima: é uma operação
+  diferente e não consulta `_STORE`/Docker da mesma forma.
+- O source local inspecionado define deadline de 150 s para `tools/call` e
+  limpeza/cancelamento terminal limitado a 5 s, mas o image ID/revisão do broker
+  efetivamente ativo durante o ensaio não foi reportado. Se esse código e esses
+  limites estavam ativos, os 175,12 s sem resposta excedem o envelope nominal;
+  isso aumenta a prioridade de verificar drift de imagem/configuração, execução
+  fora do caminho MCP esperado ou bloqueio na camada HTTP/handler. Não basta,
+  isoladamente, para escolher entre essas hipóteses.
+
+Conclusão provisória: **há evidência de indisponibilidade ampla no caminho do
+broker e uma hipótese de contenção global que merece prioridade**, mas não há
+base para atribuir o incidente especificamente à chamada de 175 s ou afirmar
+que `docker attach` reteve `_LOCK`. Outras possibilidades ainda abertas incluem
+uma operação de manager que segura `_LOCK`, saturação/threads presas no processo,
+falha do transporte HTTP/proxy, ou timeouts em diferentes camadas. O estado
+`transport_uncertain` é por servidor e não explica sozinho os sintomas de
+`notes` e `/v1/status`.
+
+### Próximo diagnóstico discriminante
+
+1. Preservar a evidência antes de qualquer restart: recolher stack dump/thread
+   dump do processo broker (se disponível), logs do broker/manager e estado dos
+   containers sem novas chamadas `research_deep` ou operações de escrita.
+2. Correlacionar timestamps e IDs entre o cliente, gateway, broker e containers;
+   confirmar se `notes` e Deep Research usam o mesmo broker e se havia uma ação
+   `recover`/`install` durante `/v1/status`.
+3. Distinguir bloqueio global de bloqueio por servidor: confirmar se `/v1/status`
+   fica preso ao adquirir `_LOCK`, enquanto MCP/observe ficam presos em
+   `server.lock`; identificar a thread que possui o lock e a pilha que a mantém.
+4. Reconciliar, read-only, image IDs e revisões efetivos do broker/gateway/MCP
+   contra o inventário reportado. O inventário alegado de seis `update-image` no
+   dia (três falhos) é contexto operacional a verificar, não prova causal.
+5. Só depois de localizar/registrar o estado bloqueado, decidir por fluxo
+   suportado se restart/recovery é necessário. Não executar restart, replay ou
+   nova pesquisa como tentativa diagnóstica cega.
+6. Após restaurar o transporte e entender a causa, executar um novo E2E único
+   autorizado, sem retry: exigir ID real antes de getters/relatório e parar se a
+   chamada não o devolver.
+
+**Estado:** nenhuma ação de manager/restart foi executada nesta atualização. A
+pesquisa funcional não passou; a causa e a necessidade de recuperação do broker
+permanecem pendentes de evidência de runtime.
+
+## Verificação da imagem após reboot — 2026-11-01
+
+Leitura local read-only confirmou que o digest mostrado na captura e em execução
+é `sha256:1863c62b1f4a7420c191e315dd1a9fad1d4c9b4de0c762490aa369ee30585196`.
+O container `percival-mcp-deep-research` estava `Up 34 minutes`; a imagem tem a
+tag `percival-deep-research:3.0.1-4336da9-f2-006494f75dbd`, foi criada em
+`2026-11-01 17:30:19 -03:00` e seu OCI label registra source revision
+`4336da90821567cfb36ace8b0225654f8f9fdf47` e source diff
+`006494f75dbdfd1d687aaa95a1ab422eb3de889fb81dc36c72b3f484aefd2c6f`.
+
+No inventário local, esse digest é o mais novo entre as imagens
+`percival-deep-research` disponíveis. Porém, o `main` local e `origin/main` estão
+em `5093cab8bcb349177a0789be59875ec0908f999a`, descendente da revisão `4336da9`;
+o commit `5093cab` altera código de runtime do worker, cliente e tools de pesquisa.
+Assim, **a imagem da captura é a imagem local mais recente e está rodando, mas
+não foi construída da revisão mais recente do repositório**. Não verifiquei um
+registry remoto nem se existe imagem mais nova fora deste inventário local. Esta
+verificação foi somente leitura: não houve build, repin, restart ou chamada de
+pesquisa.
+
+### Candidato construído para reteste — 2026-11-01
+
+Após recomendação de testar as mudanças publicadas antes de novo E2E, foi
+construída localmente, sem pin/restart/publicação, a revisão limpa `5093cab8`:
+
+- Tag: `percival-deep-research:3.0.1-5093cab`.
+- Image ID para pin: `sha256:a6efc34dc869af732e1d5af7df537037b67170821837473c95465e444e505ec5`.
+- OCI revision: `5093cab8bcb349177a0789be59875ec0908f999a`; plataforma
+  `linux/amd64`; build `worktree=clean`.
+- Smoke stdio com `--network=none`, configuração fictícia
+  `INFERENCE_API_KEY=fixture-not-a-secret`, UID 1000: `initialize` e `tools/list`
+  passaram; foram listadas as 5 tools esperadas. A primeira tentativa sem env
+  falhou antes do handshake porque o servidor exige configuração de inference
+  no startup; não foi usada credencial real nem feita chamada a provider.
+- Após o build, `percival-mcp-deep-research` continuava executando o ID antigo
+  `1863c62b…`; nenhum manager action/pin foi realizado. O E2E `research_deep`
+  com o novo candidato e validação dos getters/relatório ainda está pendente.
+
+O digest acima é o novo candidato local baseado no `main` publicado, adequado
+para o owner pinar para o ensaio controlado. O smoke comprova somente o contrato
+stdio de startup/listagem; não comprova acesso ao retriever, inference nem o
+pipeline de pesquisa profunda.
+
+### Pin do candidato confirmado visualmente pelo owner — 2026-11-01
+
+As capturas fornecidas pelo owner mostram o estado anterior em
+`sha256:1863c62b…` e, após `update-image`, o candidato
+`sha256:a6efc34dc869af732e1d5af7df537037b67170821837473c95465e444e505ec5`.
+Na captura posterior, o histórico mostra `update-image · committed` às 19:23:13
+e o cartão informa Docker `running`, MCP `connected`, gateway intent `running`,
+tool activation `yes` e cinco tools observadas. Isso sustenta que o pin foi
+aceito e o servidor está conectado/listável na UI. As capturas são evidência
+fornecida pelo owner; não houve leitura independente do runtime nesta sessão.
+
+O estado conectado e as cinco tools observadas não comprovam a execução de
+`research_deep`. O teste E2E real de pesquisa, com a regra de chamada única/sem
+retry e getters/relatório somente se houver um `research_id` real, continua
+pendente.
 
 ## Follow-up reportado pelo owner — 2026-11-01
 

@@ -104,6 +104,38 @@ def apply_patch(target: Path) -> bool:
     return True
 
 
+def patch_provider_retries(target: Path) -> None:
+    """Do not turn permanent provider rejections into 10 retries and a timeout.
+
+    The pinned upstream retries all exceptions, then the query planner retries
+    the entire operation twice more. Preserve retries for transient failures,
+    but propagate non-retryable HTTP status errors with their original cause.
+    Fail closed if this known upstream implementation changes.
+    """
+    targets = (
+        (target, ((4, "e", "logger.warning"), (8, "e", "logger.warning"))),
+        (target.parents[1] / "utils" / "llm.py", ((8, "exc", "last_exception = exc"),)),
+    )
+    for path, handlers in targets:
+        source = path.read_text()
+        for indent, name, following in handlers:
+            prefix = " " * indent
+            handler = f"{prefix}except Exception as {name}:\n"
+            guard = (
+                f'{prefix}    if getattr({name}, "status_code", None) '
+                "in (400, 401, 402, 403, 404, 405, 413, 422):\n"
+                f"{prefix}        raise\n"
+            )
+            if handler + guard in source:
+                continue
+            anchor = handler + f"{prefix}    {following}"
+            if source.count(anchor) != 1:
+                raise RuntimeError(f"Unsupported provider retry implementation: {path.name}")
+            source = source.replace(anchor, handler + guard + f"{prefix}    {following}")
+        path.write_text(source)
+        print(f"✓ Permanent provider failures propagate without retry: {path.name}")
+
+
 def main() -> int:
     try:
         installed_version = version("gpt-researcher")
@@ -122,6 +154,7 @@ def main() -> int:
 
     target = find_target()
     apply_patch(target)
+    patch_provider_retries(target)
 
     try:
         import gpt_researcher.actions.query_processing  # noqa: F401

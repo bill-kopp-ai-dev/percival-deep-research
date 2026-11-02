@@ -15,6 +15,7 @@ import runtime_env as _runtime_env  # noqa: F401, I001 -- load env before upstre
 from gpt_researcher import GPTResearcher
 from percival_research.app import UNIVERSAL_AGENT_NAME, _get_universal_agent_role
 from percival_research.patches import apply_compressor_patch
+from percival_research.retrievers.bounded_duckduckgo import install_bounded_retrievers
 
 
 def _stage(name: str) -> None:
@@ -58,6 +59,7 @@ async def _research(query: str, request: dict | None = None) -> dict:
         verbose=False,
         context=request.get("context"),
     )
+    install_bounded_retrievers(researcher)
     if request.get("operation") == "report":
         researcher.research_sources = request["sources"]
         researcher.visited_urls = set(request["source_urls"])
@@ -83,9 +85,15 @@ def main() -> int:
             result = asyncio.run(_research(request["query"], request))
         sys.stdout.write(json.dumps(result, ensure_ascii=False, default=str))
         return 0
-    except Exception:
+    except Exception as exc:
         # Do not serialize exception text: upstream errors may include request
         # context. The parent emits only a generic worker failure to the MCP.
+        print(f"PERCIVAL_FAILURE error_type={type(exc).__name__}", file=sys.stderr, flush=True)
+        status = getattr(exc, "status_code", None)
+        if status in (400, 401, 402, 403, 404, 405, 413, 422):
+            # Only allowlisted metadata crosses the private worker boundary.
+            sys.stdout.write(json.dumps({"error": {"kind": "provider_rejected", "status": status}}))
+            return 0
         return 1
 
 

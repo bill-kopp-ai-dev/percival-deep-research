@@ -11,9 +11,12 @@ class GPTResearcher:
     def __init__(self, query, agent=None, role=None, verbose=False, context=None, **kwargs):
         self.query = query
         self.context = context or []
+        self.retrievers = [type("Duckduckgo", (), {})]
         print("constructor chatter on stdout")
 
     async def conduct_research(self):
+        from percival_research.retrievers.bounded_duckduckgo import BoundedDuckduckgo
+        assert self.retrievers == [BoundedDuckduckgo], "worker lost bounded search installation"
         from gpt_researcher.context.compression import ContextCompressor
         compressor = ContextCompressor()
         compressor.documents = [{"url": "https://fixture.example/a", "raw_content": "abcde"}]

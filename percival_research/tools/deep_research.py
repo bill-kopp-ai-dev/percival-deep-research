@@ -14,7 +14,11 @@ from percival_research.app import (
     mcp,
 )
 from percival_research.metrics import log_query_safe
-from percival_research.research_worker_client import run_research_worker, validate_research_data
+from percival_research.research_worker_client import (
+    ProviderRejectedError,
+    run_research_worker,
+    validate_research_data,
+)
 from utils import (
     format_context_with_sources,
     handle_exception,
@@ -134,6 +138,9 @@ async def _do_deep_research(query: str, include_context: bool, cid: str) -> str:
     try:
         try:
             context, sources, source_urls = await run_research_worker(query, timeout_s)
+        except ProviderRejectedError as exc:
+            _app.metrics.record_error("deep_research")
+            return f"Error: {exc} (correlation_id={cid})"
         except asyncio.TimeoutError:
             _app.metrics.record_timeout("deep_research")
             logger.error(f"[{cid}] deep_research timed out after {timeout_s}s")

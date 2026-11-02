@@ -1,11 +1,12 @@
 # Stage-2 — Remediação do Percival Deep Research MCP
 
-**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3; execução local e reconciliação de evidências em 2026-11-01 / 2.4; diretriz do owner para ensaio via Percival em 2026-11-01 / 2.5; pinagem inicial no Percival em 2026-11-01 / 2.6; ensaio integrado parcial em 2026-11-01 / 2.7; correção multicamada preparada em 2026-11-01 / 2.9; gateway/broker atualizados e nova pinagem Deep Research em 2026-11-01 / 2.10.
-**ID / estado:** S2-DR / execução local concluída parcialmente; **parcial** (7 ações
-verificadas, 2 parciais; Deep Research `feecce…` pinado e gateway/broker Compose
-atualizados; perfil de runtime A-009 pendente; V-PILOT funcional ainda não repetido
-após essas atualizações; 1 ação encerrada por decisão explícita de risco; publicação
-continua fora de escopo).
+**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3; execução local e reconciliação de evidências em 2026-11-01 / 2.4; diretriz do owner para ensaio via Percival em 2026-11-01 / 2.5; pinagem inicial no Percival em 2026-11-01 / 2.6; ensaio integrado parcial em 2026-11-01 / 2.7; correção multicamada preparada em 2026-11-01 / 2.9; gateway/broker atualizados e nova pinagem Deep Research em 2026-11-01 / 2.10; aceite funcional nos agentes Positronic e Percival, com ressalvas de proveniência, em 2026-11-01 / 2.11.
+**ID / estado:** S2-DR / **parcial no escopo integral**, com fluxo funcional
+V-FUNC e caminho principal V-PILOT **concluídos com sucesso e ressalvas** nos
+agentes Positronic e Percival, na imagem `52dc1bed…` (§6.7). Permanecem perfil
+de runtime A-009, qualificação/metadados A-012 e observações de qualidade
+DR-OBS-01; publicação continua fora de escopo. Os totais e bloqueios das
+revisões anteriores são históricos, não o estado atual do E2E.
 **Checkout executor:** `/home/bill/Projects/percival-deep-research`.  
 **Owner, operador e signatário:** Bill Kopp (`bill.kopp.dev@gmail.com`), único proprietário e responsável por esta aplicação e pela infraestrutura IaC da Positronic Bean Labs (PBLabs); é também a única pessoa trabalhando nesses projetos e a única autoridade para decidir e assinar. Site: `labs.positronicbean.com`. As instruções e decisões de Bill autorizam o trabalho dentro do escopo explicitado, sem reaprovação ou aceite duplicado. A rotação da chave de teste foi dispensada por `R-01`.
 
@@ -25,9 +26,10 @@ preservar essa alteração e acordar com o dono seu destino documental.
 [consolidação](../../../positronic-bean-IaC/docs/reports/2026-10-26-stage-1-consolidated-readiness-report.md),
 [D-01..D-06](../../../positronic-bean-IaC/docs/decisions/2026-10-27-iac-stage-1-scope-and-pilot-decisions.md).
 
-Esta revisão registra decisões, autorizações e a pinagem da imagem candidata no
-Percival reportada pelo owner; não afirma que o perfil estreito de runtime ou os
-testes integrados foram executados. Publicação permanece fora de escopo. As
+Esta revisão registra as decisões e o aceite funcional dos dois agentes:
+Positronic verificado diretamente, Percival reportado pelo owner com captura de
+pinagem e relatório E2E (§6.7). O perfil estreito de runtime não foi comprovado
+no Percival. Publicação permanece fora de escopo. As
 decisões registradas não precisam ser solicitadas ou aprovadas novamente.
 Preservar 5 tools, 4 prompts, resource template, envelopes de fontes não
 confiáveis e single-endpoint inference. Bill autorizou o piloto complementar de
@@ -211,11 +213,12 @@ os critérios registrados. `R-03` remove a exigência de estimar esforço, custo
   comum. Isso não qualifica o pipeline funcional Deep Research nem substitui
   seus testes específicos; não há prova de que este MCP tenha sido consumidor
   do harness.
-- [ ] Executar o teste integrado `V-PILOT` já autorizado em `DR-DEC-05`
-  (Percival agent → Deep Research MCP), no ambiente de teste e pela receita
-  D-05/R-02, usando o candidato atualizado/revalidado. Nenhum piloto ou provedor
-  real foi executado nesta revisão; timeout interno não prova cancelamento
-  end-to-end do protocolo.
+- [x] Executar o fluxo funcional do teste integrado `V-PILOT` já autorizado em
+  `DR-DEC-05` (Percival agent → Deep Research MCP). Bill reportou pesquisa →
+  contexto/fontes → relatório com o mesmo ID real na candidata `52dc1bed…`,
+  sem timeout nem retry; Positronic também passou diretamente (§6.7).
+  O aceite funcional tem ressalvas de proveniência; não comprova A-009,
+  cancelamento por protocolo, resource template ou qualificação externa.
 - [ ] A-004/A-009: aplicar e verificar o perfil no manager de teste uma vez,
   com estado anterior e rollback registrados; não exigir nova aprovação ou
   repetir a inspeção para cada ação.
@@ -242,6 +245,9 @@ Ambiente: Linux x86_64 (Omarchy), Docker 29.9.2, `uv` 0.12.18 em
 3.12.16 na imagem. Suíte: `uv run --no-sync pytest -q` → **434 passed, 3 skipped**
 (cobertura **89,35 %**, `fail_under=70` aplicado pelo próprio comando canônico);
 `ruff 0.16.10 check` e `format --check` limpos (59 arquivos).
+
+Os estados nesta matriz e no quadro V-* abaixo preservam a coleta histórica;
+a reconciliação funcional mais recente dos dois agentes está em **§6.7**.
 
 | Ação | Estado | Mudança e evidência local verificada | Dependências / pendências |
 |---|---|---|---|
@@ -510,6 +516,69 @@ deadline de 2 s → erro em **2,03 s** sem “Research complete”. A imagem é 
 - **Pendência:** confirmar `PERCIVAL_RESEARCH_TIMEOUT_S` efetivo sem segredos.
   No V-PILOT, uma única chamada sem retry deve retornar `research_id`; validar corpo,
   getters e relatório com o mesmo ID. A issue permanece aberta até esse teste.
+
+### 6.7. Aceite funcional nos dois agentes — 2026-11-01 / revisão 2.11
+
+Bill confirmou que os testes Positronic e Percival foram bem-sucedidos e pediu
+registrar no plano. A evidência detalhada, com a captura descrita, durações,
+IDs e limitações, está na
+[issue canônica de timeout](../issues/2026-11-01-percival-tool-timeout.md#confirmação-do-owner-pin-e-e2e-percival-bem-sucedidos--2026-11-01).
+Os resultados são reutilizados por referência, sem novas chamadas MCP nem
+repetição de testes para esta atualização documental.
+
+**Imagem comum aos dois aceites:**
+`sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`.
+Fonte base `5093cab8bcb349177a0789be59875ec0908f999a`, candidata local de
+worktree dirty, diff SHA-256
+`6735820b62ca733805076633b60eee616ee26c545407d97c78237993606427bf`.
+Não é release limpa nem evidência de publicação.
+
+| Agente / origem da evidência | ID real reutilizado | Aceite funcional |
+| --- | --- | --- |
+| Positronic — execução direta registrada na issue | `a675e787-8bc5-4a3c-9e7e-c34d36a65780` | Cinco tools passaram: pesquisa com 7 fontes, contexto/fontes, relatório padrão sem prefixo auxiliar e busca rápida com 5 resultados. Workers: 14,79 s de pesquisa e 27,41 s de relatório; recolhidos. |
+| Percival — captura e relatório fornecidos por Bill nesta sessão | `b4a68b7b-e9b3-434e-bc0c-c854481085ee` | Quatro chamadas permitidas passaram: pesquisa 18,9 s (9 fontes / 12 URLs), contexto 7,8 s (166 429 caracteres), fontes 4,0 s e relatório 54,3 s; total aproximado 85,0 s. Sem retry, cache/resource ou troca de ID. Busca rápida não incluída neste ensaio. |
+
+A captura Percival mostra o image ID acima, `update-image · committed`
+(21:13:42 no horário exibido pela UI), Docker/gateway `running`, MCP `connected`,
+enabled `yes` e 5 tools observadas. O Positronic já estava na instalação revisão
+22/configuração revisão 1. A mutação Percival foi feita pelo owner, não pelo
+Positronic nesta atualização.
+
+Verificações de código/imagem já registradas na issue: **454 testes passaram,
+3 skips, cobertura 88,96%**; lint/format e conformance passaram; fixture da
+imagem comum exercitou cinco tools, duas chamadas de inferência fictícia,
+zero embeddings e zero workers restantes. O provider real voltou a responder
+após liberação de cota; os bloqueios anteriores não são o estado atual.
+
+**Reconciliação do plano:**
+
+- **V-FUNC e caminho principal V-PILOT:** concluídos com sucesso funcional nos
+  dois agentes, com a origem de cada evidência discriminada. A pendência de
+  retornar ID real e concluir getters/relatório foi satisfeita; não exigir novo
+  E2E para esse mesmo aceite.
+- **A-002/A-004:** caminho feliz de pesquisa e pinagem da candidata demonstrados
+  no cenário autorizado. Isso substitui os bloqueios funcionais históricos dos
+  quadros anteriores; não estende o aceite às outras imagens.
+- **A-009:** continua pendente. A nova captura ainda mostra Full host access;
+  mounts detalhados e perfil hardened não foram fornecidos. O sucesso funcional
+  não fecha esse critério distinto.
+- **A-012/qualificação externa:** não é encerrada por esses testes; metadados,
+  scan/VEX e demais evidências devem corresponder à imagem exata quando exigidos.
+  Não transferir scans de candidatos antigos para `52dc1bed…`.
+- **DR-OBS-01 — aberta, qualidade/proveniência:** diferenças entre `source_urls`
+  e as fontes efetivamente retornadas; alegação incorreta de ausência de URLs
+  Stack Overflow no relatório; citação inglesa não confirmada no getter; uma
+  afirmação sobre falhas após cancelamento não verificada diretamente. Os dados
+  observados e as hipóteses de causa estão detalhados uma única vez na issue.
+- **Escopo não exercitado no reteste Percival:** `research_quick_search`,
+  resource template, prompts, cancelamento e inspeção de processos. Não declarar
+  essas superfícies testadas a partir das quatro chamadas reportadas.
+
+**Próxima ação:** manter o aceite funcional registrado e acompanhar DR-OBS-01
+no próximo ciclo de qualidade/proveniência (Bill/Positronic), além das pendências
+distintas de perfil/qualificação. O resultado foi aceito com ressalvas, não como
+garantia de precisão integral de toda afirmação gerada. A publicação permanece
+fora de escopo.
 
 ## 7. Sincronização documental com o coordenador
 

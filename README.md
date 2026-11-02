@@ -109,10 +109,20 @@ serialization below the broker's 150 s total, the Percival wrapper's 180 s and
 HTTP's 190 s. Do not increase the server limit without coordinating these
 budgets. A successful handshake does not validate this pipeline.
 
+During worker execution the server emits MCP progress notifications every
+10 s, measured in elapsed seconds (not completion percentage). Progress-aware
+clients such as Positronic can reset their inactivity timeout while the
+server's hard worker deadline remains enforced. Clients without progress
+timeout resets still need an explicit request budget above that deadline.
+
 Application failures are returned as MCP `isError:true`, with safe diagnostic
 text and a correlation ID. Do not repeat research or read a cache-missing
 resource after an ambiguous transport failure: the original operation may
 already have started. A report failure preserves the existing research session.
+Reports omit leading provider `<think>...</think>` auxiliary blocks, preserving
+the final Markdown and literal tags appearing later in that Markdown. An
+incomplete block or a response containing only auxiliary text is an error,
+not a successful report.
 
 The deterministic cross-repository probe uses only fake credentials and a
 local inference/search/page fixture, through the real image, broker and wrappers:
@@ -209,12 +219,17 @@ percival-deep-research --help        # verify install
 All configuration is via environment variables. See
 [`.env.example`](.env.example) for the full template.
 
-When `RETRIEVER=duckduckgo`, Percival pins the DDGS request to one DuckDuckGo
-backend with a 5-second per-request timeout. It intentionally avoids the
-upstream library's multi-provider `auto` fan-out, whose sequential executor
-shutdown could consume the whole research deadline. There is no automatic
-backend retry; no results surface as an explicit research failure rather than
-success without sources.
+When `RETRIEVER=duckduckgo`, both deep and quick research use at most two
+explicit DDGS attempts: DuckDuckGo, then Yahoo if the first engine fails or
+returns no usable results, each with a 5-second socket timeout. Disabled or
+missing engines are rejected before dispatch: DDGS would otherwise silently
+fall back to `auto`. There is no broad multi-provider fan-out. The worker's
+hard deadline still bounds the entire deep pipeline; socket timeouts alone
+are not a guarantee of total wall-clock duration. Empty initial results may
+be used to plan better subqueries, but deep research never creates a successful
+session without nonempty context, sources and URLs. Public search engines can
+return bot challenges, throttling or empty results; a fixture pass does not
+establish live search availability.
 
 ### Required
 
@@ -792,6 +807,31 @@ Inference provider: venice (auto-detected from INFERENCE_BASE_URL)
 
 If it says `openai`, your `INFERENCE_BASE_URL` is wrong (must contain
 the gateway host — `api.venice.ai`, `api.minimax.io`, `openrouter.ai`).
+
+### MiniMax base URL, model and HTTP 402
+
+This server uses an OpenAI-compatible SDK. Configure a **base URL**, not a
+complete native completion endpoint:
+
+```env
+INFERENCE_BASE_URL=https://api.minimax.io/v1
+INFERENCE_LLM=minimax:MiniMax-M2.7
+```
+
+If `OPENAI_BASE_URL` was explicitly set, align it with the same compatible base
+URL. A value ending in `/text/chatcompletion_v2` is a native endpoint and causes
+404s when the SDK appends `/chat/completions`. Explicitly select a provider's
+supported model: the default `gpt-4o-mini` is not a MiniMax model.
+
+The installed upstream compatibility patch propagates permanent provider HTTP
+rejections (400/401/402/403/404/405/413/422) without the upstream's repeated
+inference/planning retries. The MCP returns a sanitized status-specific error
+instead of hiding the rejection behind the 90-second deadline. A 402 such as
+MiniMax Token Plan limit code 2067 requires quota/account availability; changing
+timeouts or repeating research cannot fix it. Research/report success must be
+revalidated after that dependency is restored.
+
+Reference: [MiniMax OpenAI SDK documentation](https://platform.minimax.io/docs/api-reference/text-openai-api).
 
 ### `pytest -q` reports failures on a clean machine (B4)
 
