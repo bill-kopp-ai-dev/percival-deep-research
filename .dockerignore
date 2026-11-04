@@ -13,6 +13,8 @@
 !percival_research/**
 !scripts/
 !scripts/patch_gpt_researcher.py
+!scripts/patch_mcp_cancellation.py
+!scripts/check_mcp_cancellation.py
 
 # ─────────────────────────────────────────────────────────────────────
 # .dockerignore — exclude from the build context.

@@ -53,6 +53,8 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev --no-install-package nltk --frozen \
     && uv run --no-sync python scripts/patch_gpt_researcher.py \
+    && uv run --no-sync python scripts/patch_mcp_cancellation.py \
+    && uv run --no-sync python scripts/check_mcp_cancellation.py \
     && TIKTOKEN_CACHE_DIR=/app/.cache/tiktoken uv run --no-sync python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 
 # Strip package bloat that is irrelevant to runtime (saves ~50 MB across
