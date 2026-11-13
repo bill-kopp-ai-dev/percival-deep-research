@@ -1,14 +1,23 @@
 # Deep Research expira no timeout do cliente Percival
 
-- **Status:** resolvida no fluxo funcional de pesquisa → contexto/fontes → relatório nos dois agentes em 2026-11-01: Positronic verificado diretamente, Percival reportado pelo owner; ressalvas de proveniência/qualidade do relatório permanecem abertas, sem timeout no reteste
+- **Status:** encerrada por decisão do operador. O fluxo funcional de pesquisa → contexto/fontes → relatório passou nos dois agentes em 2026-11-01 (Positronic verificado diretamente, Percival reportado pelo owner); ressalvas de proveniência/qualidade não foram tecnicamente resolvidas e ficam como risco residual aceito.
 - **Reportado em:** 2026-11-01
 - **Severidade proposta:** alta; `research_deep` é o fluxo principal do produto
 - **Imagem testada inicialmente:** `sha256:4fd1d8d01b242cafe57603ac2c04bc12e34843b54f7b4bf72a83802d7eaaa61d`
 - **Imagem pinada no follow-up reportado:** `sha256:b44a6a6e4fe9a80e44111c77732be1f2154a0744085ded92ed80de58045413aa`
-- **Imagem atual Positronic:** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652` (instalação revisão 22, container running, configuração revisão 1)
-- **Imagem Percival pinada pelo owner:** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`; captura mostra `update-image · committed`, running/connected e 5 tools; a pinagem não foi executada por este agente
+- **Imagem Positronic observada no aceite (2026-11-01):** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652` (instalação revisão 22, container running, configuração revisão 1); estado atual do runtime não foi reinspecionado nesta auditoria
+- **Imagem Percival pinada pelo owner no aceite (2026-11-01):** `sha256:52dc1bed7a890c04a188eb5f82ca0fa945479c22030a7b615cc7f0c019e83652`; captura mostra `update-image · committed`, running/connected e 5 tools; a pinagem não foi executada por este agente
 - **Source revision (OCI label):** `5093cab8bcb349177a0789be59875ec0908f999a`
-- **Evidência atual:** captura e E2E Percival fornecidos por Bill nesta sessão; suíte canônica, lint/format, conformance Docker, fixture de cinco tools/cancelamento/deadline e chamadas diretas Positronic previamente verificadas; detalhes abaixo; seções anteriores preservam o histórico
+- **Evidência do aceite:** captura e E2E Percival fornecidos por Bill em 2026-11-01; suíte canônica, lint/format, conformance Docker, fixture de cinco tools/cancelamento/deadline e chamadas diretas Positronic previamente verificadas; detalhes abaixo; seções anteriores preservam o histórico
+
+> **Reconciliação documental (2026-11-13):** o status acima e a seção de aceite
+> de 2026-11-01 são o estado vigente desta issue. As seções históricas mais
+> abaixo que dizem que o E2E, a pinagem ou o retorno de ID permanecem pendentes
+> descrevem o estado anterior à conclusão documentada na seção de aceite; não
+> são pendências atuais do fluxo de timeout reproduzido. As ressalvas DR-OBS-01
+> e qualificações de runtime/metadados foram encerradas por decisão do operador;
+> os riscos técnicos e observações abaixo permanecem registrados como não
+> resolvidos/qualificados.
 
 ## Confirmação do owner: pin e E2E Percival bem-sucedidos — 2026-11-01
 
@@ -67,7 +76,11 @@ resource template ou dos prompts; não inferir esses resultados a partir das
 quatro chamadas. A busca rápida foi validada diretamente no Positronic, conforme
 a seção seguinte.
 
-### Ressalvas preservadas — DR-OBS-01 (aberta)
+### Ressalvas preservadas — DR-OBS-01 (encerrada por decisão do operador)
+
+**Fechada por decisão do operador Bill Kopp.** O encerramento é administrativo;
+as observações e limitações de proveniência abaixo não foram tecnicamente
+resolvidas e permanecem como risco residual aceito.
 
 O sucesso funcional não encerra as limitações de proveniência/qualidade
 identificadas pelo owner:
@@ -861,6 +874,10 @@ Plano executável (evidência final será registrada aqui, sem duplicar trackers
 
 Estado da campanha: implementação iniciada; os itens acima ainda não são resultados.
 
+**Nota de reconciliação:** esse estado e os critérios abaixo são um registro da
+campanha anterior ao aceite funcional documentado no início desta issue; não
+substituem o resultado posterior.
+
 No ensaio integrado pelo agente Percival, `research_deep` terminou com a mensagem
 do cliente MCP:
 
@@ -995,7 +1012,8 @@ da sessão e a geração de relatório não puderam ser testadas de ponta a pont
 - **Pendência para fechar:** executar uma chamada `research_deep` sem retry. O
   aceite exige validar o corpo (não apenas HTTP
   `200`/`isError:false`), capturar um `research_id` real e usar esse mesmo ID
-  para getters e relatório.
+  para getters e relatório. **Snapshot anterior ao aceite de 2026-11-01; superado
+  pela seção inicial “Confirmação do owner: pin e E2E Percival bem-sucedidos”.**
 - O gateway ainda reporta findings Trivy não adjudicados, embora o conjunto seja
   idêntico ao da imagem ativa; sem promoção/publicação até triagem/VEX do owner.
 - O relatório do owner também observa plaintext `INFERENCE_API_KEY` no config,
@@ -1005,3 +1023,25 @@ da sessão e a geração de relatório não puderam ser testadas de ponta a pont
 - A configuração de runtime observada no manager ainda indica **Full host access**;
   esta issue não altera nem aprova esse perfil. A reconciliação do perfil restrito
   continua acompanhada por A-009 no plano S2-DR.
+
+## Auditoria do código após o aceite — 2026-11-13
+
+O código atual mantém o caminho de pesquisa e relatório em workers isolados,
+com deadline interno, encerramento do grupo de processos e validação de dados
+não vazios (`percival_research/research_worker_client.py`). O retriever limita
+cada tentativa a um backend explícito e pode tentar DuckDuckGo e Yahoo
+sequencialmente (`percival_research/retrievers/bounded_duckduckgo.py`). O
+relatório usa o mesmo limite configurado da pesquisa e preserva a sessão em
+falha (`percival_research/tools/write_report.py`). Esses pontos são coerentes
+com as correções registradas e com o aceite funcional específico de 2026-11-01;
+não demonstram disponibilidade presente dos serviços externos.
+
+Desde o image ID aceito `52dc1bed…`, `main` recebeu ainda `b082c1d`
+(`fix(mcp): repair cancellation race in image`): o Dockerfile aplica e executa
+`scripts/patch_mcp_cancellation.py` e `scripts/check_mcp_cancellation.py` para
+`mcp==1.30.0`, cobrindo ordenações de resposta/cancelamento e a chamada seguinte
+na mesma sessão. Esta é uma alteração posterior de imagem/cancelamento; a
+evidência E2E de `52dc1bed…` não deve ser atribuída a essa revisão posterior.
+O patch é exercitado no build da imagem; não há nesta auditoria novo build, scan,
+pin ou ensaio de runtime. Portanto, o patch não reabre o incidente de timeout
+resolvido no cenário registrado nem comprova o estado atual de qualquer manager.

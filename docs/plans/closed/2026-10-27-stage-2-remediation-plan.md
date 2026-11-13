@@ -1,11 +1,12 @@
 # Stage-2 — Remediação do Percival Deep Research MCP
 
-**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3; execução local e reconciliação de evidências em 2026-11-01 / 2.4; diretriz do owner para ensaio via Percival em 2026-11-01 / 2.5; pinagem inicial no Percival em 2026-11-01 / 2.6; ensaio integrado parcial em 2026-11-01 / 2.7; correção multicamada preparada em 2026-11-01 / 2.9; gateway/broker atualizados e nova pinagem Deep Research em 2026-11-01 / 2.10; aceite funcional nos agentes Positronic e Percival, com ressalvas de proveniência, em 2026-11-01 / 2.11.
-**ID / estado:** S2-DR / **parcial no escopo integral**, com fluxo funcional
+**Data / revisão:** 2026-10-27 / 1.0 — execução local registrada em 2026-10-28 / 2.0; revisões documentais em 2026-10-29 / 2.1 e 2.2; simplificação de governança em 2026-10-30 / 2.3; execução local e reconciliação de evidências em 2026-11-01 / 2.4; diretriz do owner para ensaio via Percival em 2026-11-01 / 2.5; pinagem inicial no Percival em 2026-11-01 / 2.6; ensaio integrado parcial em 2026-11-01 / 2.7; correção multicamada preparada em 2026-11-01 / 2.9; gateway/broker atualizados e nova pinagem Deep Research em 2026-11-01 / 2.10; aceite funcional nos agentes Positronic e Percival, com ressalvas de proveniência, em 2026-11-01 / 2.11; auditoria contra o código e atualização da evidência de cancelamento em 2026-11-13 / 2.12.
+**ID / estado:** S2-DR / **encerrado por decisão do operador, com escopo técnico parcial**, com fluxo funcional
 V-FUNC e caminho principal V-PILOT **concluídos com sucesso e ressalvas** nos
 agentes Positronic e Percival, na imagem `52dc1bed…` (§6.7). Permanecem perfil
 de runtime A-009, qualificação/metadados A-012 e observações de qualidade
-DR-OBS-01; publicação continua fora de escopo. Os totais e bloqueios das
+DR-OBS-01 como itens tecnicamente não concluídos, mas encerrados por decisão do
+operador Bill Kopp. Publicação continua fora de escopo. Os totais e bloqueios das
 revisões anteriores são históricos, não o estado atual do E2E.
 **Checkout executor:** `/home/bill/Projects/percival-deep-research`.  
 **Owner, operador e signatário:** Bill Kopp (`bill.kopp.dev@gmail.com`), único proprietário e responsável por esta aplicação e pela infraestrutura IaC da Positronic Bean Labs (PBLabs); é também a única pessoa trabalhando nesses projetos e a única autoridade para decidir e assinar. Site: `labs.positronicbean.com`. As instruções e decisões de Bill autorizam o trabalho dentro do escopo explicitado, sem reaprovação ou aceite duplicado. A rotação da chave de teste foi dispensada por `R-01`.
@@ -200,14 +201,17 @@ os critérios registrados. `R-03` remove a exigência de estimar esforço, custo
 
 ## 5. Qualificação futura no projeto
 
-- [ ] No SHA final, executar uma vez `uv run pytest -q` e os checks de lint/format
+- [x] No SHA final, executar uma vez `uv run pytest -q` e os checks de lint/format
   do CI relevantes. Não repetir medições históricas como se fossem resultados
-  atuais.
-- [ ] Qualificar o candidato final com os probes Docker aplicáveis: build,
+  atuais. **Fechada por decisão do operador Bill Kopp.** Os checks não foram
+  executados nesta auditoria documental.
+- [x] Qualificar o candidato final com os probes Docker aplicáveis: build,
   conformance/handshake, signals/EOF, timeout e pipeline com fixtures. Registrar
   os resultados juntos para V-BUILD/V-RUN/V-CONFIG/V-MCP/V-FUNC; confirmar a
   semântica stateless uma vez para V-DATA. A limitação MCP está registrada na
   seção 2; só implementar cancelamento se o piloto demonstrar necessidade.
+  **Fechada por decisão do operador Bill Kopp.** A qualificação integral do
+  candidato não foi realizada.
 - [x] S2-C04 comum entregue: o harness versionado `pblabs-mcp-stdio/v1` foi
   executado em Notes e Weather na mesma revisão, cobrindo o subconjunto stdio
   comum. Isso não qualifica o pipeline funcional Deep Research nem substitui
@@ -219,15 +223,17 @@ os critérios registrados. `R-03` remove a exigência de estimar esforço, custo
   sem timeout nem retry; Positronic também passou diretamente (§6.7).
   O aceite funcional tem ressalvas de proveniência; não comprova A-009,
   cancelamento por protocolo, resource template ou qualificação externa.
-- [ ] A-004/A-009: aplicar e verificar o perfil no manager de teste uma vez,
+- [x] A-009: aplicar e verificar o perfil no manager de teste uma vez,
   com estado anterior e rollback registrados; não exigir nova aprovação ou
   repetir a inspeção para cada ação.
-  A-005 está encerrada por `R-01`. Publicação, CI remoto e smoke real não são
-  inferidos da fixture local.
+  **Fechada por decisão do operador Bill Kopp.** O perfil não foi aplicado ou
+  reinspecionado nesta auditoria. A-005 está encerrada por `R-01`. Publicação,
+  CI remoto e smoke real não são inferidos da fixture local.
 
-Aceite local distinto de qualificação externa. Publicação e reconciliação de
-runtime pendentes mantêm o resultado parcial; a rotação foi dispensada por
-decisão explícita de risco (`R-01`).
+Aceite local distinto de qualificação externa. Publicação permanece fora de
+escopo. A reconciliação de runtime e qualificação externa foi encerrada por
+decisão explícita do operador, sem alegar conclusão técnica; a rotação foi
+dispensada por decisão explícita de risco (`R-01`).
 
 ## 6. Penúltima etapa — documentar execução neste plano
 
@@ -559,17 +565,20 @@ após liberação de cota; os bloqueios anteriores não são o estado atual.
 - **A-002/A-004:** caminho feliz de pesquisa e pinagem da candidata demonstrados
   no cenário autorizado. Isso substitui os bloqueios funcionais históricos dos
   quadros anteriores; não estende o aceite às outras imagens.
-- **A-009:** continua pendente. A nova captura ainda mostra Full host access;
+- **A-009:** tecnicamente não concluída; encerrada por decisão do operador Bill Kopp.
+  A última captura disponível ainda mostra Full host access;
   mounts detalhados e perfil hardened não foram fornecidos. O sucesso funcional
-  não fecha esse critério distinto.
-- **A-012/qualificação externa:** não é encerrada por esses testes; metadados,
+  não fecha esse critério distinto. **Fechada por decisão do operador Bill Kopp.**
+- **A-012/qualificação externa:** não concluída por esses testes; metadados,
   scan/VEX e demais evidências devem corresponder à imagem exata quando exigidos.
   Não transferir scans de candidatos antigos para `52dc1bed…`.
-- **DR-OBS-01 — aberta, qualidade/proveniência:** diferenças entre `source_urls`
+  **Fechada por decisão do operador Bill Kopp.**
+- **DR-OBS-01 — encerrada por decisão do operador, qualidade/proveniência não resolvida:** diferenças entre `source_urls`
   e as fontes efetivamente retornadas; alegação incorreta de ausência de URLs
   Stack Overflow no relatório; citação inglesa não confirmada no getter; uma
   afirmação sobre falhas após cancelamento não verificada diretamente. Os dados
   observados e as hipóteses de causa estão detalhados uma única vez na issue.
+  **Fechada por decisão do operador Bill Kopp; observações preservadas como risco residual.**
 - **Escopo não exercitado no reteste Percival:** `research_quick_search`,
   resource template, prompts, cancelamento e inspeção de processos. Não declarar
   essas superfícies testadas a partir das quatro chamadas reportadas.
@@ -579,6 +588,36 @@ no próximo ciclo de qualidade/proveniência (Bill/Positronic), além das pendê
 distintas de perfil/qualificação. O resultado foi aceito com ressalvas, não como
 garantia de precisão integral de toda afirmação gerada. A publicação permanece
 fora de escopo.
+
+### 6.8. Auditoria documental contra o código atual — 2026-11-13 / revisão 2.12
+
+- A inspeção do checkout em `main` (`e5337a4`, com `b082c1d` como revisão de
+  código imediatamente anterior) confirmou que o E2E funcional aceito em §6.7
+  permanece um resultado válido para a imagem exata `52dc1bed…`; ele não deve
+  ser confundido com validação das revisões posteriores do código.
+- A revisão `b082c1d` acrescentou ao build Docker a aplicação de
+  `scripts/patch_mcp_cancellation.py` e a execução de
+  `scripts/check_mcp_cancellation.py`, qualificados para `mcp==1.30.0`. O
+  script verifica as ordens cancel-respond, respond-cancel e cancel-cancel,
+  além de uma requisição subsequente na mesma sessão. Isso atualiza a evidência
+  de implementação da limitação de cancelamento em A-003; não é evidência de
+  build/pin em runtime nem altera retroativamente o image ID do aceite E2E.
+- Conferência das implementações atuais: o worker isola pesquisa/relatório,
+  encerra o grupo de processos no deadline e rejeita dados de pesquisa vazios;
+  o retriever tenta backends explicitamente e sequencialmente; relatório usa o
+  deadline configurado e mantém a sessão em falha. Código local confirma esses
+  comportamentos, mas não comprova disponibilidade externa ou configuração do
+  manager.
+- As tabelas e parágrafos de §§6.1–6.6 que dizem “pendente” são snapshots
+  históricos e são supersedidos pelo aceite posterior em §6.7 para V-FUNC e o
+  caminho principal de V-PILOT. As pendências atuais mantêm-se as já delimitadas
+  no topo e em §6.7: A-009/perfil de runtime, qualificação/metadados A-012 e
+  DR-OBS-01 foram encerradas por decisão do operador, sem conclusão técnica;
+  nenhum runtime foi inspecionado nem alterado nesta auditoria. **Fechada por
+  decisão do operador Bill Kopp.**
+- Não foi executado novo build, scan, suite completa, pin ou E2E. Os scripts de
+  patch/regressão são executados pelo Dockerfile; a referência é o código
+  versionado em `b082c1d`, não uma nova alegação de resultado de imagem.
 
 ## 7. Sincronização documental com o coordenador
 
