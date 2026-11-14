@@ -155,20 +155,30 @@ Para a sessão `6b537205-851d-443b-9e23-a7ab7b01959d`:
 
 ## Execução de E0–E3 em 2026-11-14
 
-### E0 — baseline e acesso à evidência
+### E0 — finalizada com diagnóstico inconclusivo e gate G1 ativo
 
-- Checkout preservado em `3782de8687226f0fc0aa7e62618242014ab0f4dd`, com a issue,
-  o plano e `.positronic/state.sqlite` já não rastreados antes das alterações de código.
-- O manager confirmou a imagem `55e0cec2…`, instalação revisão 23 e configuração
-  revisão 1. A imagem permanece autorizada e disponível; nenhuma mutação de runtime
-  foi realizada.
-- As interfaces read-only disponíveis não expõem logs nem OCI labels. O executor
-  gerenciado anuncia somente build/scan/status/cancel/authorize/remove para este
-  projeto. O Docker CLI 29.9.2 está presente, mas o Engine continua inacessível por
-  `unix:///var/run/docker.sock: connect: no such file or directory`.
-- Os dois correlation IDs não foram localizados em logs persistidos acessíveis.
-  Consequentemente, worker stage, exceção, ramo de código e labels da imagem seguem
-  desconhecidos; o checkout não foi atribuído à imagem.
+- Checkout inicial preservado em `3782de8687226f0fc0aa7e62618242014ab0f4dd`, com a
+  issue, o plano e `.positronic/state.sqlite` já não rastreados antes das alterações
+  de código. E1 foi posteriormente commitada como `e9bf7ee`.
+- O manager confirmou novamente a imagem `55e0cec2…`, instalação revisão 23 e
+  configuração revisão 1. A imagem permanece autorizada e disponível; nenhuma
+  mutação de runtime foi realizada.
+- O Docker CLI 29.9.2 possui somente o contexto `default`, apontando para
+  `unix:///var/run/docker.sock`, que continua inacessível. Não há contexto
+  alternativo nem socket rootless acessível no ambiente do agente.
+- O executor gerenciado anuncia somente build/scan/status/cancel/authorize/remove;
+  não oferece inspeção de imagem ou logs. As execuções persistidas do manager
+  contêm somente lease/owner/container ID, sem stdout/stderr, e os dois correlation
+  IDs não aparecem nos logs acessíveis.
+- Nenhum recibo acessível vincula a imagem baseline a um source SHA. O manifesto
+  `percival-deep-research-stage2-upgrade-manifest.json` pertence à imagem distinta
+  `4fd1d8d0…` e à revisão `09c3903…`; ele não foi usado para atribuir labels à
+  baseline.
+- **Resultado:** source revision/diff, versão/plataforma por OCI label, worker IDs,
+  outcomes, últimos stages, exceções e ramos dos dois eventos permanecem
+  desconhecidos. Não é possível determinar se as falhas compartilham assinatura.
+  E0 está encerrada com evidência insuficiente; G1 permanece ativo e E2/E3 seguem
+  bloqueadas até que logs equivalentes dos mesmos eventos sejam disponibilizados.
 
 ### E1 — DR-BATCH-02
 

@@ -1,7 +1,7 @@
 # Plano de correção da batelada das tools do Deep Research
 
 - **Data:** 2026-11-14
-- **Status:** em execução; E0 parcial, E1 concluída e E2/E3 bloqueadas pelo gate G1
+- **Status:** E0 finalizada com diagnóstico inconclusivo e gate G1 ativo; E1 concluída; E2/E3 bloqueadas
 - **Issue de origem:** [`docs/issues/2026-11-14-tools-batch-deep-research.md`](../issues/2026-11-14-tools-batch-deep-research.md)
 - **Owner e único aprovador:** Bill Kopp
 - **Runtime observado:** Positronic `deep-research` 3.0.1, imagem `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`, instalação revisão 23, configuração revisão 1
@@ -66,36 +66,37 @@ E1 pode avançar enquanto E0/E2 estiverem bloqueados. E3 não pode avançar sem 
 
 ### 4.1 Identidade e estado
 
-- [ ] Registrar `git status --short`, SHA do checkout e alterações pré-existentes;
+- [x] Registrar `git status --short`, SHA do checkout e alterações pré-existentes;
   não sobrescrever nem incluir `.positronic/state.sqlite` em commits.
-- [ ] Confirmar no manager a imagem, instalação e configuração atuais antes de
+- [x] Confirmar no manager a imagem, instalação e configuração atuais antes de
   qualquer mutação futura. O baseline observado é revisão 23/configuração 1, mas
   esses números não devem ser reutilizados cegamente em um rollout posterior.
 - [ ] No host, inspecionar os OCI labels da imagem `55e0cec2…`: source revision,
-  source diff, versão e plataforma. Associar o diagnóstico e os patches à revisão
-  efetivamente embarcada, não apenas ao checkout local.
-- [ ] Preservar a imagem baseline para rollback; não remover imagens nem executar
+  source diff, versão e plataforma. **Bloqueado em E0:** não há contexto Docker
+  alternativo, socket acessível ou operação de inspeção no executor. O manifesto
+  localizado pertence à imagem distinta `4fd1d8d0…` e não foi usado como evidência.
+- [x] Preservar a imagem baseline para rollback; não remover imagens nem executar
   prune.
 
 ### 4.2 Recuperação dos logs
 
-- [ ] Usar o acesso read-only do host/manager proprietário para localizar
+- [x] Esgotar as interfaces read-only disponíveis para localizar
   `crl-727bc57b` e `crl-1592f22c`. O socket Docker indisponível dentro do agente
-  não deve ser contornado nem tratado como prova de que o Engine esteja parado.
-- [ ] Para cada ID, registrar apenas: timestamp, tipo da exceção, ramo/stack do
-  código, worker ID, `outcome`, `last_stage`, `reaped` e marcadores
-  `PERCIVAL_FAILURE`/busca permitidos. Não copiar prompts, corpos HTTP, stderr
-  upstream ou valores de ambiente.
-- [ ] Verificar se ambos os erros têm a mesma assinatura. Se forem causas
-  diferentes, separar DR-BATCH-01 em subitens dentro da mesma issue e aplicar os
-  gates abaixo a cada causa.
+  não foi contornado nem tratado como prova de que o Engine esteja parado.
+- [ ] Para cada ID, registrar timestamp, tipo da exceção, ramo/stack do código,
+  worker ID, `outcome`, `last_stage`, `reaped` e marcadores
+  `PERCIVAL_FAILURE`/busca permitidos. **Bloqueado em E0:** os arquivos de
+  execução contêm somente lease/owner/container ID, sem stdout/stderr; os IDs não
+  aparecem nos logs persistidos acessíveis. Nenhum conteúdo upstream foi exposto.
+- [ ] Verificar se ambos os erros têm a mesma assinatura. **Indeterminado:** sem
+  exceções e stacks, não é possível agrupar ou separar as causas.
 
-Tabela a preencher na issue durante a execução:
+Resultado da correlação em E0:
 
 | Correlation ID | Worker/outcome | Último stage | Ramo de `deep_research` | Exceção sanitizada | Causa demonstrada? |
 | --- | --- | --- | --- | --- | --- |
-| `crl-727bc57b` | pendente | pendente | pendente | pendente | não |
-| `crl-1592f22c` | pendente | pendente | pendente | pendente | não |
+| `crl-727bc57b` | não recuperado | não recuperado | não recuperado | não recuperada | não — G1 ativo |
+| `crl-1592f22c` | não recuperado | não recuperado | não recuperado | não recuperada | não — G1 ativo |
 
 ### 4.3 Mapa de localização
 
@@ -108,6 +109,10 @@ Comparar a stack com estes pontos, sem presumir qual deles falhou:
 - inserção no registry: `deep_research.py:166-177`;
 - extração/cache/formatação: `deep_research.py:180-197`;
 - conversão no erro genérico e log interno: `utils.py:704-722`.
+
+**Resultado de E0:** etapa finalizada com evidência insuficiente, não com causa
+raiz identificada. G1 permanece ativo; novas tentativas de diagnóstico dependem de
+acesso read-only ao host ou de logs equivalentes dos mesmos eventos.
 
 **Gate G1 — evidência suficiente:** se os logs não identificarem exceção e ramo,
 manter DR-BATCH-01 sem patch e registrar a dependência de observabilidade/acesso.
