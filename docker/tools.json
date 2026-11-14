@@ -9,7 +9,7 @@
   },
   {
     "name": "research_quick_search",
-    "description": "Fast single-query web search returning the top hits with snippets.",
+    "description": "Fast single-query web search returning the top hits with snippets. Output is wrapped with a [SECURITY WARNING:...] prefix to mark untrusted content.",
     "arguments": [
       {"name": "query", "type": "string", "desc": "The search query."}
     ]

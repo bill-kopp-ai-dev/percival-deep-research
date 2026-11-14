@@ -14,7 +14,7 @@ from percival_research.app import (
     mcp,
 )
 from percival_research.retrievers.bounded_duckduckgo import install_bounded_retrievers
-from utils import handle_exception, new_correlation_id, sanitize_query
+from utils import handle_exception, new_correlation_id, sanitize_query, wrap_untrusted_content
 
 
 @mcp.tool("research_quick_search")
@@ -85,4 +85,4 @@ async def _do_quick_search(query: str, cid: str) -> str:
     else:
         lines.append("No results found.")
 
-    return "\n".join(lines)
+    return wrap_untrusted_content("\n".join(lines))

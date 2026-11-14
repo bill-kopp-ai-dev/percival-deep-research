@@ -94,7 +94,7 @@ core principles:
 | Name | Function | Signature | Latency | Notes |
 |---|---|---|---|---|
 | `research_deep` | Multi-source deep research | `(query, include_context: StrictBool=False) → str` | 30–120 s | Rate-limited; in-flight dedup; returns `research_id` |
-| `research_quick_search` | Raw snippets, no LLM synthesis | `(query) → str` | 3–10 s | Rate-limited; no synthesis |
+| `research_quick_search` | Wrapped raw snippets, no LLM synthesis | `(query) → str` | 3–10 s | Rate-limited; `[SECURITY WARNING:…]` prefix |
 | `research_get_context` | Wrapped research context | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
 | `research_get_sources` | Wrapped source metadata | `(research_id) → str` | <1 s | `[SECURITY WARNING:…]` prefix |
 | `research_write_report` | Final markdown report | `(research_id, custom_prompt=None) → str` | Provider-dependent, bounded | Always uses inference; isolated worker, same internal deadline as research |
@@ -575,11 +575,12 @@ MCP client ──stdio/HTTP──▶ FastMCP app ──▶ research worker (subp
                                 └──▶ @mcp.tool decorators expose the 5 public tools
 ```
 
-**Security boundary** — untrusted web content (returned by `research_get_*`)
-is wrapped with a `[SECURITY WARNING:...]` prefix so the calling agent
-treats it as data, not instruction. The XML envelope is applied at the
-`utils.py` level for the `research://{topic}` resource. Input sanitization
-lives in `sanitize_query()` / `sanitize_topic()` (utils.py).
+**Security boundary** — untrusted web content (returned by
+`research_quick_search` and `research_get_*`) is wrapped with a
+`[SECURITY WARNING:...]` prefix so the calling agent treats it as data, not
+instruction. The XML envelope is applied at the `utils.py` level for the
+`research://{topic}` resource. Input sanitization lives in `sanitize_query()` /
+`sanitize_topic()` (utils.py).
 
 **Determinism guarantees** — `StrictBool` on `include_context` is enforced
 at the Pydantic layer (FastMCP 3.4+) before our handler runs, so a v2.x
