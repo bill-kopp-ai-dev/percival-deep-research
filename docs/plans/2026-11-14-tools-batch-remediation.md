@@ -247,15 +247,24 @@ uv run --with ruff ruff format --check .
 git diff --check
 ```
 
-- [ ] Se houver `uv sync`, executar antes da suíte
-  `uv run python scripts/patch_gpt_researcher.py`; não reexecutar patch/sync sem
-  mudança de dependências.
-- [ ] Registrar totais de testes/skips, cobertura e qualquer skip novo. Skips HTTP
-  preexistentes não substituem o smoke real da etapa E6.
-- [ ] Revisar o diff para garantir que somente arquivos relacionados às causas,
-  testes e documentação foram alterados.
-- [ ] Declarar explicitamente que a suíte valida DR-BATCH-02, mas não fecha nem
-  corrige DR-BATCH-01.
+- [x] Confirmar se houve `uv sync`: não houve; portanto, o patch
+  `uv run python scripts/patch_gpt_researcher.py` não precisou ser reaplicado.
+- [x] Registrar os totais: suíte completa `455 passed, 3 skipped`, cobertura
+  `88.96%`; Ruff `check` aprovado e `format --check` confirmou 66 arquivos
+  formatados. Não foi introduzido skip novo nesta reconciliação.
+- [x] Revisar o diff da correção e desta reconciliação: os arquivos de código,
+  testes e dependências permanecem iguais a `e9bf7ee`; a evidência de E1 continua
+  válida e esta atualização altera somente este plano.
+- [x] Declarar que a suíte valida DR-BATCH-02, mas não fecha nem corrige
+  DR-BATCH-01.
+
+**Resultado de E4:** concluída por reconciliação em 2026-11-15. A comparação de
+`percival_research/tools/quick_search.py`, `tests/test_tools_quick_search.py`,
+`pyproject.toml` e `uv.lock` com `e9bf7ee` não encontrou diferenças. A evidência
+canônica de testes e Ruff acima foi reutilizada sem reexecução redundante;
+`git diff --check` passou na reconciliação. DR-BATCH-01 permanece sem correção e
+com causa desconhecida. E4 não constrói nem instala imagem. E5 está registrada
+abaixo como bloqueada; E6 segue pendente conforme o escopo autorizado.
 
 ## 8. E5 — Candidato local e probes pertinentes
 
@@ -269,12 +278,31 @@ git diff --check
 - [ ] Na fixture `pipeline_probe.py --mode success`, além do fluxo existente,
   verificar que a quick search retorna o header exatamente uma vez e que o fluxo
   deep → getters → relatório continua íntegro.
-- [ ] Não executar os probes `timeout` e `cancel` para esta entrega: E1 não altera
+- [x] Não executar os probes `timeout` e `cancel` para esta entrega: E1 não altera
   worker, deadline ou cleanup. Esses probes serão pertinentes somente a uma mudança
   futura nessas camadas.
-- [ ] Não publicar a imagem. Scan/SBOM devem ser produzidos quando exigidos pelo
+- [x] Não publicar a imagem. Scan/SBOM devem ser produzidos quando exigidos pelo
   fluxo gerenciado ou por mudança de dependências/imagem, não como aceite extra
-  para código já validado.
+  para código já validado. O build falhou antes de produzir imagem/scan/SBOM.
+
+**Execução E5 (2026-11-15):** submissão gerenciada `canonical` pelo comando
+`positronic mcp maintenance submit --project percival-deep-research --recipe
+canonical --session ses_e2343746bffe4054vyfcheIXII --request-id
+e5-ses-e2343746-20261115 --directory /home/bill/Projects/percival-deep-research`.
+Receita efetiva: Dockerfile `Dockerfile`, plataforma `linux/amd64`, rede `none`,
+timeout 120000 ms, recipe SHA-256
+`6d280a491c59a6659270cd88650a2dfcf6f69077e14b0b6b8a1ac8c28745dab2`. Snapshot:
+commit `23623549ad55512f222b64821d54d0610e8accd2`, dirty `true` (somente a
+atualização documental de E4), context SHA-256
+`0afb10e9ff5a2bbda2e9fc8506ddc5ffa3bc3d3411e8e0517e3c2ffbac6dcd1c`. Job
+`9a2d2c8808dc531ec4a3d0062264d9b16c91123c61a74d03290c8d6b24a7f107` chegou à
+fase `build` e falhou com exit code 1; o recibo reporta diagnóstico `unclassified`
+e 21065 bytes de stderr, sem imagem/image ID. Assim, conformance e
+`pipeline_probe.py --mode success` não foram executados. O Docker CLI local também
+não alcança Engine (`/var/run/docker.sock` ausente); nenhum build direto foi feito.
+Os dados disponíveis não determinam a causa específica da falha. Não houve scan,
+SBOM, autorização nem publicação. E5 permanece bloqueada até a causa do build ser
+resolvida e um candidato válido ser produzido.
 
 ## 9. E6 — Rollout de teste Positronic e smoke real
 
