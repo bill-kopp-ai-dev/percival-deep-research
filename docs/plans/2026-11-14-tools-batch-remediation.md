@@ -300,9 +300,25 @@ fase `build` e falhou com exit code 1; o recibo reporta diagnóstico `unclassifi
 e 21065 bytes de stderr, sem imagem/image ID. Assim, conformance e
 `pipeline_probe.py --mode success` não foram executados. O Docker CLI local também
 não alcança Engine (`/var/run/docker.sock` ausente); nenhum build direto foi feito.
-Os dados disponíveis não determinam a causa específica da falha. Não houve scan,
-SBOM, autorização nem publicação. E5 permanece bloqueada até a causa do build ser
-resolvida e um candidato válido ser produzido.
+**Diagnóstico adicional (2026-11-15):** causa provável identificada: a receita
+gerenciada impõe `network=none`, enquanto o Dockerfile exige acesso a fontes
+externas durante o build. `uv sync` nas linhas 43 e 54 resolve/instala dependências;
+`apt-get update` na linha 147 consulta `snapshot.debian.org`. O job não tem bases
+locais permitidas (`localBases: []`). Em contraste, `.github/workflows/ci.yml`
+usa Buildx sem restringir a rede do build e fornece explicitamente `VERSION`,
+`GIT_SHA` e `SOURCE_DATE_EPOCH`. A combinação da receita offline com um cache
+ausente/incompleto explica o erro, mas o recibo sanitizado não revela qual comando
+foi o primeiro a falhar; portanto, ainda não é causa-raiz confirmada. Reconsultar
+`maintenance status --print-logs --log-level DEBUG` não expôs stderr, apenas os
+mesmos 21065 bytes e `unclassified`; `runtime_policy_get` retornou
+`policy-unavailable`. `docker version` confirmou cliente 29.9.2, mas não há Engine
+local em `/var/run/docker.sock`, então não foi possível reproduzir o build direto.
+Como não há imagem, labels OCI nem passagem explícita de `VERSION`/`GIT_SHA` pelo
+CLI gerenciado também não puderam ser verificadas.
+
+Não houve scan, SBOM, autorização nem publicação. E5 permanece bloqueada até haver
+um build compatível com as dependências online do Dockerfile (ou bases/cache
+completos e autorizados), seguido da produção e validação do candidato.
 
 ## 9. E6 — Rollout de teste Positronic e smoke real
 
