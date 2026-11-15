@@ -23,6 +23,8 @@ from pathlib import Path
 import httpx
 from mcp.client.streamable_http import streamable_http_client
 
+from utils import UNTRUSTED_CONTENT_HEADER
+
 
 class Upstream(BaseHTTPRequestHandler):
     calls = 0
@@ -170,6 +172,8 @@ async def exercise(port, mode, container):
                         "<think>" not in report and "fixture auxiliary provider text" not in report
                     )
                     quick = await wrappers["research_quick_search"].execute(query="fixture search")
+                    assert quick.startswith(UNTRUSTED_CONTENT_HEADER), quick
+                    assert quick.count(UNTRUSTED_CONTENT_HEADER) == 1, quick
                     assert "result_count: 1" in quick and "/source" in quick, quick
                     cache = await session.read_resource("research://fixture%20research")
                     assert "SECURITY WARNING" in cache.contents[0].text

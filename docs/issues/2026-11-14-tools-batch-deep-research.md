@@ -1,6 +1,6 @@
 # Batelada das tools: falhas intermitentes em `research_deep` e ausência de isolamento em `research_quick_search`
 
-- **Status:** parcialmente resolvida localmente; DR-BATCH-02 corrigida e DR-BATCH-01 bloqueada no diagnóstico
+- **Status:** DR-BATCH-02 corrigida e qualificada em candidato local não implantado; DR-BATCH-01 permanece sem causa demonstrada
 - **Reportado em:** 2026-11-14
 - **Severidade proposta:** alta para DR-BATCH-01; média para DR-BATCH-02
 - **Versão declarada pela instalação:** 3.0.1
@@ -241,6 +241,19 @@ retry. Sem evidência da causa, nenhum arquivo de `research_deep`, worker, timeo
 retry ou provider foi alterado e nenhuma regressão genérica foi criada. O
 desbloqueio requer acesso read-only aos logs do host e aos OCI labels da imagem,
 ou evidência equivalente que identifique o ramo e a exceção dos eventos.
+
+## E5 — Candidato local de DR-BATCH-02 (2026-11-15)
+
+O build gerenciado `canonical` falhou sem produzir imagem. Depois, um build direto
+no Docker Engine local produziu e qualificou o candidato
+`sha256:b0a9fd2e48a34050d49b34fbc89a73a867aa5446092161218005da4ee6c6affc`,
+vinculado ao SHA `2159fe1ced4bfc7345ab489bf6a9d03b55324bc8`, com versão `3.0.1`.
+Conformance MCP e `pipeline_probe.py --mode success` passaram usando fixtures
+locais; a imagem não foi publicada nem instalada. Os detalhes do comando, labels,
+probes e limites para E6 estão no [registro E5 do plano](../plans/2026-11-14-tools-batch-remediation.md#candidato-direto-local-2026-11-15).
+
+DR-BATCH-02 continua corrigida localmente, ainda não implantada. E6 não foi
+executada; DR-BATCH-01 permanece sem correção e com risco residual explícito.
 
 ## Fora do escopo desta batelada
 

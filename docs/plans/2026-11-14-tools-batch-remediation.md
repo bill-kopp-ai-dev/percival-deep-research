@@ -1,7 +1,7 @@
 # Plano de correção da batelada das tools do Deep Research
 
 - **Data:** 2026-11-14
-- **Status:** E0 finalizada com diagnóstico inconclusivo; E1 concluída localmente; E2/E3 encerradas sem patch por decisão do operador; entrega de E1 pendente
+- **Status:** E0 finalizada com diagnóstico inconclusivo; E1 concluída localmente; E2/E3 encerradas sem patch por decisão do operador; E5 concluída com candidato direto local; E6 pendente e E7 parcial
 - **Issue de origem:** [`docs/issues/2026-11-14-tools-batch-deep-research.md`](../issues/2026-11-14-tools-batch-deep-research.md)
 - **Owner e único aprovador:** Bill Kopp
 - **Runtime observado:** Positronic `deep-research` 3.0.1, imagem `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`, instalação revisão 23, configuração revisão 1
@@ -263,19 +263,20 @@ git diff --check
 `pyproject.toml` e `uv.lock` com `e9bf7ee` não encontrou diferenças. A evidência
 canônica de testes e Ruff acima foi reutilizada sem reexecução redundante;
 `git diff --check` passou na reconciliação. DR-BATCH-01 permanece sem correção e
-com causa desconhecida. E4 não constrói nem instala imagem. E5 está registrada
-abaixo como bloqueada; E6 segue pendente conforme o escopo autorizado.
+com causa desconhecida. E4 não constrói nem instala imagem. E5 foi inicialmente
+bloqueada pelo build gerenciado, mas foi concluída depois por build direto local,
+documentado abaixo; E6 segue pendente.
 
 ## 8. E5 — Candidato local e probes pertinentes
 
-- [ ] Construir pela receita/manager canônico do projeto, em `linux/amd64`, com
+- [x] Construir pela receita/manager canônico do projeto, em `linux/amd64`, com
   `VERSION` e `GIT_SHA` explícitos, registrando SHA, dirty state/diff, comando,
-  plataforma, rede, image ID e OCI labels. Um build direto, se utilizado, deve ser
-  identificado como tal e não como recibo gerenciado.
-- [ ] Executar `scripts/docker-ci-conformance.py --image <candidato>` com os
+  plataforma, rede, image ID e OCI labels. Build direto deve ser identificado como
+  tal e não como recibo gerenciado.
+- [x] Executar `scripts/docker-ci-conformance.py --image <candidato>` com os
   argumentos esperados para as cinco tools e UID 1000; confirmar initialize,
   tools/list e stdout JSON-RPC puro.
-- [ ] Na fixture `pipeline_probe.py --mode success`, além do fluxo existente,
+- [x] Na fixture `pipeline_probe.py --mode success`, além do fluxo existente,
   verificar que a quick search retorna o header exatamente uma vez e que o fluxo
   deep → getters → relatório continua íntegro.
 - [x] Não executar os probes `timeout` e `cancel` para esta entrega: E1 não altera
@@ -283,7 +284,8 @@ abaixo como bloqueada; E6 segue pendente conforme o escopo autorizado.
   futura nessas camadas.
 - [x] Não publicar a imagem. Scan/SBOM devem ser produzidos quando exigidos pelo
   fluxo gerenciado ou por mudança de dependências/imagem, não como aceite extra
-  para código já validado. O build falhou antes de produzir imagem/scan/SBOM.
+  para código já validado. O build gerenciado falhou antes de produzir imagem;
+  o build direto local não alterou dependências, Dockerfile ou imagens-base.
 
 **Execução E5 (2026-11-15):** submissão gerenciada `canonical` pelo comando
 `positronic mcp maintenance submit --project percival-deep-research --recipe
@@ -324,20 +326,69 @@ nenhuma segunda tentativa idêntica foi iniciada. Sem imagem produzida, não é
 possível verificar labels OCI; o CLI de submissão tampouco expõe parâmetros para
 conferir a passagem explícita de `VERSION`/`GIT_SHA`.
 
-Não houve scan, SBOM, autorização nem publicação. E5 permanece bloqueada até haver
-um build compatível com as dependências online do Dockerfile (ou bases/cache
-completos e autorizados), seguido da produção e validação do candidato.
+Naquela submissão gerenciada não houve imagem, scan, SBOM, autorização ou
+publicação. O handoff proposto para alterar temporariamente a rede da receita não
+foi executado; nenhum estado do manager foi alterado. A qualificação local
+posterior está registrada abaixo e não confirma a causa-raiz do erro gerenciado.
 
-**Handoff para diagnóstico de E5:** Bill delegará as próximas tentativas a um
-agente com autoridade de executor suficiente. Esse agente deve ler a política
-vigente da receita `canonical`, preservar sua revisão/rollback, variar somente a
-rede de build para `default` (ou usar bases/cache completos permitidos), submeter
-um único build diagnóstico e recuperar o stderr detalhado pelo canal autorizado.
-Se o build passar, registrar imagem, versão/SHA/labels e executar os probes de
-conformance e `pipeline_probe.py --mode success`; ao final, restaurar a política
-original. A causa de falha só deve ser marcada como confirmada com evidência do
-erro específico ou com build comparativo que isole a rede. E6 continua fora deste
-handoff e não está autorizada por ele.
+### Candidato direto local (2026-11-15)
+
+Docker Buildx no Engine local (`docker info`: `Name=omarchy-main`, Buildx driver
+`docker`), sem usar o manager Positronic.
+No momento do build, `HEAD=2159fe1ced4bfc7345ab489bf6a9d03b55324bc8`, worktree
+limpo (`dirty=false`, diff vazio). Comando:
+
+```bash
+docker buildx build --load --platform linux/amd64 --network default \
+  --provenance=false --tag percival-deep-research:e5-direct-2159fe1 \
+  --build-arg VERSION=3.0.1 \
+  --build-arg GIT_SHA=2159fe1ced4bfc7345ab489bf6a9d03b55324bc8 \
+  --build-arg SOURCE_DATE_EPOCH=1794706976 --file Dockerfile .
+```
+
+Resultado: build direto local concluído, sem push. Image ID
+`sha256:b0a9fd2e48a34050d49b34fbc89a73a867aa5446092161218005da4ee6c6affc`;
+OCI labels `org.opencontainers.image.version=3.0.1` e
+`org.opencontainers.image.revision=2159fe1ced4bfc7345ab489bf6a9d03b55324bc8`;
+plataforma `linux/amd64`, usuário não-root `percival`, healthcheck ausente. O image
+ID baseline `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`
+também existe nesse Engine local, o que não comprova sua disponibilidade no
+manager Positronic.
+
+Conformance executada com `MCP_TRANSPORT=stdio`, UID 1000 e as cinco tools
+esperadas; resultado: initialize + tools/list aprovados, cinco tools e stdout
+JSON-RPC válido. Comando:
+
+```bash
+uv run --no-sync python scripts/docker-ci-conformance.py \
+  --image percival-deep-research:e5-direct-2159fe1 \
+  --secret-env INFERENCE_API_KEY=ci-sentinel-not-a-secret \
+  --env INFERENCE_BASE_URL=https://api.openai.com/v1 \
+  --env MCP_TRANSPORT=stdio \
+  --expected-tool research_quick_search \
+  --expected-tool research_deep \
+  --expected-tool research_get_context \
+  --expected-tool research_get_sources \
+  --expected-tool research_write_report \
+  --expected-uid 1000 --compose-service percival-deep-research-stdio \
+  --compose-profile stdio
+```
+
+O probe integrado passou em `mode=success` com fixture local:
+44.134 s, duas chamadas de inferência simuladas, zero embeddings, zero workers
+remanescentes e cinco tools exercitadas. O probe agora exige que a resposta da
+quick search comece com `UNTRUSTED_CONTENT_HEADER` e contenha exatamente uma
+ocorrência; a alteração local de harness está em `scripts/pipeline_probe.py` e foi
+feita depois do build, sem alterar o código runtime incluído no candidato.
+Suíte canônica após essa asserção: 455 passed, 3 skipped, cobertura 88.96%; Ruff
+check e format aprovados; `git diff --check` aprovado. Não foram executados scan ou
+SBOM: o build foi direto/local, sem alteração de dependências, Dockerfile ou
+imagens-base, e nenhum fluxo gerenciado exigiu esses artefatos.
+
+**Resultado de E5:** concluída para qualificação local do candidato. Isso não é
+recibo de build gerenciado, não autoriza a imagem no manager e não demonstra que a
+imagem baseline está disponível para rollback naquele manager. E6 permanece
+pendente; não houve mutação de runtime nem smoke real com provider.
 
 ## 9. E6 — Rollout de teste Positronic e smoke real
 
@@ -370,13 +421,21 @@ Smoke controlado de DR-BATCH-02, sem retry automático:
 Um smoke real bem-sucedido demonstra o envelope da quick search na imagem
 candidata. Ele não declara DR-BATCH-01 corrigida nem elimina intermitência externa.
 
+**Situação de E6 (2026-11-15):** não executada. A interface Positronic suportada
+para consultar/atualizar o servidor não estava disponível nesta sessão; o comando
+`positronic` local expõe apenas `opencode attach`. A imagem candidata e a baseline
+foram verificadas somente no Engine Docker local, sem prova de disponibilidade no
+manager. Não houve `update-image`, alteração de runtime nem smoke real; o rollback
+no manager também não pôde ser confirmado.
+
 ## 10. E7 — Fechamento documental e rollback
 
-- [ ] Atualizar a issue com os arquivos alterados, regressões, comandos e resultados
+- [x] Atualizar a issue com os arquivos alterados, regressões, comandos e resultados
   de DR-BATCH-02, SHA/diff, image ID e evidência do smoke quando houver. Para
   DR-BATCH-01, registrar o timeout, o sucesso posterior, a ausência de causa
-  demonstrada e a decisão de não intervir; não preencher uma causa hipotética.
-- [ ] Marcar DR-BATCH-02 como resolvida localmente por `e9bf7ee` e como implantada
+  demonstrada e a decisão de não intervir; não preencher uma causa hipotética. A
+  issue aponta para este registro E5, que mantém os detalhes do candidato.
+- [x] Marcar DR-BATCH-02 como resolvida localmente por `e9bf7ee` e como implantada
   somente após E6. Marcar DR-BATCH-01 como encerrada sem correção neste plano, com
   risco residual e critérios de reabertura explícitos.
 - [ ] Mover a issue para `docs/issues/closed/` após o escopo de entrega solicitado
