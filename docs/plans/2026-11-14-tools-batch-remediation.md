@@ -1,37 +1,42 @@
 # Plano de correção da batelada das tools do Deep Research
 
 - **Data:** 2026-11-14
-- **Status:** E0 finalizada com diagnóstico inconclusivo e gate G1 ativo; E1 concluída; E2/E3 bloqueadas
+- **Status:** E0 finalizada com diagnóstico inconclusivo; E1 concluída localmente; E2/E3 encerradas sem patch por decisão do operador; entrega de E1 pendente
 - **Issue de origem:** [`docs/issues/2026-11-14-tools-batch-deep-research.md`](../issues/2026-11-14-tools-batch-deep-research.md)
 - **Owner e único aprovador:** Bill Kopp
 - **Runtime observado:** Positronic `deep-research` 3.0.1, imagem `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`, instalação revisão 23, configuração revisão 1
-- **Escopo previsto:** diagnóstico, alterações locais, testes e candidato local; rollout de teste pelo manager Positronic somente quando essa etapa for expressamente solicitada
+- **Escopo atual:** entregar DR-BATCH-02 por verificação local, candidato rastreável e rollout somente quando expressamente solicitado; DR-BATCH-01 permanece sem correção e não bloqueia essa entrega
 - **Evidência da execução E0–E3:** [seção de execução da issue](../issues/2026-11-14-tools-batch-deep-research.md#execução-de-e0e3-em-2026-11-14)
-- **Fora de escopo:** publicação, alteração do manager Percival, mudança de provider/credencial, aumento de timeouts, persistência de sessões e alteração da semântica de `source_urls`
+- **Fora de escopo:** publicação, alteração do manager Percival, mudança de provider/credencial, aumento de timeouts, persistência de sessões, alteração da semântica de `source_urls`, novas reproduções pagas de DR-BATCH-01 e implementação da observabilidade futura
 
 ## 1. Resultado pretendido
 
-Encerrar os dois achados sem mascarar a falha intermitente nem enfraquecer o
-isolamento de processo e o hardening existentes:
+Entregar a correção determinística de DR-BATCH-02 sem mascarar a falha
+intermitente nem enfraquecer o isolamento de processo e o hardening existentes:
 
-1. **DR-BATCH-01:** identificar pela evidência de runtime a causa das falhas
-   genéricas de `research_deep`, reproduzi-la em teste e aplicar a menor correção
-   que elimine esse mecanismo. Falhas transitórias legítimas de dependências devem
-   permanecer erro sanitizado; não se promete disponibilidade permanente de
-   busca, scraping ou inferência externos.
-2. **DR-BATCH-02:** toda resposta de `research_quick_search` que contenha
-   resultados web deve começar com `UNTRUSTED_CONTENT_HEADER`, preservando
+1. **DR-BATCH-01:** encerrar a investigação atual como inconclusiva, sem patch.
+   As falhas genéricas e o timeout observado podem ter origens diferentes; o
+   sucesso posterior não comprova correção nem falta de créditos. Observabilidade
+   e eventual remediação operacional de quota serão tratadas separadamente se
+   houver evidência ou recorrência.
+2. **DR-BATCH-02:** toda resposta normal de `research_quick_search` deve começar
+   com `UNTRUSTED_CONTENT_HEADER`, inclusive a resposta vazia, preservando
    `result_count`, ordem e conteúdo dos resultados. Erros locais continuam
    começando com `Error:` e não recebem envelope de conteúdo externo.
 
-A issue só poderá ser integralmente encerrada quando ambos os achados tiverem
-critérios verificáveis atendidos. Uma correção de DR-BATCH-02 pode ser concluída
-de forma independente se a causa de DR-BATCH-01 ainda não estiver demonstrada.
+O plano poderá ser encerrado após a entrega de DR-BATCH-02 e o registro explícito
+do risco residual de DR-BATCH-01. Esse fechamento não significa que a falha
+intermitente foi corrigida nem que toda dependência externa permanecerá disponível.
 
 ## 2. Princípios de execução e decisões já tomadas
 
-- Não alterar `research_deep` por hipótese: primeiro correlacionar os IDs
-  `crl-727bc57b` e `crl-1592f22c` aos logs e a um ramo concreto do código.
+- Não alterar `research_deep` por hipótese. Os IDs `crl-727bc57b`,
+  `crl-1592f22c` e `crl-68cc130c` não foram correlacionados a logs internos;
+  nenhum deles autoriza um patch no escopo atual.
+- Não executar novas reproduções pagas de DR-BATCH-01 neste plano. Uma recorrência
+  só reabre a correção se trouxer exceção/ramo demonstrados ou evidência sanitizada
+  de quota/billing; falta de créditos confirmada exige ação operacional, não retry
+  ou mudança arbitrária do pipeline.
 - Não adicionar retry da pesquisa inteira, aumentar o deadline ou aceitar dados
   vazios como sucesso para fazer o sintoma desaparecer.
 - Não substituir o worker isolado por execução in-process e não relaxar o hard
@@ -51,16 +56,18 @@ de forma independente se a causa de DR-BATCH-01 ainda não estiver demonstrada.
 
 | Etapa | Trabalho | Depende de | Saída verificável |
 | --- | --- | --- | --- |
-| E0 | Preservar baseline e recuperar evidência dos dois correlation IDs | acesso read-only ao host/manager | tabela de diagnóstico e identidade exata da imagem |
-| E1 | Criar regressão e corrigir DR-BATCH-02 | E0 somente para baseline; não depende da causa de DR-BATCH-01 | quick search envelopado e testes verdes |
-| E2 | Classificar DR-BATCH-01 e demonstrar a causa em regressão | E0 | teste que falha no código sem correção |
-| E3 | Aplicar a correção mínima de DR-BATCH-01 | E2 | regressão e caminhos vizinhos verdes |
-| E4 | Executar verificação local integrada | E1; E3 para fechamento integral | suíte, lint/format e diff limpos |
-| E5 | Construir e qualificar um candidato rastreável | E4 | image ID, labels e probes pertinentes |
-| E6 | Aplicar no Positronic e executar um smoke real controlado | E5 e solicitação explícita de rollout | mesma imagem pinada, fluxo real e rollback preservado |
-| E7 | Atualizar issue/plano e encerrar o escopo concluído | critérios E4–E6 conforme o escopo solicitado | registro canônico sem alegações não verificadas |
+| E0 | Preservar baseline e esgotar a evidência acessível | acesso read-only disponível no agente | baseline registrado e limitações de diagnóstico explícitas |
+| E1 | Criar regressão e corrigir DR-BATCH-02 | E0 somente para baseline | quick search envelopado e testes verdes |
+| E2 | Reavaliar DR-BATCH-01 com as reproduções controladas | E0 e autorização explícita para as chamadas já realizadas | resultado do timeout e do sucesso posterior registrados |
+| E3 | Decidir se DR-BATCH-01 comporta correção baseada em evidência | E2 e decisão do operador | encerramento sem patch e critérios de reabertura |
+| E4 | Reconciliar a verificação local de DR-BATCH-02 | E1; reutiliza a suíte válida da mesma revisão | suíte, lint/format e diff limpos, sem revalidação redundante |
+| E5 | Construir e qualificar o candidato de DR-BATCH-02 | E4 | image ID, labels e probes pertinentes à quick search |
+| E6 | Aplicar no Positronic e executar smoke da quick search | E5 e solicitação explícita de rollout | mesma imagem pinada, envelope real e rollback preservado |
+| E7 | Atualizar issue/plano e encerrar o escopo concluído | critérios E4–E6 conforme o escopo solicitado | DR-BATCH-02 entregue e risco residual de DR-BATCH-01 explícito |
 
-E1 pode avançar enquanto E0/E2 estiverem bloqueados. E3 não pode avançar sem E2.
+E2/E3 estão encerradas para este plano: não houve regressão nem correção de
+DR-BATCH-01. Essa decisão não bloqueia E4–E7. Observabilidade e ação de quota são
+trabalhos futuros independentes, não etapas ocultas desta entrega.
 
 ## 4. E0 — Baseline e diagnóstico preservado
 
@@ -95,8 +102,8 @@ Resultado da correlação em E0:
 
 | Correlation ID | Worker/outcome | Último stage | Ramo de `deep_research` | Exceção sanitizada | Causa demonstrada? |
 | --- | --- | --- | --- | --- | --- |
-| `crl-727bc57b` | não recuperado | não recuperado | não recuperado | não recuperada | não — G1 ativo |
-| `crl-1592f22c` | não recuperado | não recuperado | não recuperado | não recuperada | não — G1 ativo |
+| `crl-727bc57b` | não recuperado | não recuperado | não recuperado | não recuperada | não — investigação encerrada |
+| `crl-1592f22c` | não recuperado | não recuperado | não recuperado | não recuperada | não — investigação encerrada |
 
 ### 4.3 Mapa de localização
 
@@ -111,13 +118,16 @@ Comparar a stack com estes pontos, sem presumir qual deles falhou:
 - conversão no erro genérico e log interno: `utils.py:704-722`.
 
 **Resultado de E0:** etapa finalizada com evidência insuficiente, não com causa
-raiz identificada. G1 permanece ativo; novas tentativas de diagnóstico dependem de
-acesso read-only ao host ou de logs equivalentes dos mesmos eventos.
+raiz identificada. Os itens não marcados em 4.1 e 4.2 registram evidências que
+não puderam ser obtidas com as interfaces disponíveis; não representam ações
+pendentes neste plano. Não haverá novas tentativas de diagnóstico neste plano;
+acesso aos logs ou observabilidade equivalente será necessário apenas em uma
+reabertura.
 
-**Gate G1 — evidência suficiente:** se os logs não identificarem exceção e ramo,
-manter DR-BATCH-01 sem patch e registrar a dependência de observabilidade/acesso.
-Não “corrigir” apenas a mensagem genérica nem inferir provider/retriever pela
-intermitência.
+**Gate G1 — condição para futura correção:** como os logs não identificaram
+exceção e ramo, DR-BATCH-01 permanece sem patch. Não “corrigir” apenas a mensagem
+genérica nem inferir provider/retriever pela intermitência. G1 não bloqueia a
+entrega independente de DR-BATCH-02.
 
 ## 5. E1 — Correção determinística de DR-BATCH-02
 
@@ -126,100 +136,104 @@ intermitência.
 Editar `tests/test_tools_quick_search.py` e, somente se necessário para o
 contrato MCP, o teste de transporte correspondente:
 
-- [ ] Em `test_quick_search_sucesso`, exigir
+- [x] Em `test_quick_search_sucesso`, exigir
   `result.startswith(UNTRUSTED_CONTENT_HEADER)` além das asserções atuais de
   contagem, ordem e resultados. Esse teste deve falhar na implementação atual.
-- [ ] Adicionar resultado com `title`, `href` e `body`, sendo `body` um texto de
+- [x] Adicionar resultado com `title`, `href` e `body`, sendo `body` um texto de
   injection benigno de fixture. Confirmar que o texto permanece literalmente como
   dado, que o header aparece exatamente uma vez e que nenhuma sanitização remove
   ou executa o snippet.
-- [ ] Em `test_quick_search_sem_resultados`, definir e verificar o contrato de
+- [x] Em `test_quick_search_sem_resultados`, definir e verificar o contrato de
   envelope para a resposta vazia. A opção preferida é envelopar também esse ramo
   para manter todos os retornos normais da tool uniformes.
-- [ ] Manter `test_quick_search_rejeita_injection` e
+- [x] Manter `test_quick_search_rejeita_injection` e
   `test_quick_search_trata_excecao` começando com `Error:`; acrescentar asserção
   de que erros locais não são apresentados como conteúdo web.
-- [ ] Confirmar que métricas, acquire/release do limiter e `result_count` não
+- [x] Confirmar que métricas, acquire/release do limiter e `result_count` não
   mudam.
 
 ### 5.2 Implementação mínima
 
 Em `percival_research/tools/quick_search.py:11-16` e `:59-88`:
 
-- [ ] Importar `wrap_untrusted_content` de `utils`.
-- [ ] Envolver `"\n".join(lines)` somente no retorno normal de
+- [x] Importar `wrap_untrusted_content` de `utils`.
+- [x] Envolver `"\n".join(lines)` somente no retorno normal de
   `_do_quick_search`, após a conclusão da busca e da formatação.
-- [ ] Não envolver o retorno de `handle_exception`, erros de validação ou erro de
+- [x] Não envolver o retorno de `handle_exception`, erros de validação ou erro de
   admissão do rate limiter.
-- [ ] Aplicar o envelope uma única vez; não adicionar um segundo prefixo em
+- [x] Aplicar o envelope uma única vez; não adicionar um segundo prefixo em
   camadas MCP, prompts ou clientes.
-- [ ] Preservar o schema `(query) -> str`, os nomes das tools e a estrutura
+- [x] Preservar o schema `(query) -> str`, os nomes das tools e a estrutura
   `result_count`/`[Result N]` já consumida pelos agentes.
 
 ### 5.3 Documentação
 
-- [ ] Atualizar a descrição de `research_quick_search` e o security boundary no
+- [x] Atualizar a descrição de `research_quick_search` e o security boundary no
   README para declarar que snippets rápidos também usam o prefixo.
-- [ ] Não alterar a versão do produto nem o changelog como se a correção já
+- [x] Não alterar a versão do produto nem o changelog como se a correção já
   estivesse instalada; qualquer bump/release fica fora deste plano.
 
 **Aceite DR-BATCH-02:** as regressões falham sem o patch e passam com ele; saída
 normal começa com o header; erro local continua `Error:`; contagem, ordem e
 conteúdo dos resultados permanecem intactos.
 
-## 6. E2/E3 — Causa, regressão e correção de DR-BATCH-01
+**Resultado de E1:** concluída no commit `e9bf7ee`. As regressões apresentaram
+`3 failed, 2 passed` antes do patch e `5 passed` depois; a suíte completa registrou
+`455 passed, 3 skipped`, com Ruff aprovado. A evidência completa está na issue. A
+correção permanece local: nenhuma imagem nova, rollout ou release foi realizado.
 
-### 6.1 Converter a evidência em teste
+## 6. E2/E3 — Encerramento de DR-BATCH-01 sem patch
 
-- [ ] Selecionar o arquivo de teste da camada onde a exceção ocorreu:
-  `tests/test_tools_deep_research.py` para ramos da tool,
-  `tests/test_research_lifecycle.py` para sessão/provider/timeout, ou testes do
-  worker/retriever para falhas nessas camadas.
-- [ ] Reproduzir a assinatura observada com doubles/fixtures, sem rede e sem
-  credenciais reais. Incluir o mesmo estágio e o mesmo tipo de payload/exceção;
-  não criar um teste genérico que apenas repita `RuntimeError("boom")`.
-- [ ] Verificar que a regressão falha no código anterior e que não cria
-  `research_id`, não grava sessão parcial e não deixa worker/tarefa pendente.
-- [ ] Se a falha original tiver ocorrido após criação parcial da sessão, verificar
-  também eviction/cleanup e ausência de cache aparentemente bem-sucedido.
+### 6.1 Evidência e decisão
 
-**Gate G2 — regressão válida:** se o teste passa no código sem patch, ele não
-reproduz o defeito e não autoriza a correção. Revisar a fixture até demonstrar a
-falha ou devolver o item ao diagnóstico.
+- [x] Executar uma única reprodução controlada da consulta original, com
+  `include_context=true` e sem retry. O resultado foi timeout de 90 s com
+  `correlation_id=crl-68cc130c`, sem `research_id`; worker stage e exceção interna
+  não foram recuperados.
+- [x] Repetir a mesma chamada uma única vez após solicitação explícita do operador.
+  O resultado foi `research_id=9364add8-9a31-4b0a-8c2d-96bf935c3b06` e
+  `source_count=9`, sem alteração de código ou configuração entre as observações.
+- [x] Registrar que o sucesso é compatível com falha externa transitória, inclusive
+  quota, mas não comprova falta de créditos nem identifica as falhas genéricas.
+- [x] Encerrar as reproduções pagas e não criar teste genérico, retry, aumento de
+  timeout ou alteração de provider sem uma causa demonstrada.
 
-### 6.2 Escolher a correção pela causa demonstrada
+**Resultado de E2/E3:** etapas encerradas por decisão do operador em 2026-11-14.
+DR-BATCH-01 não foi corrigida e seu mecanismo permanece desconhecido. O sucesso
+posterior confirma o fluxo executado naquele momento, não uma remediação. Nenhum
+arquivo de `research_deep`, worker, timeout, retry ou provider foi alterado.
 
-Aplicar somente o ramo correspondente:
+### 6.2 Critérios para reabertura
 
-| Evidência | Correção permitida | Correção que não deve ser usada |
-| --- | --- | --- |
-| worker retorna payload inválido/vazio | corrigir serialização/normalização na origem e testar payload realista | remover `validate_research_data` ou aceitar contexto/fontes vazios |
-| worker sai não zero em stage específico | tratar a exceção nesse stage, preservando protocolo sanitizado e deadline | aumentar timeout ou esconder exit não zero |
-| retriever/scraper produz inconsistência | ajustar o adaptador/parse afetado com fixture representativa | trocar provider/retriever ou adicionar fan-out sem evidência |
-| exceção transitória classificável | tratar somente a operação afetada, com limite e sem repetir pesquisa inteira | retry global automático e multiplicação de chamadas pagas |
-| reidratação/registry/extração no pai | corrigir o ramo local e garantir eviction em todos os erros | mover o pipeline de volta para o processo principal |
-| configuração inválida efetiva | corrigir pelo manager e manter validação/erro explícito | editar estado do manager ou valores secretos manualmente |
+| Nova evidência | Encaminhamento |
+| --- | --- |
+| Exceção sanitizada e ramo/stage correlacionados a uma recorrência | abrir correção específica e primeiro criar regressão que falhe sem patch |
+| Status/tipo sanitizado de quota ou billing, como HTTP 402/429 | verificar créditos, quota e alertas; tratar operacionalmente, sem alterar o pipeline por hipótese |
+| Timeout recorrente com `worker`, `outcome`, `last_stage` e `reaped` | diagnosticar o stage atingido; não aumentar o deadline sem demonstrar que ele é o defeito |
+| Somente novo sucesso ou repetição da resposta genérica sem logs | não reabrir correção; melhorar acesso à evidência antes de novas chamadas pagas |
 
-- [ ] Implementar a menor alteração no arquivo dono da causa.
-- [ ] Manter `ProviderRejectedError`, timeout e cancelamento nas categorias já
-  existentes; não transformar erro permanente em transitório.
-- [ ] Se a resposta pública precisar de nova categoria segura, incluir apenas
-  informação allowlisted, manter `correlation_id` e avaliar o impacto no contrato
-  do consumidor. Não expor a mensagem bruta da exceção.
-- [ ] Executar a regressão nova e os testes vizinhos do mesmo caminho. Confirmar
-  que o sucesso continua produzindo contexto, fontes e URLs válidos e que getters
-  e relatório não sofreram regressão.
+**Gate G2 — regressão para eventual reabertura:** um teste que passa no código sem
+patch não reproduz o defeito e não autoriza correção. A regressão deve usar a mesma
+assinatura e o mesmo estágio demonstrados, sem rede ou credenciais reais, e verificar
+ausência de sessão/cache parcial e worker remanescente quando aplicável.
 
-**Aceite DR-BATCH-01:** causa e ramo documentados; regressão que reproduz a
-falha original falha sem patch e passa com ele; não há sessão/cache parcial nem
-worker remanescente; o fluxo feliz e os erros permanentes existentes permanecem
-cobertos. O encerramento não deve afirmar que toda falha externa futura foi
-eliminada.
+### 6.3 Observabilidade futura, fora desta entrega
 
-## 7. E4 — Verificação local integrada
+Uma tarefa separada poderá preservar, com acesso read-only equivalente no host ou
+no manager, `correlation_id`, worker ID, `outcome`, `last_stage`, `reaped`, tipo de
+exceção allowlisted e status/classe sanitizada do provider. Não registrar queries,
+prompts, corpos upstream, respostas do provider ou credenciais. Essa instrumentação
+não é pré-requisito de E4–E7 e não está autorizada como parte oculta do rollout de E1.
 
-Executar os testes focados durante o desenvolvimento e a suíte canônica uma vez
-na revisão final:
+## 7. E4 — Verificação local integrada de DR-BATCH-02
+
+Esta etapa não depende de DR-BATCH-01. A suíte `455 passed, 3 skipped`, cobertura
+`88.96%` e Ruff aprovado em `e9bf7ee` são a evidência canônica da correção atual;
+não repetir essas validações enquanto o código e as dependências permanecerem os
+mesmos. Executar somente as verificações necessárias se houver nova alteração de
+código e revisar o diff documental no fechamento.
+
+Comandos de referência quando uma nova validação for necessária:
 
 ```bash
 uv run pytest -q --no-cov \
@@ -240,8 +254,8 @@ git diff --check
   preexistentes não substituem o smoke real da etapa E6.
 - [ ] Revisar o diff para garantir que somente arquivos relacionados às causas,
   testes e documentação foram alterados.
-- [ ] Se apenas DR-BATCH-02 tiver sido corrigida, declarar explicitamente que a
-  suíte não fecha DR-BATCH-01.
+- [ ] Declarar explicitamente que a suíte valida DR-BATCH-02, mas não fecha nem
+  corrige DR-BATCH-01.
 
 ## 8. E5 — Candidato local e probes pertinentes
 
@@ -255,9 +269,9 @@ git diff --check
 - [ ] Na fixture `pipeline_probe.py --mode success`, além do fluxo existente,
   verificar que a quick search retorna o header exatamente uma vez e que o fluxo
   deep → getters → relatório continua íntegro.
-- [ ] Se E3 alterar worker, deadline ou cleanup, executar também os probes
-  `timeout` e `cancel` aplicáveis; não repeti-los para uma alteração restrita ao
-  envelope de quick search.
+- [ ] Não executar os probes `timeout` e `cancel` para esta entrega: E1 não altera
+  worker, deadline ou cleanup. Esses probes serão pertinentes somente a uma mudança
+  futura nessas camadas.
 - [ ] Não publicar a imagem. Scan/SBOM devem ser produzidos quando exigidos pelo
   fluxo gerenciado ou por mudança de dependências/imagem, não como aceite extra
   para código já validado.
@@ -277,39 +291,37 @@ executa nem autoriza publicação.
 - [ ] Executar `discover` e confirmar cinco tools e a imagem esperada. Handshake e
   `running/connected` são apenas evidência de transporte, não do pipeline.
 
-Smoke controlado, sem retry automático:
+Smoke controlado de DR-BATCH-02, sem retry automático:
 
-1. Chamar `research_quick_search` com uma consulta pública curta e confirmar
-   header, contagem e resultados.
-2. Chamar uma única `research_deep` com a consulta original da issue e
-   `include_context=false`. Registrar image ID, correlation ID em falha ou
-   `research_id` em sucesso.
-3. Somente se houver ID real, chamar `research_get_context` e
-   `research_get_sources` com exatamente esse ID e, depois,
-   `research_write_report` uma vez. Confirmar headers, contagem coerente e
-   relatório sem `<think>` auxiliar.
-4. Não usar `research://{topic}` como recuperação. Após timeout/erro ambíguo de
-   transporte, inspecionar o estado original antes de qualquer nova chamada; após
-   erro explícito da aplicação, correlacionar logs antes de repetir.
-5. Confirmar cleanup/worker reaped quando houver acesso ao host e ausência de
-   novos erros genéricos no intervalo do smoke.
+1. Chamar `research_quick_search` uma única vez com uma consulta pública curta e
+   confirmar header exatamente uma vez, contagem coerente e resultados preservados.
+2. Em erro explícito da aplicação, registrar o correlation ID e não repetir para
+   “obter sucesso”. Após timeout/erro ambíguo de transporte, inspecionar o estado
+   original antes de qualquer nova chamada.
+3. Não executar `research_deep`, getters ou `research_write_report` neste smoke:
+   E1 não altera esse pipeline e uma falha externa intermitente não deve bloquear
+   ou ser confundida com a validação do envelope da quick search.
+4. Não usar `research://{topic}` como recuperação. O sucesso da pesquisa profunda
+   na imagem baseline não é evidência da imagem candidata nem de DR-BATCH-01.
 
-Um smoke real bem-sucedido demonstra o caminho executado, não a eliminação de
-toda intermitência externa. O fechamento de DR-BATCH-01 depende principalmente da
-causa e da regressão de E2/E3.
+Um smoke real bem-sucedido demonstra o envelope da quick search na imagem
+candidata. Ele não declara DR-BATCH-01 corrigida nem elimina intermitência externa.
 
 ## 10. E7 — Fechamento documental e rollback
 
-- [ ] Atualizar a issue com causa(s), arquivos alterados, regressões, comandos e
-  resultados, SHA/diff, image ID e evidência do smoke. Vincular este plano em vez
-  de duplicar toda a narrativa.
-- [ ] Marcar DR-BATCH-02 como resolvido somente após seu aceite. Manter
-  DR-BATCH-01 aberto se G1/G2 não tiverem sido satisfeitos.
-- [ ] Mover a issue para `docs/issues/closed/` somente após os dois achados serem
-  atendidos ou por decisão explícita do operador, deixando claros eventuais
-  riscos residuais.
-- [ ] Mover este plano para `docs/plans/closed/` quando o escopo executado estiver
-  reconciliado, sem declarar etapas não realizadas como concluídas.
+- [ ] Atualizar a issue com os arquivos alterados, regressões, comandos e resultados
+  de DR-BATCH-02, SHA/diff, image ID e evidência do smoke quando houver. Para
+  DR-BATCH-01, registrar o timeout, o sucesso posterior, a ausência de causa
+  demonstrada e a decisão de não intervir; não preencher uma causa hipotética.
+- [ ] Marcar DR-BATCH-02 como resolvida localmente por `e9bf7ee` e como implantada
+  somente após E6. Marcar DR-BATCH-01 como encerrada sem correção neste plano, com
+  risco residual e critérios de reabertura explícitos.
+- [ ] Mover a issue para `docs/issues/closed/` após o escopo de entrega solicitado
+  ser reconciliado, amparado pela decisão explícita do operador de encerrar
+  DR-BATCH-01 sem patch. O fechamento não pode declarar a intermitência eliminada.
+- [ ] Mover este plano para `docs/plans/closed/` quando E4–E6, conforme o escopo
+  solicitado, e esta documentação estiverem reconciliados. Observabilidade futura
+  não impede o fechamento e deve ter registro próprio se for executada.
 - [ ] Se o candidato falhar, restaurar pelo manager a imagem baseline ainda
   disponível, usando a revisão atual, e registrar o resultado. Não editar
   registry/config/audit diretamente e não operar o ambiente Percival.
@@ -318,10 +330,11 @@ causa e da regressão de E2/E3.
 
 | Risco | Controle |
 | --- | --- |
-| Patch de DR-BATCH-01 tratar sintoma errado | gates G1/G2 e correção vinculada à stack/stage |
+| Patch de DR-BATCH-01 tratar sintoma errado | nenhum patch neste plano; reabertura somente com stack/stage ou evidência operacional classificada |
+| Hipótese de créditos tratada como causa | status/tipo sanitizado do provider; sucesso isolado não confirma quota |
 | Envelope duplicado ou aplicado a erro local | wrap somente no retorno normal e testes de prefixo único/`Error:` |
 | Vazamento de segredos/conteúdo em logs e issue | somente IDs, estágios, tipos allowlisted e dados públicos de fixture |
-| Retry oculto aumentar custo e trabalho órfão | nenhum retry global; uma chamada real controlada; investigação antes de repetir |
+| Retry oculto aumentar custo e trabalho órfão | nenhuma nova reprodução de DR-BATCH-01; smoke restrito a uma quick search |
 | Regressão de timeout/cancelamento | worker isolado preservado e probes específicos somente se essa camada mudar |
 | Evidência atribuída à imagem errada | SHA/diff + OCI labels + image ID registrados no candidato e no smoke |
-| Sucesso externo circunstancial confundido com correção | regressão determinística obrigatória e limites declarados no fechamento |
+| Sucesso externo circunstancial confundido com correção | sucesso registrado apenas como observação; DR-BATCH-01 permanece explicitamente sem correção |

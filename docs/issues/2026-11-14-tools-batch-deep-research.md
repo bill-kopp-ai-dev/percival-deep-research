@@ -80,6 +80,28 @@ falha não foi reproduzida de forma determinística para uma consulta fixa; o
 resultado observado é de intermitência no runtime, não de rejeição permanente da
 consulta.
 
+Em uma reprodução controlada adicional autorizada em 2026-11-14, a primeira
+consulta foi executada uma única vez, novamente com `include_context=true` e sem
+retry automático. Dessa vez o resultado foi:
+
+```text
+Error: Research exceeded the 90s internal limit (correlation_id=crl-68cc130c). Try a more specific query or increase PERCIVAL_RESEARCH_TIMEOUT_S.
+```
+
+Não houve `research_id`. Essa resposta pertence ao ramo explícito de timeout, não
+às respostas genéricas originalmente observadas. O novo correlation ID não foi
+localizado nos logs persistidos acessíveis; worker ID, outcome, último stage e
+marcadores sanitizados permanecem desconhecidos. O evento não demonstra a causa
+das falhas originais nem justifica aumentar o timeout.
+
+Após nova solicitação explícita do operador, a mesma consulta e os mesmos
+argumentos foram executados mais uma única vez, sem retry adicional. A chamada
+concluiu com `research_id=9364add8-9a31-4b0a-8c2d-96bf935c3b06` e
+`source_count=9`. O sucesso confirma que pesquisa e inferência estavam operacionais
+nesse momento, mas não demonstra que as falhas anteriores foram causadas por falta
+de créditos: nenhum status do provider ou log correlacionado foi obtido. Também não
+houve alteração de código ou configuração entre essas observações.
+
 ### Impacto
 
 Quando ocorre, a falha impede a obtenção de `research_id` e bloqueia todo o fluxo
@@ -91,16 +113,19 @@ busca, scraping, inferência, validação ou registro da sessão.
 
 O socket Docker não está disponível neste ambiente do agente; a tentativa de
 verificação retornou `dial unix /var/run/docker.sock: connect: no such file or
-directory`. Assim, os logs dos dois correlation IDs não foram inspecionados e a
-causa raiz permanece desconhecida. Não se deve atribuir o problema ao provider,
+directory`. Assim, os logs dos três correlation IDs não foram inspecionados e as
+causas raiz permanecem desconhecidas. Não se deve atribuir o problema ao provider,
 ao retriever ou ao worker sem essa evidência.
 
 ### Próxima ação
 
-1. Recuperar os logs/worker stages de `crl-727bc57b` e `crl-1592f22c` no host.
-2. Classificar a exceção e verificar se existe um erro transitório que esteja
-   sendo convertido no ramo genérico de `handle_exception`.
-3. Após identificar a causa, adicionar regressão que a reproduza e retestar o
+1. Recuperar os logs/worker stages de `crl-727bc57b`, `crl-1592f22c` e, para
+   classificar o evento adicional, `crl-68cc130c` no host.
+2. Classificar as exceções e verificar separadamente se existe um erro transitório
+   convertido no ramo genérico de `handle_exception` e qual stage atingiu o deadline.
+   Para a hipótese de créditos, procurar somente status/tipo sanitizado de quota ou
+   billing, como HTTP 402/429, sem copiar corpos upstream.
+3. Após identificar cada causa, adicionar regressão que a reproduza e retestar o
    mesmo fluxo sem repetir pesquisas pagas indiscriminadamente.
 
 ## DR-BATCH-02 — `research_quick_search` expõe snippets externos sem envelope de segurança
@@ -177,8 +202,10 @@ Para a sessão `6b537205-851d-443b-9e23-a7ab7b01959d`:
 - **Resultado:** source revision/diff, versão/plataforma por OCI label, worker IDs,
   outcomes, últimos stages, exceções e ramos dos dois eventos permanecem
   desconhecidos. Não é possível determinar se as falhas compartilham assinatura.
-  E0 está encerrada com evidência insuficiente; G1 permanece ativo e E2/E3 seguem
-  bloqueadas até que logs equivalentes dos mesmos eventos sejam disponibilizados.
+  E0 está finalizada com evidência insuficiente. G1 permanece como condição para
+  uma futura correção de DR-BATCH-01, sem bloquear a entrega independente de
+  DR-BATCH-02; novas tentativas de diagnóstico ficam para uma eventual reabertura
+  com acesso aos logs ou observabilidade equivalente.
 
 ### E1 — DR-BATCH-02
 
@@ -206,11 +233,14 @@ Evidência:
 
 ### E2/E3 — DR-BATCH-01
 
-Não iniciados: o gate G1 exige exceção e ramo demonstrados pelos logs, e o gate G2
-exige uma regressão que falhe sem o patch. Sem essa evidência, nenhum arquivo de
-`research_deep`, worker, timeout, retry ou provider foi alterado. O desbloqueio
-requer acesso read-only aos logs do host e aos OCI labels da imagem, ou uma nova
-evidência equivalente que preserve os mesmos correlation IDs.
+Não concluídos: o gate G1 exige exceção e ramo demonstrados pelos logs, e o gate G2
+exige uma regressão que falhe sem o patch. A reprodução controlada adicional gerou
+`crl-68cc130c`, mas no ramo explícito de timeout de 90 s, sem expor o worker stage
+ou reproduzir a resposta genérica original. Nenhum novo evento foi pesquisado por
+retry. Sem evidência da causa, nenhum arquivo de `research_deep`, worker, timeout,
+retry ou provider foi alterado e nenhuma regressão genérica foi criada. O
+desbloqueio requer acesso read-only aos logs do host e aos OCI labels da imagem,
+ou evidência equivalente que identifique o ramo e a exceção dos eventos.
 
 ## Fora do escopo desta batelada
 
