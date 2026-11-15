@@ -85,7 +85,7 @@ trabalhos futuros independentes, não etapas ocultas desta entrega.
 - [x] Preservar a imagem baseline para rollback; não remover imagens nem executar
   prune.
 
-### 4.2 Recuperação dos logs
+### 4.2 Recuperação dos logsexit
 
 - [x] Esgotar as interfaces read-only disponíveis para localizar
   `crl-727bc57b` e `crl-1592f22c`. O socket Docker indisponível dentro do agente
