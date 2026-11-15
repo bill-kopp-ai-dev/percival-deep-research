@@ -313,8 +313,16 @@ foi o primeiro a falhar; portanto, ainda não é causa-raiz confirmada. Reconsul
 mesmos 21065 bytes e `unclassified`; `runtime_policy_get` retornou
 `policy-unavailable`. `docker version` confirmou cliente 29.9.2, mas não há Engine
 local em `/var/run/docker.sock`, então não foi possível reproduzir o build direto.
-Como não há imagem, labels OCI nem passagem explícita de `VERSION`/`GIT_SHA` pelo
-CLI gerenciado também não puderam ser verificadas.
+Testes adicionais: `docker context ls` mostrou apenas `default` apontando para esse
+socket; `docker buildx version` retornou cliente Buildx 0.39.0, mas `docker buildx
+inspect` falhou ao conectar ao mesmo Engine. A ajuda de `maintenance submit` não
+expõe override de rede ou build args, e `runtime_capabilities` informa
+`authorityConfigured: false` para policy. Assim, não existe neste ambiente um
+caminho autorizado para testar `network=default` ou fornecer bases locais. Um novo
+submit com a mesma receita repetiria as mesmas condições sem distinguir a causa;
+nenhuma segunda tentativa idêntica foi iniciada. Sem imagem produzida, não é
+possível verificar labels OCI; o CLI de submissão tampouco expõe parâmetros para
+conferir a passagem explícita de `VERSION`/`GIT_SHA`.
 
 Não houve scan, SBOM, autorização nem publicação. E5 permanece bloqueada até haver
 um build compatível com as dependências online do Dockerfile (ou bases/cache
