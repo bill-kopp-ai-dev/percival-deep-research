@@ -328,6 +328,17 @@ Não houve scan, SBOM, autorização nem publicação. E5 permanece bloqueada at
 um build compatível com as dependências online do Dockerfile (ou bases/cache
 completos e autorizados), seguido da produção e validação do candidato.
 
+**Handoff para diagnóstico de E5:** Bill delegará as próximas tentativas a um
+agente com autoridade de executor suficiente. Esse agente deve ler a política
+vigente da receita `canonical`, preservar sua revisão/rollback, variar somente a
+rede de build para `default` (ou usar bases/cache completos permitidos), submeter
+um único build diagnóstico e recuperar o stderr detalhado pelo canal autorizado.
+Se o build passar, registrar imagem, versão/SHA/labels e executar os probes de
+conformance e `pipeline_probe.py --mode success`; ao final, restaurar a política
+original. A causa de falha só deve ser marcada como confirmada com evidência do
+erro específico ou com build comparativo que isole a rede. E6 continua fora deste
+handoff e não está autorizada por ele.
+
 ## 9. E6 — Rollout de teste Positronic e smoke real
 
 Esta etapa exige solicitação explícita de rollout; a criação deste plano não a
