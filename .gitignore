@@ -129,6 +129,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -176,10 +178,39 @@ cython_debug/
 # Local Percival integration working note (not for the public repo)
 docs/percival-integration.md
 
-# Positronic runtime state — never tracked. The project brief, policy and
-# metadata under .positronic/ are versioned; the memory store is not.
-.positronic/cache/
-.positronic/journal.lock
-.positronic/memory/
-.positronic/scratch/
-.positronic/*.local.*
+# Local agent instructions, project management and editor state
+AGENTS.md
+SOUL.md
+USER.md
+.positronic/
+.obsidian/
+.opencode/
+.idea/
+.vscode/
+/docs/issues/
+/docs/plans/
+
+# Private runtime configuration and credentials (keep .env.example public)
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+/nginx.conf
+
+# Local research output, scratch files and generated Docker evidence
+/logs/
+/reports/
+/workspace/
+/tmp/
+/artifacts/
+/docker-build-manifest.json
+/sbom*.json
+/trivy*.json
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo

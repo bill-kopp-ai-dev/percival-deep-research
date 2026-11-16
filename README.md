@@ -2,10 +2,10 @@
 
 **Version 3.0.1** · [CHANGELOG](CHANGELOG.md) · [percival.OS](https://github.com/bill-kopp-ai-dev/percival.OS)
 
-[![Python](https://img.shields.io/badge/python-3.12+-yellow.svg)]()
+[![Docker](https://img.shields.io/badge/runtime-Docker%20First-blue.svg)]()
 [![MCP](https://img.shields.io/badge/mcp-server-blue.svg)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-417%20passed-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-pytest-blue.svg)]()
 
 Multi-source web research and report generation, exposed as an MCP server
 for the [Nanobot](https://github.com/HKUDS/nanobot) agent ecosystem. Also
@@ -24,8 +24,10 @@ and any generic MCP client.
 - **Defense-in-depth hardening** — input sanitization against prompt
   injection, `[SECURITY WARNING:...]` wrapping of untrusted web content,
   strict-bool validation at the framework layer.
-- **Docker-ready** — multi-stage image (`~1.37 GB`), non-root, stdio by
-  default, OCI/MCP labels for catalog submission.
+- **Docker First** — the container image is the recommended runtime and the
+  artifact exercised by Docker CI; it bundles the patched dependencies, runs
+  non-root, defaults to MCP stdio, and carries OCI/MCP metadata. Running from
+  a local Python environment remains available for development and debugging.
 - **Battle-tested** — 434 tests passing (zero integration deps needed); 48
   bugs closed across 4 official bug-hunt rounds + 2 internal reviews.
 
@@ -53,7 +55,9 @@ and any generic MCP client.
 **Percival Deep Research** is a highly capable MCP server designed to equip
 the Nanobot agent with autonomous, deep-dive web research capabilities. It
 explores and validates numerous sources, focusing only on relevant, trusted,
-and up-to-date information.
+and up-to-date information. It is a **Docker First** service: use the
+container image for normal deployment so the runtime, dependencies, security
+defaults, and MCP transport match the tested artifact.
 
 This server is part of the **percival.OS** ecosystem, a Personal Agentic
 Operating System designed for autonomy, security, and absolute privacy.
@@ -156,19 +160,32 @@ embedding requests, getters/report/cache agree, and no worker remains.
 
 ### Prerequisites
 
-- **Python ≥ 3.12** (the supported runtime and CI version)
-- **uv** ([install instructions](https://docs.astral.sh/uv/getting-started/installation/))
-- For Docker: **Docker Engine ≥ 23** (BuildKit enabled by default)
+- **Docker Engine ≥ 23** (BuildKit enabled by default) for the recommended
+  image-based runtime
+- **Python ≥ 3.12** and **uv** ([install instructions](https://docs.astral.sh/uv/getting-started/installation/)) only to run from source or develop
 - An **inference API key** (OpenAI, Venice, MiniMax, OpenRouter, or any
   OpenAI-compatible endpoint)
 
-### Install from source
+### Recommended: run the Docker image
+
+Build the image as described in [Docker Deployment](#-docker-deployment), or
+use a registry image if one is published and configured for your deployment.
+Docker is the preferred runtime for MCP clients and managed deployments. It includes the project
+dependencies and required upstream patches, runs as the non-root `percival`
+user (UID 1000), and uses stdio by default. It does not require Python or `uv`
+on the MCP host; only Docker is needed when building or launching the image.
+
+### Run from source (development)
+
+Use this path for local development, debugging, and test runs. It is not the
+recommended deployment path:
 
 ```bash
 git clone https://github.com/bill-kopp-ai-dev/percival.OS.git
 cd percival.OS/percival-deep-research   # this directory
 
-uv sync                                  # installs deps + applies gpt-researcher patch
+uv sync                                  # installs dependencies
+uv run python scripts/patch_gpt_researcher.py
 uv run percival-deep-research            # boots in stdio mode
 ```
 
@@ -179,15 +196,19 @@ uv run percival-deep-research            # boots in stdio mode
 ### Pre-built Docker image
 
 Build from this directory (no external helper script needed — the
-`Dockerfile` runs the `gpt-researcher` patch inside the builder stage
-automatically):
+`Dockerfile` runs the required upstream compatibility patches inside the
+builder stage):
 
 ```bash
-# Bake the pyproject version + git SHA into image labels (recommended):
-VERSION=$(.venv/bin/python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])") \
-GIT_SHA=$(git rev-parse HEAD) \
-SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct) \
-  docker build -t percival-deep-research:dev .
+# Bake release identity into OCI labels and normalize timestamps:
+VERSION=$(uv run --no-sync python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+GIT_SHA=$(git rev-parse HEAD)
+SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
+docker build \
+  --build-arg VERSION="$VERSION" \
+  --build-arg GIT_SHA="$GIT_SHA" \
+  --build-arg SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" \
+  -t percival-deep-research:dev .
 ```
 
 `SOURCE_DATE_EPOCH` normalizes the file timestamps inside the image, so
@@ -196,8 +217,7 @@ release pipeline also disables the provenance attestation for the
 comparison, because the attestation embeds per-build metadata in the OCI
 index even when the image itself is byte-identical.
 
-For a quick smoke image without version metadata, drop the `--build-arg`
-lines:
+For a quick local smoke image without release identity metadata:
 
 ```bash
 docker build -t percival-deep-research:dev .
@@ -205,7 +225,7 @@ docker build -t percival-deep-research:dev .
 
 See [Docker Deployment](#-docker-deployment) for full instructions.
 
-### Install as a tool (optional)
+### Run the Python package directly (development only)
 
 ```bash
 uv tool install --from . percival-deep-research
@@ -325,26 +345,29 @@ after an explicit expired/not-found response.
 
 ## 🚀 Usage
 
-The server speaks **stdio by default**, which is the canonical MCP
-transport. Below are the three most common ways to wire it up.
+The container image speaks **stdio by default**, the canonical MCP transport
+for clients that launch a local server process. Prefer the Docker examples
+below for deployment; direct Python execution is useful for development.
 
 ### With Nanobot (or any MCP client via `command`/`args`)
 
-Add to `~/.nanobot/config.json` (or via the WebUI **Apps** tab):
+For the preferred container runtime, add to `~/.nanobot/config.json` (or via
+the WebUI **Apps** tab):
 
 ```json
 {
   "mcpServers": {
     "percival-deep-research": {
-      "command": "uv",
-      "args": ["run", "--no-sync", "percival-deep-research"],
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--init",
+        "-e", "INFERENCE_API_KEY",
+        "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
+        "-e", "MCP_TRANSPORT=stdio",
+        "percival-deep-research:dev"
+      ],
       "env": {
-        "PYTHONUNBUFFERED": "1",
-        "MCP_TRANSPORT": "stdio",
-        "INFERENCE_API_KEY": "YOUR_KEY",
-        "INFERENCE_BASE_URL": "https://api.openai.com/v1",
-        "INFERENCE_LLM": "openai:gpt-4o-mini",
-        "RETRIEVER": "duckduckgo"
+        "INFERENCE_API_KEY": "YOUR_KEY"
       },
       "tool_timeout": 300
     }
@@ -367,8 +390,12 @@ cached topic, to avoid accidentally starting a second research after a timeout.
 
 ### With OpenCode
 
-Add to `.opencode/mcp.json` (project) or `~/.config/opencode/mcp.json`
-(global):
+To run from source during development, add to `.opencode/mcp.json` (project)
+or `~/.config/opencode/mcp.json` (global):
+
+After each `uv sync`, apply the required upstream compatibility patch before
+starting the server. For Docker-based runtime, use the Docker client example
+in [Docker Deployment](#-docker-deployment).
 
 ```json
 {
@@ -388,7 +415,7 @@ Add to `.opencode/mcp.json` (project) or `~/.config/opencode/mcp.json`
 
 ### With the Docker MCP Toolkit / Catalog
 
-After building the image with the canonical local build script:
+After building the image, import its catalog metadata:
 
 ```bash
 docker mcp catalog import ./docker/
@@ -400,7 +427,7 @@ The catalog metadata (`docker/server.yaml` + `docker/tools.json` +
 with `INFERENCE_API_KEY` and `BRAVE_API_KEY` as secrets. See
 [Docker Deployment](#-docker-deployment) for full integration recipes.
 
-### Programmatic (Python MCP client)
+### Programmatic (Python MCP client; development)
 
 ```python
 import asyncio
@@ -422,23 +449,34 @@ asyncio.run(main())
 
 ## 🐳 Docker Deployment
 
-The server ships as a multi-stage Docker image compatible with **Nanobot**,
-**OpenCode**, the **Docker MCP Toolkit / Catalog**, Claude Desktop, and any
-generic MCP client. The container speaks **stdio by default**; HTTP/SSE is
-opt-in via env.
+Percival Deep Research is **Docker First**: its multi-stage image is the
+recommended deployment artifact and is built and exercised by Docker CI. The
+image packages dependencies and required patches, runs as a non-root user, and
+carries OCI/MCP catalog labels. It is compatible with **Nanobot**, **OpenCode**,
+the **Docker MCP Toolkit / Catalog**, Claude Desktop, and generic MCP clients.
+The container speaks **stdio by default**; HTTP/SSE is opt-in via environment
+configuration. Native Python execution is primarily for development and
+debugging; it does not provide the same packaged runtime artifact.
+
+For a managed Percival deployment, the service manager owns container creation,
+image selection and runtime configuration. `docker-compose.yml` is a local
+reference/fixture, not the source of truth for a managed runtime. See [the
+runtime profile](docs/runtime-profile.md) for the security posture expected
+from whichever manager runs the image.
 
 ### Quickstart — `docker run` (stdio)
 
 ```bash
 docker run -i --rm \
+  --init \
   -e INFERENCE_API_KEY=<your-key> \
   -e INFERENCE_LLM=openai:gpt-4o-mini \
   percival-deep-research:dev
 ```
 
-`-i` keeps stdin open so the container can receive JSON-RPC over stdio.
-This is the canonical invocation for MCP clients that spawn the server as a
-subprocess.
+`-i` keeps stdin open so the container can receive JSON-RPC over stdio. This is
+the recommended invocation for MCP clients that spawn the server as a
+subprocess. No port mapping or HTTP healthcheck is used in stdio mode.
 
 ### Quickstart — `docker run` (HTTP/SSE)
 
@@ -453,7 +491,13 @@ docker run -d --rm --init -p 127.0.0.1:8000:8000 \
 
 Browse `http://127.0.0.1:8000/health` to confirm the boot status.
 
-### Docker Compose
+### Docker Compose (local reference)
+
+Compose is provided for local testing and as a reference for service
+configuration. Create `logs/` and `reports/` writable by UID/GID `1000:1000`,
+and provide a private `.env` file with `INFERENCE_API_KEY` before starting a
+service. The Compose configuration mounts that file read-only at `/app/.env`;
+it does not forward secret values as rendered Compose environment variables.
 
 ```bash
 # Stdio (one-shot; no TTY, published port, healthcheck, or restart policy):
@@ -468,8 +512,9 @@ docker compose --profile production up -d
 
 Stdio and HTTP use separate Compose services. Both mount `./logs` and
 `./reports` for persistence; create these host directories and make them
-writable by image UID/GID `1000:1000` before starting Compose. They read secrets
-from an optional local `.env`.
+writable by image UID/GID `1000:1000` before starting Compose. Both require the
+mounted local `.env` file; configure it with inference settings and keep it
+private.
 The HTTP profile publishes only on `127.0.0.1` and uses Streamable HTTP;
 it has no built-in authentication, so do not expose it directly to an
 untrusted network. Use a reviewed TLS/authentication proxy and firewall.
@@ -486,7 +531,7 @@ proxy configuration before starting the profile.
     "percival-deep-research": {
       "command": "docker",
       "args": [
-        "run", "-i", "--rm",
+        "run", "-i", "--rm", "--init",
         "-e", "INFERENCE_API_KEY",
         "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
         "-e", "MCP_TRANSPORT=stdio",
@@ -508,7 +553,7 @@ proxy configuration before starting the profile.
     "percival-deep-research": {
       "type": "stdio",
       "command": [
-        "docker", "run", "-i", "--rm",
+        "docker", "run", "-i", "--rm", "--init",
         "-e", "INFERENCE_API_KEY",
         "-e", "INFERENCE_LLM=openai:gpt-4o-mini",
         "-e", "MCP_TRANSPORT=stdio",
@@ -549,9 +594,10 @@ the SSE boot.
 | Base | `ghcr.io/astral-sh/uv:0.9.30-python3.12-trixie-slim` (builder) → `python:3.12-slim` (Python runtime stage; Debian forky final stage) |
 | Size | ~1.37 GB (pulls the full `gpt-researcher` + ML deps stack; venv bloat stripped — `tests/`, `*.pyi`, `*.dist-info/RECORD`, no `.pyc` files) |
 | User | non-root `percival` (UID 1000) |
-| Signal | PID 1 = the launcher (`--init` / compose `init: true`); the image embeds no init |
+| Runtime security | Compose reference sets read-only root filesystem, drops all Linux capabilities, enables `no-new-privileges`, uses a bounded `/tmp` tmpfs, and mounts only the env file, logs, and reports; managers should apply the relevant profile through their supported runtime interface |
+| Init and signals | Image embeds no init; the container runtime supplies one (`docker run --init` / Compose `init: true`) so signals pass through a single init layer |
 | Default transport | `stdio` |
-| Health endpoint | `GET /health` (200 healthy / 503 degraded) — only meaningful in HTTP mode |
+| Healthcheck | No image-level healthcheck: stdio readiness requires MCP `initialize` and `tools/list`; the Compose HTTP profile probes `/health` (200 healthy / 503 degraded both mean the process is serving) |
 | Package manager | none (`apt`, `pip` and all setuid binaries removed) |
 | Reproducibility | two clean builds of the same source produce the same image ID (`SOURCE_DATE_EPOCH`) |
 
@@ -656,8 +702,17 @@ These are honest design constraints, not bug reports:
 | Document | What it covers |
 |---|---|
 | [`docs/runtime-profile.md`](docs/runtime-profile.md) | The posture (user, read-only rootfs, capabilities, mounts, network) the managers must apply to run this image. |
-| [`docs/security/2026-10-28-candidate-scan.md`](docs/security/2026-10-28-candidate-scan.md) | The vulnerability scan of the current candidate and the owner's decision about the open findings. |
-| [`docs/security/vex-2026-10-28.json`](docs/security/vex-2026-10-28.json) | OpenVEX record of those findings. |
+| [`docs/security/2026-10-28-candidate-scan.md`](docs/security/2026-10-28-candidate-scan.md) | Historical vulnerability scan and risk decision for the specific candidate image identified in that document. |
+| [`docs/security/vex-2026-10-28.json`](docs/security/vex-2026-10-28.json) | OpenVEX record of those findings; CI uses its vulnerability IDs as the known-findings baseline. |
+
+`docs/security/` is public product security documentation, not local development
+state. OpenVEX records the assessment status of known vulnerabilities; the
+historical entries remain `under_investigation`, not fixed or `not_affected`.
+CI compares fresh Trivy findings against this baseline using
+`scripts/check_trivy_findings.py` and fails on unrecorded IDs. That comparison
+does not verify image identity or establish that the current image is free of
+vulnerabilities. Generated scan reports and SBOMs are CI artifacts, rather than
+source files to commit.
 
 The research pipeline runs in a **separate process** (see
 `percival_research/research_worker.py`): `PERCIVAL_RESEARCH_TIMEOUT_S`
@@ -670,7 +725,7 @@ a cancellation, so an in-process timeout would not stop the work.
 ## 🛠️ Development & Testing
 
 ```bash
-# Inside the percival-deep-research/ directory of the monorepo:
+# Development from source only; deployment should use the Docker image.
 uv sync
 uv run percival-deep-research
 ```
