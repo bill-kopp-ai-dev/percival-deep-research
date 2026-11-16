@@ -1,12 +1,12 @@
 # Batelada das tools: falhas intermitentes em `research_deep` e ausência de isolamento em `research_quick_search`
 
-- **Status:** DR-BATCH-02 corrigida e qualificada em candidato local não implantado; DR-BATCH-01 permanece sem causa demonstrada
+- **Status encerrado em 2026-11-16:** DR-BATCH-02 corrigida e implantada localmente no Positronic após qualificação P3/Q1–Q6; DR-BATCH-01 encerrada sem patch, com causa não identificada. O incidente Positronic encerrou P5/P6 localmente, sem identificar a causa interna do OOM nem qualificar controller/rollback genérico. A limpeza ampla posterior removeu a baseline; ela não é uma opção local de rollback. Detalhes de execução e limites em [plano encerrado](../../plans/closed/2026-11-14-tools-batch-remediation.md) e [plano de recuperação Positronic](../../../../alternative-positronic/positronic/docs/plans/POSITRONIC_MCP_RECONNECT_OOM_RECOVERY_PLAN.md).
 - **Reportado em:** 2026-11-14
 - **Severidade proposta:** alta para DR-BATCH-01; média para DR-BATCH-02
 - **Versão declarada pela instalação:** 3.0.1
-- **Imagem testada:** `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`
+- **Imagem da observação original:** `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990` (baseline removida posteriormente; não é o estado atual nem rollback disponível)
 - **Runtime:** Positronic, servidor global `deep-research`, revisão 23, configuração revisão 1, transporte stdio, rede bridge
-- **Escopo:** chamadas reais às cinco tools instaladas; nenhuma alteração de imagem, configuração, credencial ou instalação
+- **Escopo original:** chamadas reais às cinco tools instaladas, sem alteração de imagem, configuração, credencial ou instalação naquele momento; DR-BATCH-02 foi posteriormente corrigida e implantada localmente conforme o registro encerrado
 
 ## Resumo
 
@@ -39,7 +39,7 @@ Também foi confirmado que:
 
 ## DR-BATCH-01 — `research_deep` falha intermitentemente com erro genérico
 
-- **Status da remediação:** bloqueada no gate G1; nenhuma alteração aplicada a este fluxo
+- **Status da remediação:** encerrada sem patch em 2026-11-16; causa permanece não identificada. Reabrir somente com nova evidência diagnóstica conforme os critérios abaixo.
 
 ### Evidência
 
@@ -117,20 +117,21 @@ directory`. Assim, os logs dos três correlation IDs não foram inspecionados e 
 causas raiz permanecem desconhecidas. Não se deve atribuir o problema ao provider,
 ao retriever ou ao worker sem essa evidência.
 
-### Próxima ação
+### Encerramento e critérios para reabertura
 
-1. Recuperar os logs/worker stages de `crl-727bc57b`, `crl-1592f22c` e, para
-   classificar o evento adicional, `crl-68cc130c` no host.
-2. Classificar as exceções e verificar separadamente se existe um erro transitório
-   convertido no ramo genérico de `handle_exception` e qual stage atingiu o deadline.
-   Para a hipótese de créditos, procurar somente status/tipo sanitizado de quota ou
-   billing, como HTTP 402/429, sem copiar corpos upstream.
-3. Após identificar cada causa, adicionar regressão que a reproduza e retestar o
-   mesmo fluxo sem repetir pesquisas pagas indiscriminadamente.
+E0 terminou com evidência insuficiente: os IDs históricos não puderam ser
+correlacionados com worker, stage ou exceção. E2/E3 foram encerradas sem patch e
+sem novas reproduções pagas neste escopo. O sucesso posterior confirma somente
+que o fluxo funcionou naquela observação; não prova causa nem correção.
+
+Reabrir a investigação se logs sanitizados correlacionarem uma recorrência a
+exceção/stage, timeout com `worker`, `outcome`, `last_stage` e `reaped`, ou status
+de quota/billing. Uma correção exige causa demonstrada e regressão específica.
+Não repetir chamadas ambíguas do provider como diagnóstico.
 
 ## DR-BATCH-02 — `research_quick_search` expõe snippets externos sem envelope de segurança
 
-- **Status da remediação:** corrigida localmente; ainda não implantada na imagem gerenciada
+- **Status da remediação:** corrigida pelo commit `e9bf7ee` e implantada localmente na candidata P3 `sha256:3c8f1c6956158b6cb1069eb8994abbebde276dddb45eafd8b3523ceed50e24c2`; integração/readiness concluídas em Q1–Q6. A evidência funcional foi a quick search via stdio dessa mesma imagem. A baseline histórica foi removida depois na limpeza P5.1 e não é rollback disponível.
 
 ### Evidência
 
@@ -231,13 +232,10 @@ Evidência:
 - `git diff --check` sem erros. Não houve `uv sync`, mudança de dependências ou
   necessidade de reaplicar o patch de `gpt-researcher`.
 
-### E2/E3 — DR-BATCH-01
-
-Não concluídos: o gate G1 exige exceção e ramo demonstrados pelos logs, e o gate G2
-exige uma regressão que falhe sem o patch. A reprodução controlada adicional gerou
-`crl-68cc130c`, mas no ramo explícito de timeout de 90 s, sem expor o worker stage
-ou reproduzir a resposta genérica original. Nenhum novo evento foi pesquisado por
-retry. Sem evidência da causa, nenhum arquivo de `research_deep`, worker, timeout,
+- **E2/E3 — estado encerrado:** a reprodução controlada adicional gerou
+  `crl-68cc130c`, no ramo explícito de timeout de 90 s, sem expor o worker stage
+  nem reproduzir a resposta genérica original. Nenhum retry adicional ocorreu.
+  Sem evidência da causa, nenhum arquivo de `research_deep`, worker, timeout,
 retry ou provider foi alterado e nenhuma regressão genérica foi criada. O
 desbloqueio requer acesso read-only aos logs do host e aos OCI labels da imagem,
 ou evidência equivalente que identifique o ramo e a exceção dos eventos.
@@ -250,10 +248,12 @@ no Docker Engine local produziu e qualificou o candidato
 vinculado ao SHA `2159fe1ced4bfc7345ab489bf6a9d03b55324bc8`, com versão `3.0.1`.
 Conformance MCP e `pipeline_probe.py --mode success` passaram usando fixtures
 locais; a imagem não foi publicada nem instalada. Os detalhes do comando, labels,
-probes e limites para E6 estão no [registro E5 do plano](../plans/2026-11-14-tools-batch-remediation.md#candidato-direto-local-2026-11-15).
+probes e limites para E6 estão no [registro E5 do plano](../../plans/closed/2026-11-14-tools-batch-remediation.md#candidato-direto-local-2026-11-15).
 
-DR-BATCH-02 continua corrigida localmente, ainda não implantada. E6 não foi
-executada; DR-BATCH-01 permanece sem correção e com risco residual explícito.
+**Snapshot anterior a E6:** DR-BATCH-02 estava corrigida localmente e ainda não
+implantada; E6 não havia sido executada. Esse estado foi superado pela integração
+P3/Q1–Q6 registrada no plano encerrado. DR-BATCH-01 continua sem correção, com
+causa não identificada e critérios de reabertura acima.
 
 ## Fora do escopo desta batelada
 

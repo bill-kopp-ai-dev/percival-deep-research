@@ -1,12 +1,12 @@
 # Plano de correção da batelada das tools do Deep Research
 
 - **Data:** 2026-11-14
-- **Status revisado em 2026-11-15:** E0 finalizada com diagnóstico inconclusivo; E1/E4 concluídas localmente; E2/E3 encerradas sem patch; E5 concluída com candidato direto local. E6 parcial conforme evidência posterior do plano do incidente Positronic: candidata reconstruída, selecionada e testada via stdio, mas aquisição persistente/prontidão no agente ainda não comprovadas. E7 parcial; DR-BATCH-01 continua sem correção.
-- **Issue de origem:** [`docs/issues/2026-11-14-tools-batch-deep-research.md`](../issues/2026-11-14-tools-batch-deep-research.md)
+- **Status encerrado em 2026-11-16:** E0 finalizada com diagnóstico inconclusivo; E1/E4/E5 concluídas; E2/E3 encerradas sem patch. E6 concluída localmente pela candidata P3 e sua integração no Positronic Q4; DR-BATCH-02 implantada. P5 instrumentada e P6 do incidente encerradas localmente, com P5.1 reconciliada por desvio. A investigação causal do OOM terminou sem identificar a causa interna. E7 concluída documentalmente. DR-BATCH-01 encerrada sem patch neste escopo; baseline histórica ausente e controller/rollback genérico não qualificado.
+- **Issue de origem:** [`docs/issues/closed/2026-11-14-tools-batch-deep-research.md`](../../issues/closed/2026-11-14-tools-batch-deep-research.md)
 - **Owner e único aprovador:** Bill Kopp
 - **Baseline histórico:** Positronic `deep-research` 3.0.1, imagem `sha256:55e0cec23cf185fd753e2023d7f608eb381107d97458eb4294a7c68d9dec8990`, instalação revisão 23, configuração revisão 1. Não representa o estado atual; reler revisões e imagem antes de operar.
-- **Escopo atual:** entregar DR-BATCH-02 por verificação local, candidato rastreável e rollout somente quando expressamente solicitado; DR-BATCH-01 permanece sem correção e não bloqueia essa entrega
-- **Evidência da execução E0–E3:** [seção de execução da issue](../issues/2026-11-14-tools-batch-deep-research.md#execução-de-e0e3-em-2026-11-14)
+- **Escopo encerrado:** DR-BATCH-02 qualificada e implantada localmente por P3/Q1–Q6; E7 concluída documentalmente. DR-BATCH-01 permanece sem patch, com causa desconhecida, e não bloqueou essa entrega.
+- **Evidência da execução E0–E3:** [seção de execução da issue](../../issues/closed/2026-11-14-tools-batch-deep-research.md#execução-de-e0e3-em-2026-11-14)
 - **Fora de escopo:** publicação, alteração do manager Percival, mudança de provider/credencial, aumento de timeouts, persistência de sessões, alteração da semântica de `source_urls`, novas reproduções pagas de DR-BATCH-01 e implementação da observabilidade futura
 
 ## 1. Resultado pretendido
@@ -66,12 +66,16 @@ policy sem mount da chave privada. D3 entrega aquisição direta e recovery por
 Engine/CID/owner, preservando CAS e perfil; D4 atualiza instruções/skill e D5
 prepara harness, sessão com IDs/prazo e controller de corte/rollback.
 
-Essas capacidades foram verificadas localmente; não são prova de que a release
-instalada já as possui. D1 conserva a prova integrada systemd/Engine e V0–V3
-continuam abertas. Antes de E6, comprovar versão, backend, CLI e catálogo na
-instalação pela trilha V do plano Docker first. Não usar o binário nativo antigo
-como evidência da CLI OCI nem ausência de socket no agente como prova de Engine
-parado. A descoberta distingue interface, permissão, autoridade e saúde.
+A qualificação operacional local V0–V3 foi concluída por Q1–Q6 em
+2026-11-16. A release Positronic Q4 `0.1.0-dev.bd0fc500bba6`, imagem
+`sha256:50e78aa50b3591f826ff67d2d35a7270cf95f495f0a64efb96d396dd8ba6d09f`,
+foi instalada e validada no Engine `omarchy-main`, ID
+`3ff6ad9a-7b61-4001-847a-8bffd1742cc7`. Q2 comprovou build gerenciado; Q3
+corrigiu seleção deprecated e comprovou Notes pelo runner V2; Q4 executou as
+fixtures oficiais de integração, recovery e retries limitados; Q5 confirmou
+restart na mesma Q4, bootcheck com seis MCPs prontos e TUI nova, incluindo
+conferência visual de Bill. Q6 consolidou o aceite local. Esses resultados
+substituem as pendências operacionais históricas de E6, sem repetir testes.
 
 Builds gerais usam shell/CLI/Buildx/Compose no Engine autorizado. Manutenção
 tipada mantém recibos, scan/SBOM e autorização; scan exato e build são operações
@@ -85,6 +89,37 @@ Este plano conserva o contrato e a evidência de DR-BATCH-02. Reusar provas da
 mesma imagem/inputs; reconstrução só quando necessária, com identidade própria.
 DR-BATCH-01 e a investigação de memória do agente são problemas distintos.
 
+**Reconciliação com o encerramento do incidente — 2026-11-16.** Para o estado
+final, prevalecem os registros “Conclusão P5 instrumentada”, “P5.1 reconciliada
+com desvio”, “Consolidação desta revisão” de P6 e “Investigação causal do OOM”
+do plano de recuperação. Seu resumo inicial e alguns snapshots ainda descrevem
+pendências anteriores; não representam o resultado final dessas etapas.
+
+| Registro Positronic | Resultado efetivo e efeito neste plano |
+| --- | --- |
+| P0/P5: sessão histórica | Inputs e parts reconciliados no limite das APIs; um turno de provider permanece sem outcome consultável e não foi repetido. Não é evidência causal de DR-BATCH-01 |
+| P1/P2 e Q4: contenção | Regressão e falha MCP isolada qualificaram aquisição limitada e refresh coalescido. Não demonstram a causa do crescimento de memória |
+| P3/P4 e Q1–Q6: reintegração | Candidata Deep Research `3c8f1c69…` adquirida no Engine correto, perfil preservado, cinco tools e restart/TUI qualificados; E6 concluída localmente |
+| P5: observação instrumentada | Falha controlada somente em fixture, seguida de recuperação e limpeza; uso normal observado na Q4 sem novo OOM/restart. Medições limitadas às janelas registradas |
+| P5.1: limpeza | Encerrada por reconciliação do desvio: prune amplo sem inventário individual e sem preservar imagens históricas de rollback. Os critérios seletivos originais não foram cumpridos |
+| P6 e investigação OOM | Escopo local encerrado; causa interna não identificada, outcome de provider incerto e controller/rollback genérico não qualificado permanecem limites explícitos |
+
+A instrumentação posterior de P5 complementou Q4/Q5: em 51 s de falha
+`list-error`, houve uma reconexão explícita e três retries, totalizando quatro
+eventos `create`, com CPU, memória e crescimento do audit medidos. Foi uma cópia
+temporária instrumentada da fixture, usando o digest Q4 confirmado; não uma nova
+execução oficial do script nem falha induzida no Deep Research operacional.
+Após recuperação da fixture, duas amostras de uso normal separadas por 30 s
+mostraram o servidor saudável e audit sem crescimento. Os valores e os limites
+da comparação com o baseline permanecem no
+[registro P5](../../../alternative-positronic/positronic/docs/plans/POSITRONIC_MCP_RECONNECT_OOM_RECOVERY_PLAN.md#conclusão-p5-instrumentada--2026-11-16).
+Essas observações curtas não provam ausência de leak ou estabilidade indefinida.
+
+Q2 comprovou um build gerenciado de `percival-notes-mcp/canonical`, não a
+reexecução bem-sucedida do job Deep Research de E5. O erro desse job continua
+com diagnóstico limitado ao recibo histórico; a entrega local de E5/E6 foi
+concluída pelos candidatos diretos identificados em §8–§9.
+
 | Etapa | Trabalho | Depende de | Saída verificável |
 | --- | --- | --- | --- |
 | E0 | Preservar baseline e esgotar a evidência acessível | acesso read-only disponível no agente | baseline registrado e limitações de diagnóstico explícitas |
@@ -93,7 +128,7 @@ DR-BATCH-01 e a investigação de memória do agente são problemas distintos.
 | E3 | Decidir se DR-BATCH-01 comporta correção baseada em evidência | E2 e decisão do operador | encerramento sem patch e critérios de reabertura |
 | E4 | Reconciliar a verificação local de DR-BATCH-02 | E1; reutiliza a suíte válida da mesma revisão | suíte, lint/format e diff limpos, sem revalidação redundante |
 | E5 | Construir e qualificar o candidato de DR-BATCH-02 | E4 | image ID, labels e probes pertinentes à quick search |
-| E6 | Aplicar no Positronic e executar smoke da quick search | E5 e solicitação explícita de rollout | mesma imagem pinada, envelope real e rollback preservado |
+| E6 | Aplicar no Positronic e executar smoke da quick search | E5 e solicitação explícita de rollout | mesma imagem pinada, envelope real e aquisição comprovada; baseline disponível em P3, removida depois em P5.1 |
 | E7 | Atualizar issue/plano e encerrar o escopo concluído | critérios E4–E6 conforme o escopo solicitado | DR-BATCH-02 entregue e risco residual de DR-BATCH-01 explícito |
 
 E2/E3 estão encerradas para este plano: não houve regressão nem correção de
@@ -110,11 +145,14 @@ trabalhos futuros independentes, não etapas ocultas desta entrega.
   qualquer mutação futura. O baseline observado é revisão 23/configuração 1, mas
   esses números não devem ser reutilizados cegamente em um rollout posterior.
 - [ ] No host, inspecionar os OCI labels da imagem `55e0cec2…`: source revision,
-  source diff, versão e plataforma. **Bloqueado em E0:** não há contexto Docker
-  alternativo, socket acessível ou operação de inspeção no executor. O manifesto
-  localizado pertence à imagem distinta `4fd1d8d0…` e não foi usado como evidência.
-- [x] Preservar a imagem baseline para rollback; não remover imagens nem executar
-  prune.
+  source diff, versão e plataforma. **Não obtidos em E0:** naquela sessão não havia
+  acesso ao Engine nem inspeção pelo executor. O manifesto localizado pertence à
+  imagem distinta `4fd1d8d0…` e não foi usado como evidência. O acesso Docker foi
+  qualificado depois no Positronic, mas a baseline foi removida em P5.1; não há
+  inspeção retrospectiva dessa imagem disponível no Engine local.
+- [x] Preservar a imagem baseline durante E0 e a aplicação P3, sem prune nessas
+  etapas. Registro histórico: a limpeza ampla posterior, autorizada separadamente,
+  removeu essa imagem; este item não atesta rollback disponível atualmente.
 
 ### 4.2 Recuperação dos logs
 
@@ -138,15 +176,19 @@ Resultado da correlação em E0:
 
 ### 4.3 Mapa de localização
 
-Comparar a stack com estes pontos, sem presumir qual deles falhou:
+Em eventual reabertura, comparar a stack com estes pontos do código atual,
+sem presumir qual deles falhou:
 
-- chamada/protocolo do worker: `percival_research/tools/deep_research.py:138-153`
-  e `percival_research/research_worker_client.py:80-160`;
-- validação de contexto/fontes/URLs: `research_worker_client.py:163-192`;
-- reidratação de `GPTResearcher`: `deep_research.py:153-165`;
-- inserção no registry: `deep_research.py:166-177`;
-- extração/cache/formatação: `deep_research.py:180-197`;
-- conversão no erro genérico e log interno: `utils.py:704-722`.
+- chamada/protocolo, subprocesso, timeout e reap: `run_research_worker` e
+  `_run_worker` em `percival_research/research_worker_client.py`;
+- validação de contexto/fontes/URLs: `validate_research_data` no mesmo arquivo;
+- chamada do worker, reidratação de `GPTResearcher`, inserção no registry,
+  extração/cache/formatação e cleanup: `_do_deep_research` em
+  `percival_research/tools/deep_research.py`;
+- conversão no erro público genérico e log interno: `handle_exception` em `utils.py`.
+
+Esses caminhos continuam presentes no checkout; sua existência não correlaciona
+os correlation IDs históricos a um ramo específico.
 
 **Resultado de E0:** etapa finalizada com evidência insuficiente, não com causa
 raiz identificada. Os itens não marcados em 4.1 e 4.2 registram evidências que
@@ -211,7 +253,8 @@ conteúdo dos resultados permanecem intactos.
 **Resultado de E1:** concluída no commit `e9bf7ee`. As regressões apresentaram
 `3 failed, 2 passed` antes do patch e `5 passed` depois; a suíte completa registrou
 `455 passed, 3 skipped`, com Ruff aprovado. A evidência completa está na issue. A
-correção permanece local: nenhuma imagem nova, rollout ou release foi realizado.
+correção era apenas local ao fim de E1; a construção e a implantação posteriores
+estão em E5/E6, sem alterar o resultado histórico dos testes.
 
 ## 6. E2/E3 — Encerramento de DR-BATCH-01 sem patch
 
@@ -296,7 +339,7 @@ canônica de testes e Ruff acima foi reutilizada sem reexecução redundante;
 `git diff --check` passou na reconciliação. DR-BATCH-01 permanece sem correção e
 com causa desconhecida. E4 não constrói nem instala imagem. E5 foi inicialmente
 bloqueada pelo build gerenciado, mas foi concluída depois por build direto local,
-documentado abaixo; E6 segue pendente.
+documentado abaixo; E6 foi concluída posteriormente pela integração P3/Q1–Q6 (§9).
 
 ## 8. E5 — Candidato local e probes pertinentes
 
@@ -418,22 +461,24 @@ imagens-base, e nenhum fluxo gerenciado exigiu esses artefatos.
 
 **Resultado de E5:** concluída para qualificação local do candidato. Isso não é
 recibo de build gerenciado, não autoriza a imagem no manager e não demonstra que a
-imagem baseline está disponível para rollback naquele manager. E6 permanece
-pendente; não houve mutação de runtime nem smoke real com provider.
+imagem baseline está disponível para rollback naquele manager. Naquele momento E6 permanecia
+pendente, sem mutação de runtime nem smoke real com provider; a integração
+posterior da candidata reconstruída está em §9.
 
 ## 9. E6 — Rollout de teste Positronic e smoke real
 
-Esta etapa exige solicitação explícita de rollout; a criação deste plano não a
-executa nem autoriza publicação.
+Etapa executada pela integração P3 autorizada no Positronic e concluída com
+Q1–Q6; evidências e limites abaixo. A criação deste plano não autorizou publicação.
 
-- [ ] Ler imediatamente antes da mutação `positronic mcp server show deep-research`
+- [x] Ler imediatamente antes da mutação `positronic mcp server show deep-research`
   e as imagens/autorizações necessárias. Usar as revisões atuais, não os números
   históricos deste plano.
-- [ ] Confirmar que a imagem baseline está disponível para rollback.
-- [ ] Autorizar o candidato local se exigido e aplicar `update-image` com CAS pelo
+- [x] Confirmar que a imagem baseline estava disponível para rollback na aplicação
+  P3. Essa prova é histórica: a limpeza posterior a removeu (limite abaixo).
+- [x] Autorizar o candidato local se exigido e aplicar `update-image` com CAS pelo
   manager Positronic. Reaplicar a configuração vigente preservando rede, mount RO,
   variáveis e as cinco tools permitidas; não ler ou imprimir o arquivo secreto.
-- [ ] Executar `discover` e confirmar cinco tools e a imagem esperada. Handshake e
+- [x] Executar `discover` e confirmar cinco tools e a imagem esperada. Handshake e
   `running/connected` são apenas evidência de transporte, não do pipeline.
 
 Smoke controlado de DR-BATCH-02, sem retry automático:
@@ -473,25 +518,52 @@ Uma única quick search pública via stdio dessa imagem retornou cinco resultado
 e header exatamente uma vez, sem `research_deep`. Reusar essa evidência sem
 repetir chamada paga apenas para aceitação.
 
-A aquisição persistente falhou com `execution-acquire-failed`; a allowlist do
-executor ainda apontava para a baseline e o bootcheck não concluiu. O smoke
-stdio da candidata não prova execução pelo agente gerenciado. Assim, E6 é
-parcial, não ausente nem concluída. Esses dados são históricos e devem ser
-relidos, não reaplicados cegamente.
+**Impedimento histórico resolvido.** A primeira aquisição persistente falhou
+com `execution-acquire-failed` no backend executor, sem bootcheck concluído.
+A qualificação posterior em
+[§12.4 do plano Docker first](../../../alternative-positronic/positronic/docs/plans/POSITRONIC_DOCKER_FIRST_HOST_ADMIN_PLAN.md#124-v3--deep-research-e-retries)
+comprovou backend `direct` no servidor e reconciliador e aquisição da imagem
+`sha256:3c8f1c69…` nas Locations global e projeto, com Engine/CID/owner
+correlacionados. O gestor releu instalação revisão 27, configuração revisão 1,
+autorização revisão 26, bridge, mount RO e cinco tools preservados. São as
+revisões daquele registro, não parâmetros para nova mutação.
 
-Pendências de E6, coordenadas com V1–V3/P3–P5 do Positronic:
+O bootcheck host foi concluído em Q1; Q5 comprovou restart na release Q4,
+seis MCPs prontos, ownership renovado e nova TUI funcional. A janela relatada
+`2026-11-16T12:50:12Z–12:58:00Z` não mostrou novos erros, restart ou OOM.
+Os 12 containers MCP representam seis servidores em duas Locations legítimas.
 
-- [ ] Confirmar release compatível, Engine, backend direto de servidor e
-  reconciliador e interfaces efetivas; usar o dispatcher OCI versionado quando
-  a CLI host antiga não oferecer manutenção.
-- [ ] Reler imagem, perfil, revisões e baseline pelo gestor; preservar rede,
-  mounts RO, referências de secrets e tools, aplicando somente o delta necessário.
-- [ ] Comprovar aquisição direta da candidata exata, CID/Engine/owner e cinco
-  tools; confirmar seis MCPs pretendidos prontos e bootcheck concluído.
-- [ ] Associar a evidência funcional ao image ID efetivamente adquirido. Reusar
-  conformance/smoke válidos da mesma imagem; nova chamada real requer escopo
-  autorizado e ausência de resultado ambíguo anterior.
-- [ ] Registrar resultado e rollback no plano do incidente e reconciliar E7.
+- [x] Confirmar release compatível, Engine, interfaces e backend direto de
+  servidor/reconciliador: §12.4 e Q1/Q5 do plano Docker first.
+- [x] Reler imagem, perfil, revisões e baseline pelo gestor: P3/§12.4, com
+  preservação da configuração. Disponibilidade da baseline limitada àquela coleta.
+- [x] Comprovar aquisição direta da candidata exata, CID/Engine/owner e cinco
+  tools; seis MCPs prontos e bootcheck: §12.4, Q1 e Q5.
+- [x] Associar a evidência funcional ao image ID adquirido: conformance e única
+  quick search via stdio da imagem `3c8f1c69…`, sem nova chamada paga. Não é
+  evidência de `tools/call` mediada pelo agente nem de `research_deep`.
+- [x] Registrar resultado e limite de rollback no plano do incidente e reconciliar
+  E7 nesta revisão documental.
+
+**Resultado de E6 — concluída localmente.** DR-BATCH-02 está implantada na
+candidata P3, distinta da E5 `b0a9fd2…`. O smoke funcional da mesma imagem e a
+prova independente de aquisição/readiness satisfazem os critérios vigentes,
+sem transferir resultados entre IDs. A integração do agente não corrige
+DR-BATCH-01 nem explica a causa do OOM.
+
+**Rollback após a limpeza Docker — 2026-11-16.** A limpeza geral posteriormente
+solicitada por Bill preservou as imagens em uso, inclusive Deep Research
+`3c8f1c69…` e Positronic Q4. A inspeção somente leitura registrada em P5.1 confirmou
+que a baseline `55e0cec2…` e o candidato E5 `b0a9fd2…` já não existem no Engine
+local. A disponibilidade registrada no rollout não é garantia atual de rollback.
+O [registro P5.1 do incidente](../../../alternative-positronic/positronic/docs/plans/POSITRONIC_MCP_RECONNECT_OOM_RECOVERY_PLAN.md#limpeza-posterior-autorizada--2026-11-16)
+concentra resultado, desvio de inventário e limitações. P5.1 foi encerrada por
+reconciliação documental, sem satisfazer os dois critérios originais de limpeza
+seletiva; a lista de elegibilidade/remoção por imagem não pode ser reconstruída.
+Não houve rollback acionado e esse fechamento não qualifica controller/rollback.
+Antes de futura mutação,
+verificar uma opção de recuperação realmente disponível pelo fluxo suportado;
+esta revisão não reconstrói nem reinstala imagens históricas.
 
 Preservar IDs de sessão, mensagem, chamada, request e recibo disponíveis sem
 secrets. Após resposta perdida, consultar a operação original; prazo esgotado
@@ -500,30 +572,53 @@ Não editar registry, policy privada ou estado do manager para contornar falhas.
 
 ## 10. E7 — Fechamento documental e rollback
 
-**Revisão documental de 2026-11-15:** reconciliadas as entregas Docker first e
-a evidência posterior de P3. E6 continua parcial; não arquivar issue/plano até
-comprovar aquisição e prontidão aplicáveis. Esta revisão não executa rollout,
-build, scan, smoke ou publicação e não altera DR-BATCH-01. Verificações:
-revisão das referências locais e `git diff --check`; evidências runtime válidas
-foram reutilizadas conforme AGENTS.md.
+**Revisão documental de 2026-11-16:** E6 reconciliada com P3/§12.4 e Q1–Q6;
+DR-BATCH-02 entregue no Positronic. A falha de aquisição/bootcheck foi superada
+e o restart foi qualificado. A prova V2 Notes qualifica aquele fluxo; não é uma
+chamada Deep Research mediada pelo agente. O critério funcional de E6 reutiliza
+o smoke stdio da mesma imagem adquirida (§9). E7 mantém
+somente a atualização/organização final da issue e o arquivamento dos documentos;
+nenhum teste adicional do agente, build ou smoke pago é necessário para isso.
+Os arquivos permanecem nos caminhos solicitados nesta revisão.
+
+P0/P5 foram reconciliadas, P5.1 encerrada com desvio e P6 encerrado localmente
+no plano do incidente. A investigação do kernel confirmou OOM de cgroup no
+`opencode` sob limite de 5 GiB, com consumo predominantemente anônimo; sem perfil
+ou série temporal de alocações, não foi possível identificar a causa interna.
+A tempestade de aquisições é condição observada, com contribuição plausível e
+não demonstrada. Esse encerramento não declara DR-BATCH-01 corrigida, o outcome
+do provider recuperado nem controller/rollback genérico qualificado. As provas e
+os limites estão na
+[investigação causal](../../../alternative-positronic/positronic/docs/plans/POSITRONIC_MCP_RECONNECT_OOM_RECOVERY_PLAN.md#investigação-causal-do-oom--2026-11-16)
+e em P6; não são novas tarefas de E7.
+
+E7 está concluída: o resumo da issue foi atualizado para refletir E2/E3 e E6,
+inclusive o limite atual de rollback e a causa do OOM não identificada. Issue e
+plano foram movidos para os respectivos diretórios `closed`. Nenhum teste
+adicional, build ou smoke pago foi necessário para estas ações documentais.
 
 - [x] Atualizar a issue com os arquivos alterados, regressões, comandos e resultados
   de DR-BATCH-02, SHA/diff, image ID e evidência do smoke quando houver. Para
   DR-BATCH-01, registrar o timeout, o sucesso posterior, a ausência de causa
   demonstrada e a decisão de não intervir; não preencher uma causa hipotética. A
   issue aponta para este registro E5, que mantém os detalhes do candidato.
-- [x] Marcar DR-BATCH-02 como resolvida localmente por `e9bf7ee` e como implantada
-  somente após E6. Marcar DR-BATCH-01 como encerrada sem correção neste plano, com
-  risco residual e critérios de reabertura explícitos.
-- [ ] Mover a issue para `docs/issues/closed/` após o escopo de entrega solicitado
+- [x] Marcar DR-BATCH-02 como corrigida por `e9bf7ee` e implantada localmente
+  pela integração P3/§12.4 e Q1–Q6. DR-BATCH-01 encerrada sem correção neste plano,
+  com risco residual e critérios de reabertura explícitos.
+- [x] Atualizar o resumo da issue com o fechamento E6 e o limite atual de rollback,
+  apontando para este registro; o item de atualização acima registra a entrega
+  documental anterior e não declara essa edição adicional já executada.
+- [x] Mover a issue para `docs/issues/closed/` após o escopo de entrega solicitado
   ser reconciliado, amparado pela decisão explícita do operador de encerrar
   DR-BATCH-01 sem patch. O fechamento não pode declarar a intermitência eliminada.
-- [ ] Mover este plano para `docs/plans/closed/` quando E4–E6, conforme o escopo
+- [x] Mover este plano para `docs/plans/closed/` quando E4–E6, conforme o escopo
   solicitado, e esta documentação estiverem reconciliados. Observabilidade futura
   não impede o fechamento e deve ter registro próprio se for executada.
-- [ ] Se o candidato falhar, restaurar pelo manager a imagem baseline ainda
-  disponível, usando a revisão atual, e registrar o resultado. Não editar
-  registry/config/audit diretamente e não operar o ambiente Percival.
+- **Rollback condicional, não acionado:** se houver falha futura, reler imagem,
+  revisões e opções de recuperação disponíveis pelo manager; a baseline histórica
+  não existe localmente após a limpeza. Registrar o procedimento aplicável antes
+  da mutação. Não editar registry/config/audit diretamente nem operar a stack
+  Percival como parte desta entrega.
 
 ## 11. Riscos e controles
 
@@ -537,3 +632,40 @@ foram reutilizadas conforme AGENTS.md.
 | Regressão de timeout/cancelamento | worker isolado preservado e probes específicos somente se essa camada mudar |
 | Evidência atribuída à imagem errada | SHA/diff + OCI labels + image ID registrados no candidato e no smoke |
 | Sucesso externo circunstancial confundido com correção | sucesso registrado apenas como observação; DR-BATCH-01 permanece explicitamente sem correção |
+| Contenção MCP atribuída como causa resolvida do OOM | causa interna não identificada; usar as janelas limitadas P2/Q4/P5 somente para os comportamentos medidos |
+| Recuperação depender de imagem removida | baseline `55e0cec2…` e E5 `b0a9fd2…` ausentes; obter e qualificar opção compatível antes de futura mutação, sem presumir controller/rollback qualificado |
+
+## 12. Revisão contra o código — 2026-11-16
+
+Checkout Percival `fc850dc84ef8317dd1d273d0aedd39703c284b92`, com alterações
+documentais pré-existentes neste plano, além de `.obsidian/workspace.json` e
+`.positronic/state.sqlite`. Esta revisão preserva essas alterações e mantém
+issue/plano nos caminhos atuais. Checkout Positronic
+`2252cb2732917202fd7ad67fd805d0132d095661`, com `.positronic/state.sqlite`
+não rastreado e preservado.
+
+| Código inspecionado | Contrato confirmado |
+| --- | --- |
+| `percival_research/tools/quick_search.py` e `utils.py` | `_do_quick_search` aplica `wrap_untrusted_content` no retorno normal, inclusive sem resultados; validação, timeout de admissão e exceção da busca retornam `Error:`. Limiter e métricas mantidos |
+| `tests/test_tools_quick_search.py` e `scripts/pipeline_probe.py` | Regressões cobrem prefixo, conteúdo de fixture, contagem/resultados, resposta vazia e erros locais; probe success exige prefixo exatamente uma vez |
+| `percival_research/tools/deep_research.py` e `research_worker_client.py` | Worker continua isolado em subprocesso, com timeout, kill/reap e validação; nenhum patch de DR-BATCH-01 foi acrescentado |
+| Positronic `packages/opencode/src/mcp/index.ts` e `location-tools.ts` | Mutações serializadas por Location, falha estável para comando/refreshKey inalterados e eventos coalescidos em um worker de refresh; reconnect explícito ou mudança efetiva permite nova tentativa |
+| Positronic `positronic/runtime/mcp-reconcile.ts` | Até três ações de reconnect por `[directory, server.id]` enquanto não observa `ready`; contador em memória, zerado em `ready` ou restart do companion, sem reset por mudança de geração/configuração |
+
+O limite do companion não é durável nem sensível à geração. Esgotado o contador,
+alterar a configuração sozinho não renova suas tentativas até observar `ready`
+ou reiniciar; a tentativa interna do serviço MCP ao observar nova geração é um
+controle distinto. São limites da contenção entregue, sem nova correção neste
+plano.
+
+Comparações com `e9bf7ee` confirmaram runtime Percival, Dockerfile, dependências
+e regressões de quick search inalterados. A comparação com `64e0054` também
+confirmou testes e probe inalterados. Reutilizadas as evidências E1/E4/E5 e P3,
+sem transferir o resultado do pipeline E5 `b0a9fd2…` para a candidata P3
+`3c8f1c69…`: nesta última, o pipeline probe não iniciou por ausência de `tzlocal`
+no checkout Nanobot, e a evidência funcional é a quick search stdio registrada.
+
+Verificação desta revisão documental: leitura dos contratos e diffs, conferência
+das referências locais e `git diff --check`. Nenhum código, dependência, imagem,
+configuração ou runtime foi alterado; não houve nova suíte, build, scan ou chamada
+ao provider.
